@@ -1,53 +1,57 @@
-bal.plot <- function(obj, var.name, ...) {
-    #Produces distribution plot of treated an untreated groups after adjustment. 
-    #obj is the first input to bal.tab, var.name is the quoted name of the variable to be assessed.
-    #
-    #ps: full.stop.method (optional, will use first if blank)
-    #Match: formula and data or treat and covs
-    #formula: data, weights, distance (optional), method (optional, will default to matching)
-    #data.frame: treat, data (optional; for naming treat and weights), weights, distance (optional), method (optional, will default to matching)
-    
+bal.plot <- function(obj, var.name, ..., un = FALSE, which.sub = NULL) {
+
     args <- list(...)
+
     if (any(class(obj)=="matchit")) X <- matchit2base(obj)
     else if (any(class(obj)=="ps")) X <- ps2base(obj, full.stop.method = args$full.stop.method)
     else if (any(class(obj)=="Match")) X <- Match2base(obj, formula=args$formula, data=args$data, treat=args$treat, covs=args$covs)
     else if (any(class(obj)=="CBPS")) X <- CBPS2base(obj, std.ok = TRUE)
     else if (any(class(obj)=="formula")) {
         X0 <- formula2df(obj, data = args$data)
-        X <- df2base(X0$covs, X0$treat, data=args$data, weights=args$weights, distance=args$distance, method=args$method)
+        X <- df2base(X0$covs, X0$treat, data=args$data, weights=args$weights, distance=args$distance, subclass=args$subclass, method=args$method)
     }
-    else if (is.data.frame(obj)) X <- df2base(obj, treat=args$treat, data=args$data, weights=args$weights, distance=args$distance, method=args$method)
+    else if (is.data.frame(obj)) X <- df2base(obj, treat=args$treat, data=args$data, weights=args$weights, distance=args$distance, subclass=args$subclass, method=args$method)
     
     
     if (var.name %in% names(X$covs)) var <- X$covs[, var.name]
-    else if (!is.null(args$data) & var.name %in% names(args$data)) var <- args$data[, var.name]
-    else if (!is.null(X$addl) & var.name %in% names(X$addl)) var <- args$data[, var.name]
-    else if (!is.null(args$addl) & var.name %in% names(args$addl)) var <- args$data[, var.name]
+    else if (!is.null(args$data) && var.name %in% names(args$data)) var <- args$data[, var.name]
+    else if (!is.null(X$addl) && var.name %in% names(X$addl)) var <- args$data[, var.name]
+    else if (!is.null(args$addl) && var.name %in% names(args$addl)) var <- args$data[, var.name]
+    else if (var.name==".distance" && !is.null(X$distance)) var <- X$distance
     else stop(paste0("\"", var.name, "\" is not the name of a variable in any available data set input."))
-    
-    if (!is.null(X$subclass)) {
-        if (is.numeric(args$which.sub)) {
-            X$weights <- X$weights[X$subclass==args$which.sub]
-            X$treat <- X$treat[X$subclass==args$which.sub]
-            var <- var[X$subclass==args$which.sub]
+
+    if (length(X$subclass)>0) {
+        if (!is.null(which.sub)) {
+            if (is.numeric(which.sub) && length(which.sub)==1) {
+                if (which.sub %in% levels(X$subclass)) {
+                    X$weights <- X$weights[!is.na(X$subclass) & X$subclass==which.sub]
+                    X$treat <- X$treat[!is.na(X$subclass) & X$subclass==which.sub]
+                    var <- var[!is.na(X$subclass) & X$subclass==which.sub]
+                }
+                else stop(paste0("\"", which.sub, "\" does not correspond to a subclass in the object."))
+
+            }
+            else stop("The argument to which.sub must be a single number corresponding to the subclass for which distributions are to be displayed.")
         }
         else stop("Argument contains subclasses but no which.sub value was supplied in \"...\".")
     }
     
-    X$weights <- ifelse(X$treat==0, X$weights / sum(X$weights[X$treat==0]), X$weights / sum(X$weights[X$treat==1]))
-    X$treat <- factor(X$treat)
+    if (is.null(X$weights) || isTRUE(un)) X$weights <- rep(1, length(X$treat))
+    weights <- ifelse(X$treat==0, X$weights / sum(X$weights[X$treat==0]), X$weights / sum(X$weights[X$treat==1]))
+    treat <- factor(X$treat)
     
     #library(ggplot2)
-    if (length(unique(var)) > 2) {
-        bp <- ggplot(mapping=aes(var, fill=X$treat, weight=X$weights)) + 
-            geom_density(alpha=.4) + 
-            labs(x=var.name, fill="Treat", title=paste0("Distributional Balance for \"", var.name, "\""))
-    }
-    else {
+    if (length(unique(var)) <= 2 || is.factor(var) || is.character(var)) {
         var <- factor(var)
-        bp <- ggplot(mapping = aes(var, fill = X$treat, weight = X$weights)) + 
+        bp <- ggplot(mapping = aes(var, fill = treat, weight = weights)) + 
             geom_bar(position = "dodge", alpha = .4, color = "black") + 
             labs(x = var.name, y = "Proportion", fill = "Treat", title = paste0("Distributional Balance for \"", var.name, "\"")) 
     }
+    else {
+        bp <- ggplot(mapping=aes(var, fill=treat, weight=weights)) + 
+            geom_density(alpha=.4) + 
+            labs(x=var.name, fill="Treat", title=paste0("Distributional Balance for \"", var.name, "\""))
+    }
+
     return(bp)
 }

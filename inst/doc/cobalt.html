@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="author" content="Noah Greifer" />
+
+<meta name="date" content="2016-07-22" />
+
+<title>Covariate Balance Tables and Plots: A Guide to the cobalt Package</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+
+
+<link href="data:text/css;charset=utf-8,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23header%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%20code%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" rel="stylesheet" type="text/css" />
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Covariate Balance Tables and Plots: A Guide to the cobalt Package</h1>
+<h4 class="author"><em>Noah Greifer</em></h4>
+<h4 class="date"><em>2016-07-22</em></h4>
+
+
+
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>Preprocessing data through matching, weighting, or subclassification can be an effective way to reduce model dependence and improve efficiency when estimating the causal effect of a treatment (Ho, Imai, King, &amp; Stuart, 2007). Propensity score and other related methods (e.g., coarsened exact matching, Mahalanobis distance matching, genetic matching) have become popular in the social and health sciences as tools for this purpose. An excellent introduction to propensity score and other preprocessing methods is Stuart (2010) which describes them simply and clearly and points to other sources of knowledge. The logic and theory behind preprocessing will not be discussed here, and reader’s knowledge of the causal assumption of strong ignorability is assumed.</p>
+<p>Several packages in R exist to perform preprocessing and causal effect estimation, and some were reviewed by Keller &amp; Tipton (2016). Of primary note are <code>MatchIt</code> (Ho, Imai, King, &amp; Stuart, 2011), <code>twang</code> (Ridgeway, McCaffrey, Morral, Burgette, &amp; Griffin, 2016), <code>Matching</code> (Sekhon, 2011), and <code>CBPS</code> (Fong, Ratkovic, Hazlett, Yang, &amp; Imai, 2016); these are the most used propensity score analysis packages in R, and together provide a near complete set of preprocessing tools to date.</p>
+<p>The following are the basic steps in performing a causal analysis using data preprocessing (Stuart, 2010):</p>
+<ol style="list-style-type: decimal">
+<li>Decide on covariates for which balance must be achieved</li>
+<li>Estimate the distance measure (e.g., propensity score)</li>
+<li>Condition on the distance measure (e.g., using matching, weighting, or subclassification)</li>
+<li>Assess balance on the covariates of interest; if poor, repeat steps 2-4</li>
+<li>Estimate the treatment effect in the conditioned sample</li>
+</ol>
+<p>Steps 2, 3, and 4 are accomplished by all of the packages mentioned above. However, Step 4, assessing balance, is often overlooked in propensity score applications, with researchers failing to report the degree of covariate balance achieved by their conditioning (Thoemmes &amp; Kim, 2011). Achieving balance is the very purpose of preprocessing because covariate balance is what justifies ignorability on the observed covariates, allowing for the potential for a valid causal inference after effect estimation (Ho et al., 2007).</p>
+<p>In addition to simply achieving balance, researchers must also report balance to convince readers that their analysis was performed adequately and that their causal conclusions are valid (Thoemmes &amp; Kim, 2011). Covariate balance is typically assessed and reported by using statistical measures, including standardized mean differences, variance ratios, and t-test or KS-test p-values. Balance can be reported in an article by means of balance tables or plots displaying the balance measures before and after conditioning. If a defensible measure of balance is used and presented, readers are empowered to judge for themselves whether the causal claim made is valid or not based on the methods used and covariates chosen.</p>
+<p><code>cobalt</code> is meant to supplement or replace the balance assessment tools in the above packages and allow researchers to assess and report balance on covariates simply, clearly, and flexibly before and after conditioning. It integrates seamlessly with the above packages so that users can employ both the conditioning package of their choice and <code>cobalt</code> in conjunction to assess and report balance. It is important to note that <code>cobalt</code> does not replace the highly sophisticated <em>conditioning</em> tools of these packages, as it does no conditioning or estimation of its own.</p>
+<p>The rest of this guide explains how to use <code>cobalt</code> with the above packages and others, as well as the choices instituted by the functions and customizable by the user.</p>
+<div id="citing-cobalt" class="section level3">
+<h3>Citing cobalt</h3>
+<p>When using <code>cobalt</code>, please cite your use of it along with the conditioning package used. The full APA reference for <code>cobalt</code> is the following:</p>
+<p>Greifer, N. (2016). cobalt: Covariate Balance Tables and Plots. R package version 1.1.0.</p>
+<p>For example, if you use <code>Matching</code> for propensity score estimation and matching and <code>cobalt</code> for balance assessment and/or reporting, a possible citation might go as follows:</p>
+<blockquote>
+<p>“Matching was performed using the Matching package (Sekhon, 2011), and covariate balance was assessed using cobalt (Greifer, 2016), both in R 3.3.0 (R Core Team, 2016).”</p>
+</blockquote>
+</div>
+</div>
+<div id="why-cobalt" class="section level1">
+<h1>Why cobalt?</h1>
+<p>If the major conditioning packages contain functions to assess balance, why use <code>cobalt</code> at all? <code>cobalt</code> arose out of several desiderata when using these packages: to have standardized measures that were consistent across all conditioning packages, to allow for flexibility in the calculation and display of balance measures, and to incorporate recent methodological recommendations in the assessment of balance. However, users of these packages may be completely satisfied with their capabilities and comfortable with their output; for them, <code>cobalt</code> still has value in its unique plotting capabilities that make use of <code>ggplot2</code> in R.</p>
+<p>The following are some reasons why <code>cobalt</code> may be attractive to users of <code>MatchIt</code>, <code>twang</code>, <code>Matching</code>, and <code>CBPS</code>:</p>
+<div id="visual-clarity" class="section level3">
+<h3>Visual clarity</h3>
+<p><code>cobalt</code> presents one table in its balance output, and it contains all the information required to assess balance. <code>twang</code> and <code>CBPS</code> present two tables, <code>MatchIt</code> presents three tables, and <code>Matching</code> presents as many tables as there are covariates. Although each of these tables contains valuable information, the <code>bal.tab()</code> function in <code>cobalt</code> allows for a quick and easy search for the information desired, which is often a single column containing a balance statistic (such as the standardized mean difference) for the adjusted sample.</p>
+</div>
+<div id="useful-summaries" class="section level3">
+<h3>Useful summaries</h3>
+<p>Although a thorough balance assessment requires examining the balance of each covariate individually, <code>cobalt</code>’s <code>bal.tab()</code> function can also produce quick balance summaries that can aid in model selection when there are many covariates or higher order terms to examine. These summaries include the proportion of covariates that have met a user-specified threshold for balance and the covariate with the highest degree of imbalance, two values that have been shown to be effective in diagnosing imbalance and potential bias (Stuart, Lee, &amp; Leacy., 2013).</p>
+</div>
+<div id="one-tool-to-rule-them-all" class="section level3">
+<h3>One tool to rule them all</h3>
+<p>Because there is no <em>a priori</em> way to know which conditioning method will work best for a given sample, users should try several methods, and these methods are spread across various packages; for example, full matching is available only in <code>MatchIt</code>, generalized boosted modeling only in <code>twang</code>, covariate balancing propensity score weighting only in <code>CBPS</code>, and genetic matching only in <code>MatchIt</code> and <code>Matching</code>. If a user wants to compare these methods on their ability to generate balance in the sample, they cannot do so on the same metrics and with the same output. Each package computes balance statistics differently, and the relevant balance measures are in different places in each package, or not available at all. By using <code>cobalt</code> to assess balance across packages, users can be sure they are using a single, equivalent balance metric across methods, and the relevant balance statistics will be in the same place and computed the same way regardless of the conditioning package used.</p>
+</div>
+<div id="flexibility" class="section level3">
+<h3>Flexibility</h3>
+<p><code>cobalt</code> gives users choice for what statistics are presented and how they are calculated, but intelligently uses defaults that are in line with the goals of unified balance assessment and with the data available. Rather than displaying all values calculated, <code>bal.tab()</code> only displays what the user wants; at a bare minimum, the standardized mean difference for each covariate is displayed, which is traditionally considered sufficient for model selection and justification in preprocessing analysis. Even if the user doesn’t want other values displayed, they are all still calculated, and thus available for use in programming.</p>
+</div>
+<div id="pretty-plots" class="section level3">
+<h3>Pretty plots</h3>
+<p>The main conditioning packages produce plots that can be useful in assessing balance, summarizing balance, and understanding the intricacies of the conditioning method for which simple text would be insufficient. Many of these plots are unique to each package, and <code>cobalt</code> has not attempted to replace or replicate them. For other plots, though, <code>cobalt</code> uses <code>ggplot2</code> to present clean, clear, customizable, and high-quality displays for balance assessment and presentation. The two included plotting functions are <code>bal.plot()</code>, which generates plots of the distributions of covariates in the groups so that more complete distributional balance can be assessed beyond numerical summaries, and <code>love.plot()</code>, which generates a plot summarizing covariate balance before and after conditioning, popularized by Dr. Thomas E. Love. Because these plots use <code>ggplot2</code> as their base, users familiar with <code>ggplot2</code> can customize various elements of the plots for use in publications or presentations.</p>
+</div>
+</div>
+<div id="how-to-use-cobalt" class="section level1">
+<h1>How To Use cobalt</h1>
+<p>There are four functions for use in <code>cobalt</code>: <code>f.build()</code>, <code>bal.tab()</code>, <code>bal.plot()</code>, and <code>love.plot()</code>. The next sections describe how to use each, complete with example code and output. To start, install and load <code>cobalt</code> with the following code:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">## install.packages(&quot;cobalt&quot;)
+<span class="kw">library</span>(<span class="st">&quot;cobalt&quot;</span>)</code></pre></div>
+<div id="f.build" class="section level2">
+<h2>f.build</h2>
+<p><code>f.build()</code> is a small tool that can be helpful in quickly specifying formula inputs to functions. An example is provided below:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)
+covs &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78))
+<span class="kw">f.build</span>(treat, covs)</code></pre></div>
+<pre><code>## treat ~ age + educ + black + hispan + married + nodegree + re74 + 
+##     re75
+## &lt;environment: 0x0000000006890be0&gt;</code></pre>
+<p>The function creates a <code>formula</code> object from two inputs: the first argument is the unquoted name of the variable to be left hand side (response) variable in the formula; the second argument is a data frame, the variable names of which are to be the right hand side (predictor) variables. The utility of <code>f.build()</code> is that the user does not have to manually type out the name of every covariate when entering a formula into a function. It can be used simply in place of a formula, as in the following examples, which make use of the variables defined above:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Generating propensity scores using logistic regression</span>
+p.score &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(treat, covs), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)$fitted.values
+
+<span class="co"># Using matchit() from the MatchIt package</span>
+<span class="kw">library</span>(<span class="st">&quot;MatchIt&quot;</span>)
+m.out &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class="kw">f.build</span>(treat, covs), <span class="dt">data =</span> lalonde, <span class="dt">method =</span> <span class="st">&quot;nearest&quot;</span>)</code></pre></div>
+<p><code>f.build()</code> can also be used in the <code>Matching</code> and formula interfaces in <code>bal.tab()</code>.</p>
+<p>Note: <code>f.build()</code> uses the first argument exactly as it is given, with no evaluation or checking; therefore, the named variable does not have to exist in any data set (but, of course, it will be useful if it does). The <code>names</code> of the second argument are used to create the right hand side; therefore, the data frame does not actually have to contain the observations of the variables, just columns with names corresponding to the desired variables. In this way, users can add variables to be included in <code>f.build()</code> by expanding the data frame with a new variable without having to fill in the variable with its true values.</p>
+</div>
+<div id="bal.tab" class="section level2">
+<h2>bal.tab</h2>
+<p><code>bal.tab()</code> is the primary function of <code>cobalt</code>. It produces balance tables for the objects given as inputs. The balance tables can be customized with a variety of inputs, which affect both calculation and presentation of values. It performs similar functions to <code>summary()</code> in <code>MatchIt</code>; <code>bal.table()</code>, <code>summary()</code>, and <code>dx.wts()</code> in <code>twang</code>; <code>MatchBalance()</code> and <code>summary()</code> in <code>Matching</code>; and <code>balance()</code> in <code>CBPS</code>. It can be seen as a replacement or a supplement to these functions.</p>
+<p>For more help using <code>bal.tab()</code>, see <code>?bal.tab</code> in R, which contains information on how certain values are calculated and links to the help files for the <code>bal.tab()</code> methods that integrate with the above packages.</p>
+<p>For simplicity, the description of the use of <code>bal.tab()</code> will be most complete in its use with <code>MatchIt</code>. The demonstration will display <code>bal.tab()</code>’s many options, most of which are not unique to its use with <code>MatchIt</code>. The other demonstrations will be minimal, highlighting how to use <code>bal.tab()</code> effectively with the other packages, but not detailing all its possible options with those packages, to avoid redundancy.</p>
+<div id="using-bal.tab-with-matchit" class="section level3">
+<h3>Using bal.tab with MatchIt</h3>
+<p><code>bal.tab()</code> is used very similarly to <code>summary()</code> in <code>MatchIt</code>: it takes in a <code>matchit</code> object as its input, and prints a balance table with the requested information. Below is a simple example of its use:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+<span class="co"># Nearest neighbor 1:1 matching with replacement</span>
+<span class="kw">library</span>(<span class="st">&quot;MatchIt&quot;</span>) <span class="co">#if not yet loaded</span>
+m.out &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">method =</span> <span class="st">&quot;nearest&quot;</span>, <span class="dt">replace =</span> <span class="ot">TRUE</span>)
+<span class="kw">bal.tab</span>(m.out)</code></pre></div>
+<pre><code>## 
+## Call:
+## matchit(formula = f.build(treat, covs0), data = lalonde, method = &quot;nearest&quot;, 
+##     replace = TRUE)
+## 
+## Balance Measures:
+##               Type Diff.Adj
+## .distance Distance  -0.0002
+## age        Contin.   0.1964
+## educ       Contin.  -0.0726
+## black       Binary   0.0108
+## hispan      Binary  -0.0054
+## re74       Contin.   0.0667
+## re75       Contin.   0.0936
+## 
+## 
+## Sample sizes:
+##           Control Treated
+## All           429     185
+## Matched        83     185
+## Unmatched     346       0
+## Discarded       0       0</code></pre>
+<p>The output looks very similar to <code>MatchIt</code>’s <code>summary()</code> function: at the top is the original <code>matchit()</code> call; next is the balance table, and finally is a summary of the sample size before and after adjustment. By default, <code>bal.tab()</code> outputs standardized mean differences for continuous variables and raw differences in proportion for binary variables. For more details on how these values are computed and determined, see <code>?bal.tab</code> or “Details on Calculations” below. Setting <code>binary = &quot;std&quot;</code> in <code>bal.tab()</code> will produce identical calculations to those in <code>MatchIt</code>’s <code>summary(m.out, standardize = TRUE)</code>, which produces standardized differences for binary variables as well as continuous variables. To see raw or standardized mean differences for binary or continuous variables, you can manually set <code>binary</code> or <code>continuous</code> to <code>&quot;raw&quot;</code> or <code>&quot;std&quot;</code>.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(m.out, <span class="dt">binary =</span> <span class="st">&quot;std&quot;</span>, <span class="dt">continuous =</span> <span class="st">&quot;std&quot;</span>) <span class="co">#Same as MatchIt's summary(..., standardize = TRUE)</span></code></pre></div>
+<pre><code>## 
+## Call:
+## matchit(formula = f.build(treat, covs0), data = lalonde, method = &quot;nearest&quot;, 
+##     replace = TRUE)
+## 
+## Balance Measures:
+##               Type Diff.Adj
+## .distance Distance  -0.0002
+## age        Contin.   0.1964
+## educ       Contin.  -0.0726
+## black       Binary   0.0297
+## hispan      Binary  -0.0228
+## re74       Contin.   0.0667
+## re75       Contin.   0.0936
+## 
+## 
+## Sample sizes:
+##           Control Treated
+## All           429     185
+## Matched        83     185
+## Unmatched     346       0
+## Discarded       0       0</code></pre>
+<p>Like with <code>MatchIt</code>, users can specify additional variables for which to display balance using the argument to <code>addl</code>. Users can also add all squared terms and two-way interactions between covariates, including those in <code>addl</code>, by specifying <code>int = TRUE</code>. Unlike <code>MatchIt</code>’s <code>summary()</code>, interactions will not be computed for the distance measure (i.e., the propensity score), and squared terms will not be computed for binary variables.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Balance on all covariates in data set, including interactions and squares</span>
+<span class="kw">bal.tab</span>(m.out, <span class="dt">addl =</span> lalonde[,<span class="kw">c</span>(<span class="st">&quot;nodegree&quot;</span>, <span class="st">&quot;married&quot;</span>)], <span class="dt">int =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<pre><code>## 
+## Call:
+## matchit(formula = f.build(treat, covs0), data = lalonde, method = &quot;nearest&quot;, 
+##     replace = TRUE)
+## 
+## Balance Measures:
+##                      Type Diff.Adj
+## .distance        Distance  -0.0002
+## age               Contin.   0.1964
+## educ              Contin.  -0.0726
+## black              Binary   0.0108
+## hispan             Binary  -0.0054
+## re74              Contin.   0.0667
+## re75              Contin.   0.0936
+## nodegree           Binary   0.0486
+## married            Binary  -0.0541
+## age_2             Contin.   0.1024
+## educ_2            Contin.  -0.1181
+## re74_2            Contin.   0.0741
+## re75_2            Contin.   0.0745
+## age_educ          Contin.   0.1190
+## age_black         Contin.   0.1197
+## age_hispan        Contin.   0.0088
+## age_re74          Contin.   0.0303
+## age_re75          Contin.   0.0824
+## age_nodegree      Contin.   0.1670
+## age_married       Contin.  -0.2090
+## educ_black        Contin.   0.0039
+## educ_hispan       Contin.  -0.0278
+## educ_re74         Contin.   0.0260
+## educ_re75         Contin.   0.0602
+## educ_nodegree     Contin.   0.1262
+## educ_married      Contin.  -0.1502
+## black_hispan       Binary   0.0000
+## black_re74        Contin.   0.0626
+## black_re75        Contin.   0.0862
+## black_nodegree     Binary   0.0324
+## black_married      Binary  -0.0270
+## hispan_re74       Contin.   0.0525
+## hispan_re75       Contin.   0.0838
+## hispan_nodegree    Binary   0.0054
+## hispan_married     Binary   0.0000
+## re74_re75         Contin.   0.0690
+## re74_nodegree     Contin.   0.1138
+## re74_married      Contin.   0.0484
+## re75_nodegree     Contin.   0.1774
+## re75_married      Contin.   0.0233
+## nodegree_married   Binary   0.0162
+## 
+## 
+## Sample sizes:
+##           Control Treated
+## All           429     185
+## Matched        83     185
+## Unmatched     346       0
+## Discarded       0       0</code></pre>
+<p>Standardized mean differences can be computed several ways, and the user can decide how <code>bal.tab()</code> does so using the argument to <code>s.d.denom</code>, which controls whether the measure of spread in the denominator is the standard deviation of the treated group (<code>&quot;treated&quot;</code>), the standard deviation of the control group (<code>&quot;control</code>“), or the pooled standard deviation (<code>&quot;pooled&quot;</code>), computed as in Austin (2009, p. 3087). Typically, this value does not need to be changed, as the default is often most appropriate. Because the ATT is typically sought in <code>MatchIt</code> applications, the default here is <code>&quot;treated&quot;</code>, but this can be changed. For complete details, see <code>?bal.tab</code> and below in”Details on Calculations“.</p>
+<p>The next options only affect display, not the calculation of any statistics. First is <code>disp.means</code>, which controls whether the group means for each covariate are displayed in addition to the mean differences. This can be useful in reporting balance for publication, but in balance assessment mean differences are typically more useful.</p>
+<p>Next is <code>disp.v.ratio</code>, which controls whether variance ratios are displayed, in addition to mean differences. Variance ratios are another important tool for assessing balance beyond mean differences because they pertain to the shape of the covariates distributions beyond their centers. Variance ratios close to 1 (i.e., equal variances in both groups) are indicative of group balance (Austin, 2009).</p>
+<p>Next is <code>un</code>, which controls whether the statistics to be displayed should be displayed for the unadjusted group as well. This can be useful the first time balance is assessed to see the initial group imbalance. All of the packages named above display unadjusted group statistics in their balance assessment functions. Setting <code>un = FALSE</code>, which is the default, can declutter the output to maintain the spotlight on the group balance after adjustment.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Balance tables with variance ratios and statistics for the unadjusted sample</span>
+<span class="kw">bal.tab</span>(m.out, <span class="dt">disp.v.ratio =</span> <span class="ot">TRUE</span>, <span class="dt">un =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<pre><code>## 
+## Call:
+## matchit(formula = f.build(treat, covs0), data = lalonde, method = &quot;nearest&quot;, 
+##     replace = TRUE)
+## 
+## Balance Measures:
+##               Type Diff.Un V.Ratio.Un Diff.Adj V.Ratio.Adj
+## .distance Distance  0.3786             -0.0002            
+## age        Contin. -0.3094     2.2728   0.1964      1.5297
+## educ       Contin.  0.0550     2.0166  -0.0726      1.4078
+## black       Binary  0.6404              0.0108            
+## hispan      Binary -0.0827             -0.0054            
+## re74       Contin. -0.7211       1.93   0.0667      1.4254
+## re75       Contin. -0.2903     1.0457   0.0936      1.4696
+## 
+## 
+## Sample sizes:
+##           Control Treated
+## All           429     185
+## Matched        83     185
+## Unmatched     346       0
+## Discarded       0       0</code></pre>
+<p>Finally, the user can specify a threshold for balance for both mean differences and variance ratios through the arguments to <code>m.threshold</code> and <code>v.threshold</code>. Thresholds can be useful in determining whether satisfactory balance has been achieved. For standardized mean differences, thresholds of .1 and .25 have been proposed, but Stuart et al. (2013) found that a threshold of .1 was more effective at assessing imbalance that would lead to biased outcome estimation. In general, standardize mean differences should be as close to 0 as possible, but a conservative upper limit such as .1 can be a valuable heuristic in selecting models and defending the conditioning choice.</p>
+<p>When <code>m.threshold</code> is specified, a few components are added to the balance output: an extra column in the balance table stating whether each covariate is or is not balanced according to the threshold; an extra table below the balance table with a tally of how many covariates are or are not balanced according to the threshold; and a notice of which covariate has the greatest imbalance after conditioning and whether it exceeded the threshold. Using a threshold for the mean difference implies that the differences are standardized (at least for continuous variables), because the threshold is meant to be scale invariant, which standardized mean differences are.</p>
+<p>The argument to <code>v.threshold</code> determines the threshold for variance ratios that are acceptable for balance. Variance ratios are calculated in <code>cobalt</code> such that the greater variance is in the numerator, so they will always be greater than or equal to 1. Variance ratios close to 1 are an indicator of good balance, but ratios as large as 2 may be acceptable (Rubin, 2001). When <code>v.threshold</code> is specified, the same additional output is created as above, except in evaluation of variance ratios. Because variance ratios are not displayed in the balance table by default, specifying <code>v.threshold</code> will also display variance ratios in the table.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Balance tables with thresholds for mean differences and variance ratios</span>
+<span class="kw">bal.tab</span>(m.out, <span class="dt">m.threshold =</span> .<span class="dv">1</span>, <span class="dt">v.threshold =</span> <span class="dv">2</span>)</code></pre></div>
+<pre><code>## 
+## Call:
+## matchit(formula = f.build(treat, covs0), data = lalonde, method = &quot;nearest&quot;, 
+##     replace = TRUE)
+## 
+## Balance Measures:
+##               Type Diff.Adj        M.Threshold V.Ratio.Adj  V.Threshold
+## .distance Distance  -0.0002                                            
+## age        Contin.   0.1964 Not Balanced, &gt;0.1      1.5297 Balanced, &lt;2
+## educ       Contin.  -0.0726     Balanced, &lt;0.1      1.4078 Balanced, &lt;2
+## black       Binary   0.0108     Balanced, &lt;0.1                         
+## hispan      Binary  -0.0054     Balanced, &lt;0.1                         
+## re74       Contin.   0.0667     Balanced, &lt;0.1      1.4254 Balanced, &lt;2
+## re75       Contin.   0.0936     Balanced, &lt;0.1      1.4696 Balanced, &lt;2
+## 
+## 
+## Balance tally for mean differences:
+##                    count
+## Balanced, &lt;0.1         5
+## Not Balanced, &gt;0.1     1
+## 
+## 
+## Variable with the greatest mean difference:
+##     Diff.Adj        M.Threshold
+## age   0.1964 Not Balanced, &gt;0.1
+## 
+## 
+## Balance tally for variance ratios:
+##                  count
+## Balanced, &lt;2         4
+## Not Balanced, &gt;2     0
+## 
+## 
+## Variable with the greatest variance ratio:
+##     V.Ratio.Adj  V.Threshold
+## age      1.5297 Balanced, &lt;2
+## 
+## 
+## Sample sizes:
+##           Control Treated
+## All           429     185
+## Matched        83     185
+## Unmatched     346       0
+## Discarded       0       0</code></pre>
+<p>When subclassification is used in <code>matchit()</code> either by specifying <code>method = subclass</code> or by specifying <code>subclass</code>, <code>bal.tab()</code> treats the input differently and produces a different type of output, though it has all of the same features as when just matching is used. The default output is a balance table displaying balance aggregated across subclasses. Each cell contains the average statistic across the subclasses, but does not contain information on variance ratios. Using the arguments discussed above (except <code>disp.v.ratio</code> and <code>v.threshold</code>) will change the output as it does when only matching is used.</p>
+<p>To examine balance within each subclass, the user can specify <code>disp.subclass = TRUE</code>, which will produce output for the subclasses in aggregate as well as for each subclass. Within subclasses, all the information above, including variance ratios, will be presented, except for statistics for the unadjusted groups (since the adjustment occurs by creating the subclasses), as specified by the user.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Subclassification with 6 subclasses (the default in MatchIt)</span>
+m.out.sub &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">method =</span> <span class="st">&quot;subclass&quot;</span>)
+
+<span class="kw">bal.tab</span>(m.out.sub, <span class="dt">disp.subclass =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<pre><code>## 
+## Call:
+## matchit(formula = f.build(treat, covs0), data = lalonde, method = &quot;subclass&quot;)
+## 
+## Balance by subclass:
+##  - - - Subclass 1 - - - 
+##               Type Diff.Adj
+## .distance Distance   0.0458
+## age        Contin.  -0.5026
+## educ       Contin.   0.1733
+## black       Binary   0.0587
+## hispan      Binary   0.1775
+## re74       Contin.  -0.5534
+## re75       Contin.  -0.1218
+## 
+##  - - - Subclass 2 - - - 
+##               Type Diff.Adj
+## .distance Distance   0.0044
+## age        Contin.  -0.7229
+## educ       Contin.   0.1530
+## black       Binary   0.0000
+## hispan      Binary   0.0000
+## re74       Contin.   0.0655
+## re75       Contin.   0.1939
+## 
+##  - - - Subclass 3 - - - 
+##               Type Diff.Adj
+## .distance Distance   0.0009
+## age        Contin.   0.5897
+## educ       Contin.  -0.0917
+## black       Binary   0.0000
+## hispan      Binary   0.0000
+## re74       Contin.  -0.1047
+## re75       Contin.  -0.2348
+## 
+##  - - - Subclass 4 - - - 
+##               Type Diff.Adj
+## .distance Distance  -0.0006
+## age        Contin.   0.1898
+## educ       Contin.  -0.2842
+## black       Binary   0.0000
+## hispan      Binary   0.0000
+## re74       Contin.  -0.0656
+## re75       Contin.   0.1585
+## 
+##  - - - Subclass 5 - - - 
+##               Type Diff.Adj
+## .distance Distance  -0.0027
+## age        Contin.   0.6183
+## educ       Contin.  -0.2132
+## black       Binary   0.0000
+## hispan      Binary   0.0000
+## re74       Contin.  -0.0474
+## re75       Contin.   0.0302
+## 
+##  - - - Subclass 6 - - - 
+##               Type Diff.Adj
+## .distance Distance  -0.0046
+## age        Contin.   0.0902
+## educ       Contin.  -0.0791
+## black       Binary   0.0000
+## hispan      Binary   0.0000
+## re74       Contin.  -0.0553
+## re75       Contin.  -0.3557
+## 
+## Balance measures across subclasses:
+##               Type Diff.Adj
+## .distance Distance   0.0078
+## age        Contin.   0.2071
+## educ       Contin.   0.0738
+## black       Binary   0.0098
+## hispan      Binary   0.0297
+## re74       Contin.   0.0963
+## re75       Contin.   0.0849
+## 
+## 
+## Sample sizes by subclass:
+##         Subclass 1 Subclass 2 Subclass 3 Subclass 4 Subclass 5 Subclass 6
+## Control        344         26         17         21          7         14
+## Treated         31         31         30         31         31         31
+## Total          375         57         47         52         38         45</code></pre>
+<p>The next several sections describe the use of <code>bal.tab()</code> with other packages and data structures. As stated above, the arguments controlling calculations and display are largely the same across inputs types, so they will not be described again except when they differ from use with <code>MatchIt</code>.</p>
+</div>
+<div id="using-bal.tab-with-twang" class="section level3">
+<h3>Using bal.tab with twang</h3>
+<p>Generalized boosted modeling (GBM), as used in <code>twang</code>, can be an effective way to generate propensity scores and weights for use in propensity score weighting. <code>bal.tab()</code> functions similarly to the functions <code>bal.table()</code> and <code>summary()</code> when used with GBM in <code>twang</code>. Below is a simple example of its use:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;twang&quot;</span>)
+<span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) ##If not yet loaded
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+ps.out &lt;-<span class="st"> </span><span class="kw">ps</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">stop.method =</span> <span class="kw">c</span>(<span class="st">&quot;es.mean&quot;</span>,
+             <span class="st">&quot;es.max&quot;</span>), <span class="dt">estimand =</span> <span class="st">&quot;ATT&quot;</span>, <span class="dt">n.trees =</span> <span class="dv">1000</span>, <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
+<span class="kw">bal.tab</span>(ps.out, <span class="dt">full.stop.method =</span> <span class="st">&quot;es.mean.att&quot;</span>)</code></pre></div>
+<pre><code>## 
+## Call:
+## ps(formula = f.build(treat, covs0), data = lalonde, n.trees = 1000, 
+##     verbose = FALSE, estimand = &quot;ATT&quot;, stop.method = c(&quot;es.mean&quot;, 
+##         &quot;es.max&quot;))
+## 
+## Balance Measures:
+##               Type Diff.Adj
+## .distance Distance   0.1263
+## age        Contin.   0.0135
+## educ       Contin.  -0.0861
+## black       Binary   0.0446
+## hispan      Binary   0.0113
+## re74       Contin.  -0.0042
+## re75       Contin.   0.0468
+## 
+## 
+## Effective sample sizes:
+##            Control Treated
+## Unadjusted  429.00     185
+## Adjusted     53.45     185</code></pre>
+<p>The output looks a bit different from <code>twang</code>’s <code>bal.table()</code> output. First is the original call to <code>ps()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>ps()</code>. Finally is a table displaying sample size information, similar to what would be generated using <code>twang</code>’s <code>summary()</code> function. The “effective” sample size is displayed when weighting (rather than matching or subclassification) is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” below for details on this calculation.</p>
+<p>When using <code>bal.tab()</code> with <code>twang</code>, the user must specify the <code>ps</code> object, the output of a call to <code>ps()</code>, as the first argument. The second argument, <code>full.stop.method</code>, is the name of the stop method for which balance is to be assessed, since a <code>ps</code> object may contain more than one if so specified. The argument to <code>full.stop.method</code> must include a stop method given in the argument to <code>stop.method</code> in the call to <code>ps()</code> and the estimand given in the argument to <code>estimand</code> in <code>ps()</code>. <code>bal.tab()</code> can only display the balance of one stop method at a time. If this argument is left empty or if the argument to <code>full.stop.method</code> does not correspond to one of the stop methods in the <code>ps</code> object, <code>bal.tab()</code> will default to displaying balance for the first stop method available. Abbreviations are allowed for the stop method, which is not case sensitive, but if more than one stop method has the same abbreviated name (e.g., “es” for “es.mean.att” and “es.max.att”), <code>bal.tab()</code> will again default to using the first stop method available.</p>
+<p>The other arguments to <code>bal.tab()</code> when using it with <code>twang</code> have the same form and function as those given when using it with <code>MatchIt</code>, except for <code>s.d.denom</code>. If the estimand of the stop method used is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>, mimicking the behavior of <code>twang</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advised.</p>
+</div>
+<div id="using-bal.tab-with-matching" class="section level3">
+<h3>Using bal.tab with Matching</h3>
+<p>The <code>Matching</code> package is used for propensity score matching, and was also the first package to implement genetic matching. <code>MatchIt</code> calls <code>Matching</code> to use genetic matching and can accomplish many of the matching methods <code>Matching</code> can, but <code>Matching</code> is still a widely used package with its own strengths. <code>bal.tab()</code> functions similarly to <code>Matching</code>’s <code>MatchBalance()</code> command, which yields a thorough presentation of balance, and makes <code>Matching</code> the only package of those integrated with <code>cobalt</code> to display variance ratios by default. Below is a simple example of the use of <code>bal.tab()</code> with <code>Matching</code>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;Matching&quot;</span>)
+<span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+fit &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)
+p.score &lt;-<span class="st"> </span>fit$fitted.values
+match.out &lt;-<span class="st"> </span><span class="kw">Match</span>(<span class="dt">Tr =</span> lalonde$treat, <span class="dt">X =</span> p.score, <span class="dt">estimand =</span> <span class="st">&quot;ATT&quot;</span>)
+
+<span class="kw">bal.tab</span>(match.out, <span class="dt">formula =</span> <span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
+<pre><code>## 
+## Balance Measures:
+##           Type Diff.Adj
+## age    Contin.   0.2144
+## educ   Contin.  -0.1025
+## black   Binary   0.0108
+## hispan  Binary  -0.0070
+## re74   Contin.   0.0500
+## re75   Contin.   0.0886
+## 
+## 
+## Sample sizes:
+##           Control Treated
+## All           429     185
+## Matched       159     185
+## Unmatched     270       0</code></pre>
+<p>The output looks quite different from <code>Matching</code>’s <code>MatchBalance()</code> output. Rather than being stacked vertically, balance statistics are arranged horizontally in a table format, allowing for quick balance checking. Below the balance table is a summary of the sample size before and after matching, similar to what <code>Matching</code>’s <code>summary()</code> command would display.</p>
+<p>The input to <code>bal.tab()</code> is similar to that given to <code>MatchBalance()</code>: the <code>Match</code> object resulting from the call to <code>Match()</code>, a formula relating treatment to the covariates for which balance is to be assessed, and the original data set. This is not the only way to call <code>bal.tab()</code>: instead of a formula and a data set, one can also input a data frame of covariates and a vector of treatment status indicators. For example, the code below will yield the same results as the call to <code>bal.tab()</code> above:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(match.out, <span class="dt">treat =</span> lalonde$treat, <span class="dt">covs =</span> covs0)</code></pre></div>
+<p>The other arguments to <code>bal.tab()</code> when using it with <code>Matching</code> have the same form and function as those given when using it with <code>MatchIt</code>, except for <code>s.d.denom</code>. If the estimand of the original call to <code>Match()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified; if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>; if the estimand is the ATC, <code>s.d.denom</code> will default to “control”. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable. In addition, the use of the <code>addl</code> argument is unnecessary because the covariates are entered manually as arguments, so all covariates for which balance is to be assessed can be entered through the <code>formula</code> or <code>covs</code> argument. If the covariates are stored in two separate data frames, it may be useful to include one in <code>formula</code> or <code>covs</code> and the other in <code>addl</code>.</p>
+</div>
+<div id="using-bal.tab-with-cbps" class="section level3">
+<h3>Using bal.tab with CBPS</h3>
+<p>The <code>CBPS</code> (Covariate Balancing Propensity Score) package is a great tool for generating covariate balancing propensity scores, a recently developed class of propensity scores that is quite effective at balancing covariates among groups. <code>CBPS</code> includes functions for estimating propensity scores for polytimous and continuous treatments, but as of now <code>cobalt</code> is only compatible with binary treatments for <code>CBPS</code>. <code>bal.tab()</code> functions similarly to <code>CBPS</code>’s <code>balance()</code> command. Below is a simple example of its use:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;CBPS&quot;</span>)
+<span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+cbps.out &lt;-<span class="st"> </span><span class="kw">CBPS</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">standardize =</span> <span class="ot">FALSE</span>)</code></pre></div>
+<pre><code>## [1] &quot;Finding ATT with T=1 as the treatment.  Set ATT=2 to find ATT with T=0 as the treatment&quot;</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(cbps.out)</code></pre></div>
+<pre><code>## 
+## Call:
+## CBPS(formula = f.build(treat, covs0), data = lalonde, standardize = FALSE)
+## 
+## Balance Measures:
+##               Type Diff.Adj
+## .distance Distance  -0.0034
+## age        Contin.  -0.0081
+## educ       Contin.   0.0055
+## black       Binary  -0.0002
+## hispan      Binary   0.0000
+## re74       Contin.  -0.0014
+## re75       Contin.  -0.0018
+## 
+## 
+## Effective sample sizes:
+##            Control Treated
+## Unadjusted   429.0     185
+## Adjusted     110.8     185</code></pre>
+<p>First is the original call to <code>CBPS()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>CBPS()</code>. Last is a table displaying sample size information. The “effective” sample size is displayed when weighting (rather than matching or subclassification) is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” below for details on this calculation.</p>
+<p>When using <code>CBPS()</code> with <code>cobalt</code>, it is always advisable to set <code>standardize = FALSE</code>. Doing otherwise can create weights that are very small, leading to imprecisions in some calculations, including for variance ratios in <code>bal.tab()</code>. If <code>standardize</code> is set to <code>TRUE</code>, a warning will appear at the bottom of the balance output.</p>
+<p>The other arguments to <code>bal.tab()</code> when using it with <code>CBPS</code> have the same form and function as those given when using it with <code>MatchIt</code>, except for <code>s.d.denom</code>. If the estimand of the original call to <code>CBPS()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable. If <code>standardized = TRUE</code> in the original call to <code>CBSP()</code>, the user must either specify an argument to <code>s.d.denom</code> or an argument to <code>estimand</code> in <code>bal.tab()</code>, which can be <code>&quot;ATT&quot;</code> or <code>&quot;ATE&quot;</code>, and should be in line with the original call to <code>CBPS()</code>. When <code>standardized = FALSE</code>, <code>bal.tab()</code> can automatically assess whether the original requested estimand was the ATT or ATE, setting the default behavior for <code>s.d.denom</code>.</p>
+</div>
+<div id="using-bal.tab-with-other-data" class="section level3">
+<h3>Using bal.tab with Other Data</h3>
+<p>One doesn’t need to be using the four packages above to take advantage of <code>cobalt</code>. <code>bal.tab()</code> can take in any data set and set of weights or subclasses and evaluate balance on them. This can be useful if propensity score weights or subclasses were generated outside any package, if balance assessment is desired prior to adjustment, or if package output is adjusted in such a way as to make it unusable with one of <code>bal.tab()</code>’s other methods (e.g., if cases were manually removed or weights manually changed). In <code>twang</code>, the function <code>dx.wts()</code> performs a similar action by allowing for the balance assessment of groups weighted not using GBM, but it does not provide support for matching weights (e.g., those generated from <code>MatchIt</code>) or subclasses. Below is an example of the use of <code>bal.tab()</code> without any other conditioning package:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Generating ATT weights as specified in Austin (2011)</span>
+
+<span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+fit &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)
+lalonde$p.score &lt;-<span class="st"> </span>fit$fitted.values
+lalonde$att.weights &lt;-<span class="st"> </span><span class="kw">with</span>(lalonde, treat +<span class="st"> </span>(<span class="dv">1</span>-treat)*p.score/(<span class="dv">1</span>-p.score))
+
+<span class="kw">bal.tab</span>(covs0, <span class="dt">treat =</span> lalonde$treat, <span class="dt">weights =</span> lalonde$att.weights,
+        <span class="dt">method =</span> <span class="st">&quot;weighting&quot;</span>)</code></pre></div>
+<pre><code>## 
+## Balance Measures:
+##           Type Diff.Adj
+## age    Contin.   0.1112
+## educ   Contin.  -0.0641
+## black   Binary  -0.0044
+## hispan  Binary   0.0016
+## re74   Contin.  -0.0039
+## re75   Contin.  -0.0428
+## 
+## 
+## Effective sample sizes:
+##            Control Treated
+## Unadjusted   429.0     185
+## Adjusted     108.2     185</code></pre>
+<p>The output is similar to that generated when using a conditioning package. First is the balance table, and last is a summary of sample size information. Because weighting was specified as the method used, effective sample sizes are given, as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” below for details on this calculation.</p>
+<p>There are several ways to specify input to <code>bal.tab()</code> when using data outside a package. The first, as shown above, is to use a data frame of covariates and vectors for treatment status and weights or subclasses. The user can also specify a vector of distance measures (e.g., propensity scores) if balance is to be assessed on those as well. If <code>weights</code> is left empty, balance on the unadjusted sample will be reported (which can also be viewed by specifying <code>un = TRUE</code> when weights are specified). The user can also optionally specify a data set to the <code>data</code> argument; this makes it so that <code>treat</code>, <code>weights</code>, <code>distance</code>, and <code>subclass</code> can be specified either with a vector or with the name of a variable in the argument to <code>data</code> that contains the respective values.</p>
+<p>Another way to specify input to <code>bal.tab()</code> is to use the formula interface, similar to how input would be given with <code>Matching</code>. Below is an example of its use:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">weights =</span> <span class="st">&quot;att.weights&quot;</span>,
+        <span class="dt">distance =</span> <span class="st">&quot;p.score&quot;</span>, <span class="dt">method =</span> <span class="st">&quot;weighting&quot;</span>)</code></pre></div>
+<pre><code>## 
+## Balance Measures:
+##               Type Diff.Adj
+## .distance Distance  -0.0084
+## age        Contin.   0.1112
+## educ       Contin.  -0.0641
+## black       Binary  -0.0044
+## hispan      Binary   0.0016
+## re74       Contin.  -0.0039
+## re75       Contin.  -0.0428
+## 
+## 
+## Effective sample sizes:
+##            Control Treated
+## Unadjusted   429.0     185
+## Adjusted     108.2     185</code></pre>
+<p>To use the formula interface, the user must specify a formula relating treatment to the covariates for which balance is to be assessed and the data set where the elements of the formula can be found. As above, the arguments to <code>weights</code>, <code>distance</code>, and <code>subclass</code> can be specified either as vector containing the values or as names of the variable in the argument to <code>data</code> containing the values. In the above example, an argument to <code>distance</code> was specified, and balance measures for the propensity score now appear in the balance table.</p>
+<p>An argument to <code>method</code> must be specified for <code>bal.tab()</code> to process the data correctly. If left empty, weighting will be assumed, but a warning will appear. <code>&quot;matching&quot;</code> and <code>&quot;subclassification&quot;</code> are also allowed, and can be abbreviated. If no weights or subclasses are provided, no argument to <code>method</code> is required.</p>
+<p>The other arguments to <code>bal.tab()</code> when using it with data outside a package have the same form and function as those given when using it with <code>MatchIt</code>. The default to <code>s.d.denom</code> is <code>&quot;treated&quot;</code>, which is most appropriate when methods for estimating the ATT are used, so if the ATE or ATC are desired, <code>s.d.denom</code> should be changed to <code>&quot;pooled&quot;</code> or <code>&quot;control&quot;</code>, respectively. See Austin (2011) for an explanation on how to calculate weights for estimation of the ATT, ATE, and ATC.</p>
+<p>As with when <code>bal.tab()</code> is used with <code>MatchIt</code>, if subclasses are provided, the user can specify <code>disp.subclass = TRUE</code> to examine balance within each subclass. The default is to display balance only aggregated across subclasses.</p>
+</div>
+</div>
+<div id="bal.plot" class="section level2">
+<h2>bal.plot</h2>
+<p>The gold standard for assessing covariate balance is multidimensional distributional similarity between the treated and control groups. Because this is hard to visualize and assess with the large numbers of covariates typical of causal effect analysis, univariate balance is typically assessed as a proxy. Most conditioning packages, as well as <code>cobalt</code>, will provide numerical summaries of balance, typically by comparing moments between the treated and control groups. But even univariate balance is more complicated than simple numerical summaries can address; examining distributional balance is a more thorough method to assess balance between groups. Although there are statistics such as the Komologrov-Smirnov distance that summarize distributional balance beyond the first few moments (Ali et al., 2016; Austin &amp; Stuart, 2015), complimenting statistics with a visual examination of the distributional densities can be an effective way of assessing distributional similarity between the groups (Ho et al., 2007).</p>
+<p><code>bal.plot()</code> allows users to do so by displaying density plots (for continuous variables) or bar graphs (for binary variables) for the treated and control groups so that users can compare the distributional shapes between them. Below is an example of the use of <code>bal.plot()</code> after using <code>MatchIt</code> to perform matching:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+<span class="co"># Nearest neighbor 1:1 matching with replacement</span>
+<span class="kw">library</span>(<span class="st">&quot;MatchIt&quot;</span>) <span class="co">#if not yet loaded</span>
+m.out &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">method =</span> <span class="st">&quot;nearest&quot;</span>, <span class="dt">replace =</span> <span class="ot">TRUE</span>)
+
+<span class="kw">bal.plot</span>(m.out, <span class="st">&quot;age&quot;</span>)
+<span class="kw">bal.plot</span>(m.out, <span class="st">&quot;black&quot;</span>)</code></pre></div>
+<p><img src="data:image/png;base64,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" /><img src="data:image/png;base64,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" /></p>
+<p>The first argument (or set of arguments) is the sufficient set of arguments for a simple call to <code>bal.tab()</code>, defining the data object (e.g., the output of a conditioning function), the treatment indicators, and the weights or subclasses. See above for examples. The second argument is the name of the covariate for which distributional balance is to be assessed. If subclassification is used (i.e., if subclasses are present in the input data object or arguments), an additional argument <code>which.sub</code> must be specified, with a number corresponding to the subclass number for which balance is to be assessed on specified covariate.</p>
+<p>The user can also specify whether distributional balance is to be shown before or after adjusting by using the argument to <code>un</code>, as with <code>bal.tab()</code>. If <code>un = TRUE</code>, balance will be displayed for the unadjusted sample only. The default is to display balance for the adjusted sample.</p>
+<p>The output of <code>bal.plot()</code> is a density plot for the two groups on the given covariate. For categorical or binary variables, a bar graph is displayed instead. The x-axis is the value of the variable, and the y-axis is the proportion density or proportion of the variable in the given group. When multi-category categorical variables are given, bars will be created for each level, unlike in <code>bal.tab()</code>, which splits the variable into several binary variables. The degree to which the density plots for the two groups overlap is a good measure of group balance on the given covariate; significant differences in shape can be indicative of poor balance, even when the mean differences and variance ratios are well within thresholds. Strong distributional similarity is especially important for variables strongly related to the outcome of interest.</p>
+<p>The output plot is made using <code>ggplot2</code>, which means that users familiar with <code>ggplot2</code> can adjust the plot with <code>ggplot2</code> commands. For example, to change the colors and theme to black and white, and to change the axis and title names, the following code can be used:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;ggplot2&quot;</span>)
+bp &lt;-<span class="st"> </span><span class="kw">bal.plot</span>(m.out, <span class="st">&quot;age&quot;</span>)
+bp +<span class="st"> </span><span class="kw">theme_bw</span>() +<span class="st"> </span><span class="kw">scale_fill_manual</span>( <span class="dt">values =</span> <span class="kw">c</span>(<span class="st">&quot;black&quot;</span>,<span class="st">&quot;white&quot;</span>)) +<span class="st"> </span>
+<span class="st">    </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Distributional Balance for Age&quot;</span>, <span class="dt">x =</span> <span class="st">&quot;Age&quot;</span>)</code></pre></div>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASAAAAEgCAMAAAAjXV6yAAAAsVBMVEUAAAAAADoAAGYAOjoAOmYAOpAAZrY6AAA6ADo6AGY6OgA6OpA6ZmY6kNtmAABmADpmAGZmOgBmOpBmZgBmZjpmZmZmtv9/f3+JiYmQOgCQOjqQOmaQkGaQtpCQ29uQ2/+WlpaZmZm2ZgC2kDq2tma225C2/7a2/9u2//+4uLjAwMDCwsLMzMzbkDrbtrbb25Db/9vb///l5eXv7+/6+vr8/Pz/tmb/25D//7b//9v///+yxD6xAAAACXBIWXMAAA7DAAAOwwHHb6hkAAANjElEQVR4nO2di3bbuBGGIaeWtxc5291KkbvbOmabNrbKdhVHssz3f7BycL+RA1C0SYrzn5xYEkcY8tNgAF4AsIrUKjb0DoxdBAgRAUJEgBARIEQECBEBQkSAEDmAjkxoCW9e76730a/wDcXV13iBjV+LmSiHq9wiAp1uGdu0eFzc55YoFQXEoDhvN0tNpBkQ2HQCJH6ScHu6CrHTDXq58X6DdHmANtJbePgekSigxrByZQPiDk+3zsF1APR61+q6uPo5bddCRQHVhALgbwmo/ruKbk9W+1dOt8tj1xCKA6pLlD7r0GW84kA9eL1blmzxd1nFCr5F2tX//yZtxNv6tfz8fzcyyRxluokB2gTbrXe6BMg04kfgDlZmx0U1tdzCnqqwLNnmdCt9QhGLv92sgjKyAMEuilQjU5IC9OGG1SA4oJ9lsooBqus8s8iK/SjVq0gVg6N2t1vvdAmiWLCVDpZ6x/kb2y3s6V4dTf1JIVxJE1Oam/5SAUGAwG5CJMkKUIijVT+wSFMlWxpAe2nDt8L3Cr4VXoKdoAC/ZCRJbypvu/1OlSDc1+EgX6mDriod7pbblXVYHMdSBM1K5uygjG6A9M8gDl7XqYLHL3wQASTjWWxVByqOA2pAcyvmblfvVAni5wKJo4WKZAMK3KqDEY0y/C+/CMiCMnIA6SpW6t3X0eE08yXUvgDQy434+dytMqRdQMJhaYW83O5Z28WaimLVIv4Vz60QZB1VrY6qoq3CMnIAAV3hQ5RuV5+ugKCkVVDFNvr43O2+dQMgFSdtgEpmjGOA2pvepmZ+Y6VS3k3xAVlVTFeiaBVTXxGFNwG6+upu961NRlQH6CisYhqQrm1wUE4VS2r4GzqKdfHiNxOZDQDZDZZK0jwrFiLjSWpBkjaAljwg41VsWbnbfWtR6cFcRLfsFzg5KHArfSwVVV6ElaTdMpIASelTjULn0NLq45hmHijxb/3uzyJjLeVvqYpxq5j4SiRJ15budt/ayksi2er9tAD5bsWvrY1ECPnNPHKWFgW0Mj5L2QjzX/M3G9C/71R+q23EJttG5nbr8Pjubwo7QSiH/L273bM2BKyOoskzskjPbVWJPq8+vGXYUcQ67fO83JGYf0AzAyTyuHdy3KqZAbKSaqLmBsgk1UTNDlCuCBAiAoSIACEiQIjOBPRpjOqHjNS5gKrqe/DhN/+DwKQPi0YTAoSYECDEhAAhJgQIMSFAiAkBQkwIEGIyZkCMF0eAjAJAUB4BMnIBsYcHAuTKAcQAECNAtlxADw88hAiQEQFCRIAQ2YA4HyBEgIwIEKJP343YZy72/dt3TH1YNJqMCxBFULsigB4YATKyACk+BMgWAUJEgBDFAD0EZRIgXhIBiogAITKADB8CZIkAISJAiKKAtn6hBKgiQA0iQIgIECINyOLjAWLiZpkjAmQ5YOqGqyUCZMqH1wef0NwBWT0h/urguyFAungFyPVDgNziD76fCwL0emeNLJZTUVjzOShANh8LkPx7yYCKJfyzXxbX+5cf1Hi0dkCq8IPv6HIAnT7eVy+//2q9hD9GswcEcCQS+VLiqkQP8NM3IbZ1xMSHz5bYt/fSwICO1/+wRuy1RZBpuQ6+p0uOIJi04LhAchAnZIqeFyA+KYMKoRZAbBaAwiQN71IA2V3DCwYUa+brKqYnTGkBZBVy8F1dEKDTrZjFZKVfQkfRT9IOHw7IKfeSASFqAOSdehEgDxBja8eKALmAGNsRIKkYoJrPziV08H3NHNAjAdKKAGI7AmREgBCFgOoERICMsgAZZzMGBC0YAHIIESAC1CQChMgHBHwIkKU8QNobASJAUgQIkQeI8yFAlpoB2YQIUCog5W5GgJzRmJ/ZE+iR/78+RMRmOiSTIqhJLiDBhwBZIkCIpgBIr6vRuD7EsWX65LcDZBEygKS/d48g88hXRKfbdwIk+RAgS9MCdPr4K9SzUi38UPDJyWH5iOa1EeYFiE/5Xy7uxbII8ChGyVf0oAhSgFbyP3hAhT/39HKzyQNUp/z0FQOmB6gmIR6PAzAVX/kkE1BlamiKsgEJh4MCko3+Bo706ktuBHGlM5oiIPWAJQ+i7ComVaLrbumd0YAUHwXIEBoVII3jKFZu6gDoyAMwaTHPCQLiDResGSWChy/z1lJdAkDQMRdkjgkhNEVAunrUfxf3sLpWkdEPylkXqJoOoO4KAMmhGCnhU80ZUPlWgLjHyQIqmFZ+Mz8HQCaCEmUB0nw0IE3okgBlahKA/tOgpoNylD8ks6rMkLFpAGJxdQBU95j865PhWA1nWflpAHqIqQugUOFon7oH8OGsCAKXlwMoHC9Wvf7yZdaA4MSk1NcgI4DKlQwpa8wqDFllj6HWzxG99ejVNwZUiBWeZeIJAZ1+2icnaRVClxRBcD4HlwCOpsFyARWbeCtm+Fw+IGil5KlGkKT/dcvshUq7AKr6mVC5D0BWJ6ZJYRVbwrV/vYR0rJk/M4JGBMg6uibFrgfBCt1L89YbkpkDSBIaKyCrfjSqt1ONKQKyMmyjCFAuIL5KfeIl+1kCKtLIVHpn8gFVvUzJPRCg1iv8oTBAgtBYAXVJ0q33iEJpQBaf6QDq0sybBj5JEwekey7NCnLQkeWE0MQBJSjydEenVmw2gDKFAuKEfEChVwKEeJ0SoLqSXe+LxMZ+GoB6u2gPOi7uSzibz7txaPMZHaBeb/u83q2qGlDuredmQEDokiIIOooAKPPhhXEDiu56R0AqgoqEp6eqzoCefbfTASRzUJnYXUwAVBO6KECiq5j6FNUcAWWJACFSQzLFWEypxydX4eDMZ/aeQzL7A6RPxLLPxdoiaLcOI8jf6cEiCLscFDub50MZEpOQArRrA+TNiVeNCNDpNvdyh7oeVOY18xMFVLI/5UaQuqKY2VFEAPmExgLov/vsKgYdRVBmR7Ed0NNYAXXLQfpx/QQlAvIr2bPveEKARFOWFj8ZgFxCkwaUpVRAHiECFAByCRGgEJBD6Nn3TIBcQuMBhOodAVmECFAUkEFEgBoAKUIEqAnQzgByXE/non2msgEJQu8L6E1H+yDqAAgIvS+gs/TugDghAtQCCAg9+74JkEOIALUD2q0JEAJo7fueLqBwzCrMaBWsDpUHSF0/M86nCygYzMLHS/lL+GUD8kNosoDCMavRJfxyAT1eDKDIkMxK3fqwh2RGhmO2a/12gzNHAMjcNOsaQTsvhC4rgspw3Hw2IEHoMgHZt4S6A+KEpg8oMrGA8/TimYC0+8kCCpt5d1bUMwA5ITRdQMGY1SI66rkToPUlAEJ0DiA7hAhQFNCaALUC2hEgBJAhRIDigGpCBKgd0JoAtQJSIUSAmgDt1g4geU+PAFmv+dLr4thqNGIwIEsY1TobQJwQL4RZa0niA6bmBEjKGVGKjuaYD6BdTeazP+R26xOaNSAWAeTH0JwB7aKAHgiQFUJRQO2PWM0J0C4KyCU0b0C7YHKELW/KLE9zB+QT2j54hGYO6MkntNW9I+lpqoDkmNWntjGroSIWTC1FypcjVYNg1wfWOLx1UsuInh1BVjWDsHEuqcXP9ycSQT0C0icdtsVaESJADRb8SZkaEQFqshB3YBkBarSQhALfBEgBaiBEgBxCh2BXCZBD6BAEEQFyCMH8Hy4hAuQhqjxCBMgjpPuMUgTItwBGFiECFLGwCRGguIW+BEKAGiwYP+EnQM2A2EPr3enZA9qZO/juzhAgl9DWR0SAXEJbP4wIkEtoa67Qip0hQC6hrb4FIu9+DAIoHJLprMk1GKDgVpoJpIHHariLdQwIaMf8e2lDAApH+7jLvQwJ6HHnPXU1BKBwvJj5xB6SOQ6NYkimu6LSp5wbVv1ajONUgwARIET9JGlXcwKU2My7mhWgcBlRZ00uAoSIACEiQIgIEKJPMbHop31bNJv0Q0bqTEAdy+zD4k12/X28EKCzy5w5oIsSAUJEgBARIEQECFG/gOQklM6ND1dHxle/a7GQKxW0WYAbPlth4iJf56hXQGoSyuZVymH+KlhXqXUd84JfP2ixOIoNCYuhn69eAclJKJF17uvNrRbHD/KiZaOFWEcYcdOTes9BdRS5V2UDldf7NovXX77UW1st/upP7PiG6h0Qcvh1/ljctx5buXpBAJ0+/oEhhfSnvgHBJILIntc5qMXi9NMeAwSJ7PRjWyE9qmdAfBJKZM+DWyOOik2FAcIL6VH9AhKTUJ6TpOVCnViiRzN9b+oVkJqEsrn9hSb+5Y/79haaH3WLRVIhfalXQGoSSufGh6uShbdGfHFAbRYphfQlOtVARIAQESBEBAgRAUJEgBARIETDAirYalD/CRoU0MsPf3n7nt6ZGhRQefXlZoObDaohAb3eLet//GV9krL4Fa4E1GcR46p2QwKCy9dikQ64Cn1k8u3LzZgIDQmouN7XJ5wruMoIFa1Y3PN3/Gx9NBoQkIgUHjycSB1QYl2ulzElpgEBlXIAwUZeZwNA+qPRaDhAMj+fbpd+BI1KwwFSMOq8LOpUCTloRLEjNBygQi5SBqnIacUgWw+2V4EGA2QycSFWDLr6J1Q0SExjasTGdLI6qtZdaxSAeDSJPtDoNApA1XFkbbulcQAasQgQIgKEiAAhIkCICBAiAoSIACH6P93TB13yizHqAAAAAElFTkSuQmCC" /><!-- --></p>
+<p>Distributional balance can also be assessed on the distance measure, and this can form an alternative to other common support checks, like <code>MatchIt</code>’s <code>plot(..., type = &quot;hist&quot;)</code> or <code>twang</code>’s <code>plot(..., plots = &quot;boxplot&quot;)</code>. To examine the distributions of the distance measure, the input to <code>var.name</code> must be <code>&quot;.distance&quot;</code> (noting the “<code>.</code>” at the beginning). If the data input object doesn’t already contain the distance measure (e.g., if not using one of the conditioning packages), the distance measure must be manually added as an input to <code>bal.plot()</code> through <code>distance</code>, in addition to being called through <code>var.name</code>. Below is an example using the formula input to <code>bal.plot()</code> with to display the distributions of propensity scores before and after adjustment:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+fit &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)
+lalonde$p.score &lt;-<span class="st"> </span>fit$fitted.values
+lalonde$att.weights &lt;-<span class="st"> </span><span class="kw">with</span>(lalonde, treat +<span class="st"> </span>(<span class="dv">1</span>-treat)*p.score/(<span class="dv">1</span>-p.score))
+
+<span class="kw">bal.plot</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">var.name =</span> <span class="st">&quot;.distance&quot;</span>,
+         <span class="dt">weights =</span> <span class="st">&quot;att.weights&quot;</span>, <span class="dt">distance =</span> <span class="st">&quot;p.score&quot;</span>, 
+         <span class="dt">method =</span> <span class="st">&quot;weighting&quot;</span>, <span class="dt">un =</span> <span class="ot">TRUE</span>)
+<span class="kw">bal.plot</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">var.name =</span> <span class="st">&quot;.distance&quot;</span>,
+         <span class="dt">weights =</span> <span class="st">&quot;att.weights&quot;</span>, <span class="dt">distance =</span> <span class="st">&quot;p.score&quot;</span>, 
+         <span class="dt">method =</span> <span class="st">&quot;weighting&quot;</span>, <span class="dt">un =</span> <span class="ot">FALSE</span>)</code></pre></div>
+<p><img src="data:image/png;base64,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" /><img src="data:image/png;base64,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" /></p>
+<p>It is generally not a useful assessment of balance to examine the overlap of the distance measure distributions after adjustment, as most conditioning methods will yield good distributional overlap on the distance measure whether or not balance is achieved on the covariates (Stuart et al., 2013). However, it may be useful to see the new range of the distance measure if calipers or common support pruning are used.</p>
+</div>
+<div id="love.plot" class="section level2">
+<h2>love.plot</h2>
+<p>The Love plot is a summary plot of covariate balance before and after conditioning popularized by Dr. Thomas E. Love. In a visually appealing and clear way, balance can be presented to demonstrate to readers that balance has been met within a threshold, and that balance has improved after conditioning (which is not always the case; cf. King &amp; Nielson, 2016). Although Love plots are used with some frequency and there are tools to generate them, none of the packages used for conditioning include a function for quickly and easily generating them. <code>love.plot()</code> does just this, providing the user with several options to customize their plot for presentation. Below is an example of its use:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">data</span>(lalonde, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> -<span class="kw">c</span>(treat, re78, nodegree, married))
+
+<span class="co"># Nearest neighbor 1:1 matching with replacement</span>
+<span class="kw">library</span>(<span class="st">&quot;MatchIt&quot;</span>) <span class="co">#if not yet loaded</span>
+m.out &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class="kw">f.build</span>(treat, covs0), <span class="dt">data =</span> lalonde, <span class="dt">method =</span> <span class="st">&quot;nearest&quot;</span>, <span class="dt">replace =</span> <span class="ot">TRUE</span>)
+
+<span class="kw">love.plot</span>(<span class="kw">bal.tab</span>(m.out), <span class="dt">threshold =</span> .<span class="dv">1</span>)</code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p><code>love.plot()</code> takes as its first argument the output of a call to <code>bal.tab()</code>; this can be accomplished simply by inserting the call into the first argument or by saving the result of a call to <code>bal.tab()</code> to an object and inserting the object as the argument. There are several other arguments, all of which control display, and are described below.</p>
+<p>The output is a plot with the distance measure on the X-axis and the covariates output in <code>bal.tab()</code> on the Y-axis. Each point represents the balance statistic for that covariate, colored based on whether it is calculated before or after adjustment. The dotted lines represent the threshold set in the <code>threshold</code> argument; if most or all of the points after adjustment are within the threshold, that is good evidence that balance has been achieved. Like the output of <code>bal.plot()</code>, the output of <code>love.plot()</code> is a <code>ggplot2</code> object, which means <code>ggplot2</code> users can modify the plot to their liking for presentation or publication. This might involve changing the colors, shapes, or labels used in the plot.</p>
+<p>The default is to present mean differences as they are calculated in the call to <code>bal.tab()</code>; by specifying <code>stat = &quot;variance.ratios&quot;</code> (abbreviations allowed), the user can request variance ratios instead. Because some variables don’t have variance ratios calculated (e.g., binary variables), there will be empty rows if variance ratios are requested, but these rows can be deleted by setting <code>no.missing = TRUE</code>.</p>
+<p>The threshold works similarly to <code>m.threshold</code> and <code>v.threshold</code> in <code>bal.tab()</code>; specifying it is optional, but doing so will provide an additional point of reference on which to evaluate the displayed balance measures. If these thresholds are specified in <code>bal.tab()</code>, <code>love.plot()</code> will use them in the resultant plot with the corresponding balance statistic. The <code>threshold</code> argument to <code>love.plot()</code> takes precedence.</p>
+<p>If mean difference are requested, <code>love.plot()</code> will use the mean differences as they are calculated by <code>bal.tab()</code> and presented in the mean differences columns of the balance table. See the section on using <code>bal.tab()</code> to see what the default calculations are for these values. If <code>abs = TRUE</code> in <code>love.plot()</code>, the plot will display absolute mean differences, which can aid in display clarity since the magnitude is generally the more important aspect of the statistic.</p>
+<p>The order of the covariates displayed can be adjusted using the argument to <code>var.order</code>. If left empty or <code>NULL</code>, the covariates will be listed in alphabetical order. If <code>&quot;adjusted&quot;</code>, covariates will be ordered by the requested balance statistic of the adjusted sample. If <code>&quot;unadjusted&quot;</code>, covariates will be ordered by the requested balance statistic of the unadjusted sample, which tends to be more visually appealing. Abbreviations are allowed here.</p>
+<p>The plot uses the original variable names as they are given in the data set, which may not be the names desired for display in publication. By using the argument to <code>var.names</code>, users can specify their own variable names to be used instead. This can also be done using <code>ggplot2</code> commands after the plot has been generated. To specify new variable names with <code>var.names</code>, the user must enter an object containing the new variable names and, optionally, the old variable names to replace. For options of how to do so, see the help file for <code>love.plot()</code> with <code>?love.plot</code>. Below is an example, creating a publication-ready plot:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">v &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">old =</span> <span class="kw">c</span>(<span class="st">&quot;age&quot;</span>, <span class="st">&quot;educ&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;hispan&quot;</span>, 
+                        <span class="st">&quot;re74&quot;</span>, <span class="st">&quot;re75&quot;</span>),
+                <span class="dt">new =</span> <span class="kw">c</span>(<span class="st">&quot;Age&quot;</span>, <span class="st">&quot;Years of Education&quot;</span>, <span class="st">&quot;Black&quot;</span>, 
+                        <span class="st">&quot;Hispanic&quot;</span>, <span class="st">&quot;Earnings 1974&quot;</span>, 
+                        <span class="st">&quot;Earnings 1975&quot;</span>))
+                
+<span class="kw">love.plot</span>(<span class="kw">bal.tab</span>(m.out), <span class="dt">stat =</span> <span class="st">&quot;mean.diffs&quot;</span>, <span class="dt">threshold =</span> .<span class="dv">1</span>, 
+          <span class="dt">var.order =</span> <span class="st">&quot;unadjusted&quot;</span>, <span class="dt">var.names =</span> v, <span class="dt">abs =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>This plot shows that balance was improved on all variables after adjustment, bringing all but one below the threshold of .1 for absolute mean differences.</p>
+</div>
+</div>
+<div id="additional-features" class="section level1">
+<h1>Additional Features</h1>
+<div id="using-the-prognostic-score-for-balance-assessment" class="section level2">
+<h2>Using the prognostic score for balance assessment</h2>
+<p>The prognostic score is the model-predicted outcome for an individual, excluding the treatment variable in the model (Hansen, 2008). Stuart et al. (2013) found that prognostic scores can be an extremely effective tool for assessing balance, greatly outperforming mean differences on covariates and significance tests. This is true even if the prognostic score model is slightly misspecified. Although the use of prognostic scores appears to violate the spirit of preprocessing in that users observe the outcome variable prior to treatment effect estimation, typically the prognostic score model is estimated in just the control group, so that the outcome of the treated group (which may contain treatment effect information) is excluded from analysis.</p>
+<p>Assessing balance on the prognostic score is simple in <code>cobalt</code>, and highly recommended when available. The steps are:</p>
+<ol style="list-style-type: decimal">
+<li>Estimate the outcome model in the control group</li>
+<li>Generate model-predicted outcome values for both the treated and control groups</li>
+<li>Assess balance on prognostic scores by comparing standardized mean differences</li>
+</ol>
+<p>To use prognostic scores in <code>cobalt</code>, simply add the prognostic score as a variable in the argument to <code>addl</code>. Below is an example of how to do so after a call to <code>matchit()</code>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">ctrl.data &lt;-<span class="st"> </span>lalonde[lalonde$treat ==<span class="st"> </span><span class="dv">0</span>,]
+ctrl.fit &lt;-<span class="st"> </span><span class="kw">glm</span>(re78 ~<span class="st"> </span>age +<span class="st"> </span>educ +<span class="st"> </span>black +<span class="st"> </span>hispan +<span class="st"> </span>
+<span class="st">                </span>married +<span class="st"> </span>nodegree +<span class="st"> </span>re74 +<span class="st"> </span>re75,
+                <span class="dt">data =</span> ctrl.data)
+lalonde$prog.score &lt;-<span class="st"> </span><span class="kw">predict</span>(ctrl.fit, lalonde)
+
+<span class="kw">bal.tab</span>(m.out, <span class="dt">addl =</span> <span class="kw">data.frame</span>(<span class="dt">prog.score =</span> lalonde$prog.score))</code></pre></div>
+<pre><code>## 
+## Call:
+## matchit(formula = f.build(treat, covs0), data = lalonde, method = &quot;nearest&quot;, 
+##     replace = TRUE)
+## 
+## Balance Measures:
+##                Type Diff.Adj
+## .distance  Distance  -0.0002
+## age         Contin.   0.1964
+## educ        Contin.  -0.0726
+## black        Binary   0.0108
+## hispan       Binary  -0.0054
+## re74        Contin.   0.0667
+## re75        Contin.   0.0936
+## prog.score  Contin.   0.0573
+## 
+## 
+## Sample sizes:
+##           Control Treated
+## All           429     185
+## Matched        83     185
+## Unmatched     346       0
+## Discarded       0       0</code></pre>
+<p>Although the prognostic score is sensitive to the outcome estimation model used, a defensible prognostic score model can yield valid prognostic scores, which can then be used in balance assessment. In the above example, balance on the estimated prognostic score was good, so we can have some confidence that the effect estimate will be relatively unbiased, even though the “age” variable remains imbalanced. The logic is that that age is not a highly prognostic variable, which could be demonstrated by examining the standardized regression output of prognostic score model, so even though imbalance remains, such imbalance is unlikely to affect the effect estimate. The variables “re74” and “re75”, though, which are highly prognostic of the outcome, are quite balanced, thereby supporting an unbiased treatment effect estimate.</p>
+</div>
+</div>
+<div id="details-on-calculations" class="section level1">
+<h1>Details on Calculations</h1>
+<p>There are calculations in <code>cobalt</code> that may be opaque to users; this section explains them.</p>
+<div id="variance-in-standardized-mean-differences" class="section level2">
+<h2>Variance in Standardized Mean Differences</h2>
+<p>When computing a standardized mean difference, the raw mean difference is divided by a standard deviation, yielding a d-type effect size statistic. In <code>bal.tab()</code>, the user can control whether the standard deviation is that of the treated group or control group or a pooled estimate, calculated as the square root of the average of the group variances. In most applications, the standard deviation corresponding to the default for the method is the most appropriate.</p>
+<p>A key detail is that the standard deviation, no matter how it is calculated, is always calculated using the unadjusted sample<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>. This is line with how <code>MatchIt</code> computes standardized mean differences, and is recommended by Stuart (2008; 2010). One reason to favor the use of the standard deviation of the unadjusted sample is that it prevents the paradoxical situation that occurs when adjustment decreases both the mean difference and the spread of the sample, yielding a larger standardized mean difference than that prior to adjustment, even though the adjusted groups are now more similar. By using the same standard deviation before and after adjusting, the change in balance is isolated to the change in mean difference, rather than being conflated with an accompanying change in spread. It is important to note that both <code>twang</code> and <code>Matching</code> calculate standardized mean differences using the standard deviation of the sample in question, not the unadjusted sample, though <code>CBPS</code> uses the standard deviation of the unadjusted sample.</p>
+</div>
+<div id="weighted-variance" class="section level2">
+<h2>Weighted Variance</h2>
+<p>When using weighting or matching, summary values after adjustment are calculated by using weights generated from the matching or weighting process. For example, group means are computed using the standard formula for a weighted mean, incorporating the weighting or matching weights into the calculation. To estimate a weighted sample variance for use in variance ratios<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>, there are two formulas that have been proposed:</p>
+<ol style="list-style-type: decimal">
+<li><p><span class="math display">\[\frac{\sum_{i=1}^{n} w_{i}(x_{i} - \bar{x}_{w})^2}{(\sum_{i=1}^{n} w_{i}) - 1}\]</span></p></li>
+<li><p><span class="math display">\[\frac{\sum_{i=1}^{n} w_{i}}{(\sum_{i=1}^{n} w_{i})^2 - \sum_{i=1}^{n} w^2_{i}} \sum_{i=1}^{n} w_{i}(x_{i} - \bar{x}_{w})^2\]</span></p></li>
+</ol>
+<p>The weights used in the first formula are often called “frequency weights”, while the weights in the second formula are often called normalized or “reliability weights”. <code>MatchIt</code>, <code>twang</code>, and <code>Matching</code> all use the first formula when calculating any weighted variance (<code>CBPS</code> does not compute a weighted variance). However, Austin (2008) and Austin &amp; Stuart (2015) recommend the second formula when considering matching weights for k:1 matching or weights for propensity score weighting. In <code>cobalt</code> the first formula is used to remain in line with the other packages. For some applications (i.e., when all weights are either 0 or 1), the two formulas yield the same variance estimate.</p>
+<div id="effective-sample-size-for-weighting" class="section level3">
+<h3>Effective Sample Size for Weighting</h3>
+<p>Knowledge of the sample size after adjustment is important not just for outcome analysis but also for assessing the adequacy of a conditioning specification. For example, pruning many units through common support cutoffs, caliper matching, or matching with replacement can yield very small sample sizes that hurt both the precision of the outcome estimate and the external validity of the conclusion. In matching, the sample size is fairly straightforward; it is simply the number of units remaining after matching<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a>. In weighting, the sample size is not so straightforward, because the purpose of matching is to down- and up-weight observations to create two similar samples. The “effective sample size” (ESS) is a measure of the sample size a non-weighted sample would have to have to achieve the same level of precision as the weighted sample (Ridgeway et al., 2016). This measure is implemented in <code>twang</code> using the following formula: <span class="math display">\[ESS = \frac{(\sum_{i=1}^{n} w_{i})^2}{\sum_{i=1}^{n} w_{i}^2}\]</span> The authors claim that the ESS as calculated above is accurate when the estimand is the ATT, but will underestimate the true effective sample size when the estimate is the ATE.</p>
+</div>
+</div>
+</div>
+<div id="whats-missing-in-cobalt" class="section level1">
+<h1>What’s Missing in cobalt</h1>
+<p>Compared to the other packages, <code>cobalt</code> may appear quite sparse. A fair amount is missing in <code>cobalt</code> that is present in other packages. Though there is value in many of the aspects that <code>cobalt</code> lacks, many were purposefully excluded based on methodological recommendations that conflict with the current use of some other packages. Below are aspects that are intentionally missing from <code>cobalt</code> that users may be used to from other packages. Their reason for exclusion is included, with the hope that users of <code>cobalt</code> will be satisfied with what is available and be confident they are using the most methodologically sound tools for balance assessment.</p>
+<div id="test-statistics-and-p-values" class="section level2">
+<h2>Test Statistics and P-values</h2>
+<p>Some of the early literature on propensity score matching included measures for balance assessment that relied on hypothesis tests for the independence of treatment assignment and covariates after adjustment (e.g., Rosenbaum &amp; Rubin, 1983; Hansen, 2004). In a review of propensity score applications in the social sciences, Thoemmes &amp; Kim (2011) found that over 66% of studies used significance tests to assess balance. Likewise, Austin (2008) found that over 70% of studies using propensity scores in the medical literature used significance tests to assess balance, a finding replicated by Ali et al. (2015). These hypothesis tests can come in many forms: t-tests for the difference in means between groups, chi-square tests for the difference in proportion between groups, Kolmogorov-Smirnov tests for the difference in cumulative density between groups, or F-tests for the difference in means between groups across subclasses.</p>
+<p>The use of hypothesis tests appears natural here: if balance is achieved, we would not expect extreme values for the test statistics, and we can quantify the probability of observing imbalance as extreme as the one observed if no imbalance is present as a way to assess whether there is balance, as we can do with standard hypothesis testing. But this view is not shared by the methodological community: virtually all contemporary propensity score methodologists recommend against using hypothesis tests for balance assessment (e.g., Austin, 2009; 2011; Ho et al., 2007; Imai et al., 2008; Stuart, 2010; Thoemmes &amp; Kim, 2011; Ali et al., 2015). There are logical reasons for this preference against hypothesis tests, noted clearly in Ali et al. (2015): they are influenced by sample size, which fluctuates during adjustment, and the theory behind them is inappropriate because balance is a quality solely of the sample in question, not as it relates to a population. The relevant information in a hypothesis test for group differences is the standardized magnitude of the group difference, and so such a measure is preferred.</p>
+<p>Because hypothesis tests can be misleading and their use is discouraged by leading methodologists, they have been completely excluded in <code>cobalt</code> in favor of summary statistics. This stands in contrast to <code>twang</code> and <code>Matching</code>, both of which report hypothesis test p-values in their balance output.</p>
+</div>
+<div id="q-q-plots-and-summaries" class="section level2">
+<h2>Q-Q Plots and Summaries</h2>
+<p>Q-Q plots have been recommended as tools to assess distributional balance of covariates between groups (Ho et al., 2007), and are implemented in <code>MatchIt</code> and <code>Matching</code> (<code>twang</code> implements them but for a different purpose). Statistics summarizing the degree of imbalance in Q-Q plots are also reported in both <code>MatchIt</code> and <code>Matching</code>. <code>MatchIt</code>’s <code>summary()</code> command by default reports “eQQ Med”, “eQQ Mean”, and “eQQ Max” for each covariate before and after adjustment. These are the median, mean, and maximum distance between the treated and control group empirical Q-Q plots on the scale of the covariate. When <code>standardize = TRUE</code>, the values reported are “eCDF Med”, “eCDF Mean”, and “eCDF Max”, which are the same values as above but computed using the empircal cumulative densities. The <code>Matching</code> package also provides all of these values. Values close to 0 indicate good balance between groups for the given covariate.</p>
+<p>A weakness of empirical Q-Q plots is that they don’t reveal much about the differences in the shapes of the distributions between the groups, which is a key aspect of distributional balance. A density plot essentially contains the same information, but clearer and more intuitive. Although the assessment of balance using an empirical Q-Q plot is straightforward (i.e., deviations from the 45-degree line indicate imbalances), density plots present the information in a way more in line with the actual goals of conditioning, in particular, that the distributions of treated and control units are similar (Ho et al., 2007).</p>
+<p>Empirical Q-Q plot summary statistics may be useful in quantifying imbalance, but currently there are no recommendations for their use, and no precedents in the applied literature either. Similar methods, the Kolmogorov-Smirnov distance and Levy distance, were reviewed in Ali et al. (2015), and were found to have significant limitations not shared by the standardized mean difference. Belitser et al. (2011) found empirically that both measures were poor predictors of bias, especially in small samples. Although there may be promise for the use of these statistics, without guidance researchers may not find them useful or worth the space in a quick balance summary.</p>
+</div>
+</div>
+<div id="whats-added-in-cobalt" class="section level1">
+<h1>What’s Added in cobalt</h1>
+<p>There are several features in <code>cobalt</code> that are present in few, if any, balance assessment tools in the major packages. These come from methodological recommendations and requests by members of the methodological community.</p>
+<div id="density-plots" class="section level2">
+<h2>Density Plots</h2>
+<p>As mentioned above, <code>cobalt</code> displays density plots and bar charts rather than empirical Q-Q plots for the assessment of distributional similarity. These charts are not standard in any of the conditioning packages, but can be an intuitive and helpful tool for deciding whether adjustment has yielded similar distributions between the groups for given covariates. Though there are no obvious heuristics for deciding how much dissimilarity is too much dissimilarity, density plots do avoid the sometimes confusing logic of empirical Q-Q plots in favor of simplicity and interpretability. Austin (2009) considered density plots as a compliment to empirical Q-Q plots to more finely examine balance after adjusting.</p>
+</div>
+<div id="variance-ratios" class="section level2">
+<h2>Variance Ratios</h2>
+<p>Although mean differences (including t-tests and chi-square tests) are the most reported balance statistic (Thoemmes &amp; Kim, 2011), variance ratios have been recommended in the literature as a means to further examine balance between groups (Austin, 2009, Imai et al., 2008; Ho et al., 2007). When group variances are similar, the variance ratio will be close to 1. Common thresholds for the variance ratio for balanced groups are 1/2 and 2 (Rubin, 2001; Stuart, 2010), though ratios closer to 1 are preferred.</p>
+<p>The <code>Matching</code> package is the only one of the conditioning packages that presents variance ratios for covariates. Although <code>bal.tab()</code> in <code>cobalt</code> does not display variance ratios by default, they can be easily requested and have thresholds set.</p>
+</div>
+<div id="distinguishing-continuous-and-binary-variables" class="section level2">
+<h2>Distinguishing Continuous and Binary Variables</h2>
+<p>Continuous and binary variables are treated differently by default in <code>bal.tab()</code> and <code>bal.plot()</code>. For continuous variables, the standard manipulations apply: standardized mean differences, variance ratios, and density plots. For binary variables, raw differences in proportion and bar charts are preferable, and variance ratios are useless.</p>
+<p>The value of standardized mean differences for continuous variables is that they are on the same scale so that they can be compared across variables, and they allow for a simple interpretation even when the details of the variable’s original scale are unclear to the analyst. None of these advantages are passed to binary variables because binary variables are already on the same scale (i.e., a proportion), and the scale is easily interpretable. In addition, the details of standardizing the proportion difference of a binary variable involve dividing the proportion difference by a variance, but the variance of a binary variable is a function of its proportion (Austin, 2009). Standardizing the proportion difference of a binary variable can yield the following counterintuitive result: if <span class="math inline">\(X_{T} = .2\)</span> and <span class="math inline">\(X_{C} = .3\)</span>, the standardized difference in proportion would be different from that if <span class="math inline">\(X_{T} = .5\)</span> and <span class="math inline">\(X_{C} = .6\)</span>, even though the expectation is that the balance statistic should be the same for both scenarios because both would yield the same degree of bias in the effect estimate.</p>
+<p><code>MatchIt</code> allows users to view either standardized mean differences for all covariates or raw differences for all covariates, and <code>twang</code> and <code>Matching</code> display standardized differences for all variables but calculate test statistics depending on whether the covariate is continuous or binary (<code>CBPS</code> does not calculate mean differences, but presents both standardized and unstandardized means for all covariates). <code>cobalt</code> allows the user to select how the differences are to be calculated separately for continuous and binary variables, and uses the intuitive default that mean differences for continuous variables should be standardized while proportion differences for binary variables should be raw.</p>
+<p>Because the variance of a binary variable is a function only of its proportion, the variance ratio of a binary variable in two groups is a function only of their proportions, thereby containing no more information than the simple difference in proportion. Therefore, for binary variables, <code>cobalt</code> does not compute variance ratios, as they can be misleading. <code>Matching</code>, the only package that computes variance ratios for balance assessment, does so both for continuous and binary variables.</p>
+</div>
+<div id="love-plots" class="section level2">
+<h2>Love Plots</h2>
+<p>Love plots and other similar plots that graphically display covariate balance before and after matching appear with some frequency in the applied and methodological literature (e.g., Ahmed et al., 2007; Austin, 2009; Austin &amp; Stuart, 2015). Several of the conditioning packages implement a similar plot: <code>MatchIt</code>’s <code>plot(summary(..., standardize = TRUE))</code> and <code>twang</code>’s <code>plot(..., plots = &quot;es&quot;)</code> present line plots showing the change in balance for each covariate. Below are examples of <code>twang</code>’s balance plot (above) and <code>cobalt</code>’s Love plot (below).</p>
+<p><img src="data:image/png;base64,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" /><img src="data:image/png;base64,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" /></p>
+<p>A Love plot displays the same information, but allows for the clear display of both the balance statistic value and the variable name, unlike the line plot above which displays only the balance statistic value. The Love plot in <code>cobalt</code> allows for a great deal of flexibility in appearance, and can present variance ratios as well as mean differences.</p>
+</div>
+</div>
+<div id="for-programmers-integrating-cobalt-with-your-package" class="section level1">
+<h1>For Programmers: Integrating cobalt with Your Package</h1>
+<p>If you are designing a new R package for preprocessing that performs similar functions to <code>MatchIt</code>, <code>twang</code>, <code>Matching</code>, or <code>CBPS</code>, you might consider integrating <code>cobalt</code> into your package to avoid programming your own balance assessment tool. The simplest way to do so is to have the output of your preprocessing function contain all the elements for use with the formula or data frame interfaces for <code>bal.tab()</code> and <code>bal.plot()</code>. You are also welcome to contact me to discuss the addition of a <code>bal.tab()</code> method for the output of your preprocessing function, which might ease the burden on users by allowing for fewer inputs and decisions (as is done with <code>MatchIt</code>’s output objects, for example).</p>
+<p>As <code>cobalt</code> is updated to remain in line with methodological recommendations, the balance assessment capabilities for your function’s output will also improve if <code>cobalt</code> is a balance assessment tool for your package. In this way, users of your package can use the most up-to-date balance assessment tools programmed in <code>cobalt</code> without you having to update your package.</p>
+<p>If you develop a new balance assessment tool, this may also be able to be integrated into <code>cobalt</code>, especially if it would be applicable to balance assessment generally in matching, weighting, or subclassification. Incorporating a new tool into <code>cobalt</code> may be a good way to broaden its use.</p>
+</div>
+<div id="acknowledgments" class="section level1">
+<h1>Acknowledgments</h1>
+<p>I thank Kirsten Kainz and Elizabeth Stuart for their support and advice on <code>cobalt</code>’s creation. I thank Zachary Fisher for his advice on developing an R package. An early version of <code>bal.tab()</code> appeared in the Appendix of Kainz et al. (in preparation) for use with <code>MatchIt</code>.</p>
+</div>
+<div id="references" class="section level1">
+<h1>References</h1>
+<p>Ahmed, A., Rich, M.W., Sanders, P.W., Perry, G.J., Bakris, G.L., Zile, M.R., Love, T.E., Aban, I.B. &amp; Shlipak, M.G. (2007) Chronic kidney disease associated mortality in diastolic versus systolic heart failure: a propensity matched study. The American journal of cardiology, 99(3), pp.393-398.</p>
+<p>Ali, M. S., Groenwold, R. H. H., Belitser, S. V., Pestman, W. R., Hoes, A. W., Roes, K. C. B., … Klungel, O. H. (2015). Reporting of covariate selection and balance assessment in propensity score analysis is suboptimal: a systematic review. Journal of Clinical Epidemiology, 68(2), 122–131. <a href="http://doi.org/10.1016/j.jclinepi.2014.08.011" class="uri">http://doi.org/10.1016/j.jclinepi.2014.08.011</a></p>
+<p>Austin, P. C. (2008). A critical appraisal of propensity-score matching in the medical literature between 1996 and 2003. Statistics in Medicine, 27(12), 2037–2049. <a href="http://doi.org/10.1002/sim.3150" class="uri">http://doi.org/10.1002/sim.3150</a></p>
+<p>Austin, P. C. (2009). Balance diagnostics for comparing the distribution of baseline covariates between treatment groups in propensity-score matched samples. Statistics in Medicine, 28(25), 3083–3107. <a href="http://doi.org/10.1002/sim.3697" class="uri">http://doi.org/10.1002/sim.3697</a></p>
+<p>Austin, P. C. (2011). An Introduction to Propensity Score Methods for Reducing the Effects of Confounding in Observational Studies. Multivariate Behavioral Research, 46(3), 399–424. <a href="http://doi.org/10.1080/00273171.2011.568786" class="uri">http://doi.org/10.1080/00273171.2011.568786</a></p>
+<p>Austin, P. C., &amp; Stuart, E. A. (2015). Moving towards best practice when using inverse probability of treatment weighting (IPTW) using the propensity score to estimate causal treatment effects in observational studies. Statistics in Medicine, 34(28), 3661–3679. <a href="http://doi.org/10.1002/sim.6607" class="uri">http://doi.org/10.1002/sim.6607</a></p>
+<p>Belitser, S. V., Martens, E. P., Pestman, W. R., Groenwold, R. H. H., de Boer, A., &amp; Klungel, O. H. (2011). Measuring balance and model selection in propensity score methods. Pharmacoepidemiology and Drug Safety, 20(11), 1115–1129. <a href="http://doi.org/10.1002/pds.2188" class="uri">http://doi.org/10.1002/pds.2188</a></p>
+<p>Fong, C., Ratkovic, M., Hazlett, C., Yang, X., &amp; Imai, K. (2016). CBPS: Covariate Balancing Propensity Score. R package version 0.11. <a href="https://CRAN.R-project.org/package=CBPS" class="uri">https://CRAN.R-project.org/package=CBPS</a></p>
+<p>Hansen, B. B. (2008). The prognostic analogue of the propensity score. Biometrika, 95(2), 481-488.</p>
+<p>Ho, D. E., Imai, K., King, G., &amp; Stuart, E. A. (2007). Matching as Nonparametric Preprocessing for Reducing Model Dependence in Parametric Causal Inference. Political Analysis, 15(3), 199–236. <a href="http://doi.org/10.1093/pan/mpl013" class="uri">http://doi.org/10.1093/pan/mpl013</a></p>
+<p>Ho, D. E., Imai, K., King, G., &amp; Stuart, E. A. (2011). MatchIt: Nonparametric preprocessing for parametric causal inference. Journal of Statistical Software, 42, 1–28. Retrieved from <a href="http://www.jstatsoft.org/v42/i08/" class="uri">http://www.jstatsoft.org/v42/i08/</a></p>
+<p>Imai, K., King, G., &amp; Stuart, E. A. (2008). Misunderstandings between experimentalists and observationalists about causal inference. Journal of the royal statistical society: series A (statistics in society), 171(2), 481-502.</p>
+<p>Keller, B., &amp; Tipton, E. (2016). Propensity Score Analysis in R: A Software Review. Journal of Educational and Behavioral Statistics, 41(3), 326-348.</p>
+<p>King, G., &amp; Nielsen, R. (2016). Why propensity scores should not be used for matching. Retrieved from <a href="http://www.polmeth.wustl.edu/files/polmeth/psnot4.pdf" class="uri">http://www.polmeth.wustl.edu/files/polmeth/psnot4.pdf</a></p>
+<p>Ridgeway, G., McCaffrey, D., Morral, A., Burgette, L., &amp; Griffin, B. A. (2016). Toolkit for Weighting and Analysis of Nonequivalent Groups: A tutorial for the twang package. R Vignette. RAND. Retrieved from <a href="https://cran.r-project.org/web/packages/twang/vignettes/twang.pdf" class="uri">https://cran.r-project.org/web/packages/twang/vignettes/twang.pdf</a></p>
+<p>Rosenbaum, P. R., &amp; Rubin, D. B. (1983). The central role of the propensity score in observational studies for causal effects. Biometrika, 70(1), 41–55. <a href="http://doi.org/10.1093/biomet/70.1.41" class="uri">http://doi.org/10.1093/biomet/70.1.41</a></p>
+<p>R Core Team (2016). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL <a href="https://www.R-project.org/" class="uri">https://www.R-project.org/</a>.</p>
+<p>Rubin, D. B. (2001). Using Propensity Scores to Help Design Observational Studies: Application to the Tobacco Litigation. Health Services and Outcomes Research Methodology, 2(3-4), 169–188. <a href="http://doi.org/10.1023/A:1020363010465" class="uri">http://doi.org/10.1023/A:1020363010465</a></p>
+<p>Sekhon, J. S. (2011). Multivariate and Propensity Score Matching Software with Automated Balance Optimization: The Matching Package for R. Journal of Statistical Software, 42(7), 1-52. <a href="http://www.jstatsoft.org/v42/i07/" class="uri">http://www.jstatsoft.org/v42/i07/</a>.</p>
+<p>Stuart, E. A. (2008). Developing practical recommendations for the use of propensity scores: Discussion of “A critical appraisal of propensity score matching in the medical literature between 1996 and 2003” by Peter Austin, Statistics in Medicine. Statistics in Medicine, 27(12), 2062–2065. <a href="http://doi.org/10.1002/sim.3207" class="uri">http://doi.org/10.1002/sim.3207</a></p>
+<p>Stuart, E. A. (2010). Matching Methods for Causal Inference: A Review and a Look Forward. Statistical Science, 25(1), 1–21. <a href="http://doi.org/10.1214/09-STS313" class="uri">http://doi.org/10.1214/09-STS313</a></p>
+<p>Stuart, E. A., Lee, B. K., &amp; Leacy, F. P. (2013). Prognostic score-based balance measures can be a useful diagnostic for propensity score methods in comparative effectiveness research. Journal of Clinical Epidemiology, 66(8), S84. <a href="http://dx.doi.org/10.1016/j.jclinepi.2013.01.013" class="uri">http://dx.doi.org/10.1016/j.jclinepi.2013.01.013</a></p>
+<p>Thoemmes, F. J., &amp; Kim, E. S. (2011). A Systematic Review of Propensity Score Methods in the Social Sciences. Multivariate Behavioral Research, 46(1), 90–118. <a href="http://doi.org/10.1080/00273171.2011.540475" class="uri">http://doi.org/10.1080/00273171.2011.540475</a></p>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Unless common support is used in <code>Matching</code>, in which case the standard deviation is computed using the remaining unadjusted sample.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>Standardized mean difference use only unweighted variance estimates; see section “Variance in Standardized Mean Differences” for details.<a href="#fnref2">↩</a></p></li>
+<li id="fn3"><p>In full matching, this is not so straightforward because units are weighted; <code>cobalt</code> mimics <code>MatchIt</code> in using the simple sample size rather than the effective sample size, though the true effective sample size may differ.<a href="#fnref3">↩</a></p></li>
+</ol>
+</div>
+
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

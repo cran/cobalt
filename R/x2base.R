@@ -6,10 +6,12 @@ matchit2base <- function(m) {
               subclass=NA, 
               method=NA, 
               distance=NA, 
+              obj=NA,
               call=NA)
     #Initializing variables
     if (any(class(m)=="matchit.subclass")) {
-        X$subclass <- m$subclass 
+        m$subclass <- factor(m$subclass)
+        X$subclass <- m$subclass
         X$method <- "subclassification"
     }
     else {
@@ -23,6 +25,7 @@ matchit2base <- function(m) {
     o.data <- data.frame(m$model$model) #Just the data used in the PS, including treatment and covs
     X$covs <- o.data[, which(names(o.data) %in% attributes(terms(m$model))$term.labels)]
     #X$covs <- data.frame(m$X)
+    X$obj <- m
     
     X$call <- m$call
     return(X)
@@ -35,15 +38,20 @@ ps2base <- function(ps, full.stop.method, s.d.denom) {
               s.d.denom=NA, 
               call=NA, 
               obj=NA)
-    rule1 <- ifelse(!exists("full.stop.method", mode=c("character")), NA, match.arg(tolower(full.stop.method), apply(expand.grid(c("es", "ks"), c("mean", "max"), c("att", "ate")), 1, paste, collapse='.')))
-    
-    #Initializing variables
-    if (is.na(rule1)) s <- names(ps$w)[1]
-    else if (rule1 %in% tolower(names(ps$w))) s <- names(ps$w)[match(rule1, tolower(names(ps$w)))]
-    else {
-        warning(paste0("'", full.stop.method, "' is not the name of a stop.method in ", deparse(substitute(ps, parent.frame(1))), ". Will use first available stop.method instead."), call. = FALSE)
-        s <- names(ps$w)[1]
+
+        if (exists("full.stop.method", mode=c("character"))) {
+        rule1 <- tryCatch(match.arg(tolower(full.stop.method), tolower(names(ps$w))),
+                                    #error = function() {message(paste0("Warning: '", full.stop.method, "' is not the name of a stop.method in ", deparse(substitute(ps, parent.frame(1))), ". Will use '", names(ps$w)[1], "' instead."));
+                                    error = function(cond) {message(paste0("Warning: full.stop.method should be one of ", paste(shQuote(names(ps$w)), collapse = ", "), ".\nUsing  '", names(ps$w)[1], "' instead.")); 
+                                                                return(names(ps$w)[1])})
     }
+    else {
+        rule1 <- names(ps$w)[1]
+    }
+
+    #Initializing variables
+    s <- names(ps$w)[match(tolower(rule1), tolower(names(ps$w)))]
+
     attr(ps, "which") <- s
     X$s.d.denom <- ifelse(!exists("s.d.denom", mode=c("character")), switch(substr(tolower(s), nchar(s)-2, nchar(s)), att = "treated", ate = "pooled"), match.arg(s.d.denom, c("treated", "control", "pooled")))
     X$weights <- as.matrix(ps$w[s])
@@ -72,7 +80,7 @@ Match2base <- function(Match, formula=NULL, data=NULL, treat=NULL, covs=NULL, s.
         if (!is.null(formula) & class(formula)=="formula") good[1] <- 1
         if (!is.null(data) & is.data.frame(data)) good[2] <- 1
         if (!is.null(covs) & is.data.frame(covs)) good[3] <- 1
-        if (!is.null(treat) & is.numeric(treat)) good[4] <- 1
+        if (!is.null(treat) & length(unique(treat))==2) good[4] <- 1
         
         if (sum(good) %in% c(0, 1)) {
             stop("Either formula and data or treat and covs must be specified correctly.", call. = FALSE)}
@@ -175,7 +183,7 @@ Match2base <- function(Match, formula=NULL, data=NULL, treat=NULL, covs=NULL, s.
     X$treat <- o.data2$treat
     X$weights <- o.data2$weights
     X$distance <- NULL #NAs in distance bcause of incomplete list in Match object
-    X$covs <- o.data[, !names(o.data) %in% c("treat", "weights", "index")]
+    X$covs <- o.data2[, !names(o.data2) %in% c("treat", "weights", "index")]
     X$call <- NULL
     X$method <- "matching"
     X$obj <- list(treat=X$treat, weights=X$weights)
@@ -338,12 +346,12 @@ df2base <- function(covs, treat, data=NULL, weights=NULL, distance=NULL, subclas
     X$weights <- weights
     X$treat <- treat
     X$distance <- distance
-    X$subclass <- subclass
+    X$subclass <- factor(subclass)
     X$call <- NULL
     X$addl <- addl
     X$obj <- data.frame(treat=treat, weights=NA)
     if (!is.null(weights)) X$obj$weights <- weights
-    if (!is.null(subclass)) X$obj$subclass <- subclass
+    if (!is.null(subclass)) X$obj$subclass <- factor(subclass)
     return(X)
 }
 CBPS2base <- function(cbps.fit, estimand=NULL, s.d.denom, std.ok = FALSE) {
