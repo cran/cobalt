@@ -3,7 +3,7 @@ install.packages("cobalt")
 library("cobalt")
 
 ## ------------------------------------------------------------------------
-data(lalonde, package = "cobalt")
+data("lalonde", package = "cobalt")
 covs <- subset(lalonde, select = -c(treat, re78))
 f.build("treat", covs)
 
@@ -16,7 +16,7 @@ f.build("treat", covs)
 #  m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest")
 
 ## ---- message = FALSE----------------------------------------------------
-data(lalonde, package = "cobalt") #If not yet loaded
+data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 # Generating ATT weights as specified in Austin (2011)
@@ -75,7 +75,7 @@ bal.tab(covs0, treat = lalonde$treat, subclass = lalonde$subclass,
         method = "subclassification", disp.subclass = TRUE)
 
 ## ---- message = FALSE----------------------------------------------------
-data(lalonde, package = "cobalt")
+data("lalonde", package = "cobalt")
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 # Nearest neighbor 1:1 matching with replacement
@@ -86,7 +86,7 @@ bal.tab(m.out)
 
 ## ---- message = FALSE, warning = FALSE-----------------------------------
 library("twang")
-data(lalonde, package = "cobalt") ##If not yet loaded
+data("lalonde", package = "cobalt") ##If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 ps.out <- ps(f.build("treat", covs0), data = lalonde, stop.method = c("es.mean",
@@ -95,7 +95,7 @@ bal.tab(ps.out, full.stop.method = "es.mean.att")
 
 ## ---- message = FALSE----------------------------------------------------
 library("Matching")
-data(lalonde, package = "cobalt") #If not yet loaded
+data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 fit <- glm(f.build("treat", covs0), data = lalonde, family = "binomial")
@@ -109,7 +109,7 @@ bal.tab(match.out, formula = f.build("treat", covs0), data = lalonde)
 
 ## ---- message = FALSE----------------------------------------------------
 library("CBPS")
-data(lalonde, package = "cobalt") #If not yet loaded
+data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 #Generating covariate balancing propensity score weights for ATT
@@ -118,7 +118,7 @@ cbps.out <- CBPS(f.build("treat", covs0), data = lalonde, standardize = FALSE)
 bal.tab(cbps.out)
 
 ## ---- message = FALSE, fig.show = "hold"---------------------------------
-data(lalonde, package = "cobalt")
+data("lalonde", package = "cobalt")
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 # Generating ATT weights as specified in Austin (2011)
@@ -149,7 +149,7 @@ bal.plot(f.build("treat", covs0), data = lalonde, var.name = ".distance",
          method = "weighting", un = FALSE)
 
 ## ---- fig.width = 5------------------------------------------------------
-data(lalonde, package = "cobalt")
+data("lalonde", package = "cobalt")
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 # Nearest neighbor 1:1 matching with replacement
@@ -186,9 +186,9 @@ bal.plot(cbps.c, "re74", un = T) #Clear dependence
 bal.plot(cbps.c, "re74")         #Balance improvement
 
 ## ---- fig.show = "hold"--------------------------------------------------
-bal.plot(cbps.c, "married", un = T) #clear dependence
-bal.plot(cbps.c, "married")         #Remaining dependnece, even though numerical
-                                    #summary indicates balance
+bal.plot(cbps.c, "married", un = T) #Clear dependence
+bal.plot(cbps.c, "married")         #Remaining dependence, even though numerical
+                                    #Summary indicates balance
 
 ## ---- fig.width = 5------------------------------------------------------
 #Summarizing balance in a Love plot
