@@ -1,6 +1,6 @@
 #Think about sample sizes for clustered data. Think about subclass summaries with clustered data.
 
-bal.tab <- function(x, ...) UseMethod("bal.tab")
+bal.tab <- function(...) UseMethod("bal.tab")
 base.bal.tab <- function(object, weights, treat, distance = NULL, subclass = NULL, covs, call = NULL, int = FALSE, addl = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.subclass = FALSE, method, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
     #object: A matchit, ps, or cbps object or a data.frame of treatment and weights; for computing sample sizes. obj can have clusters within it.
     #weights: A vector of weights
@@ -504,7 +504,7 @@ base.bal.tab <- function(object, weights, treat, distance = NULL, subclass = NUL
     #attr(out, "int") <- int
     return(out)
 }
-base.bal.tab.cont <- function(object, weights, treat, distance = NULL, subclass = NULL, covs, call = NULL, int = FALSE, addl = NULL, r.threshold = NULL, un = FALSE, method = "weighting", cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
+base.bal.tab.cont <- function(object, weights, treat, distance = NULL, subclass = NULL, covs, call = NULL, int = FALSE, addl = NULL, r.threshold = NULL, un = FALSE, method, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
     #object: A list containing (at least) treatment status and weights for calculating sample sizes (currently unused)
     #weights: A vector of weights
     #treat: A vector of treatment values
@@ -545,6 +545,66 @@ base.bal.tab.cont <- function(object, weights, treat, distance = NULL, subclass 
     }
     max.imbal <- function(balance.table, col.name, thresh.col.name) {
         return(balance.table[which.max(abs(balance.table[, col.name])), match(c(col.name, thresh.col.name), names(balance.table))])
+    }
+    samplesize.cont <- function(obj, method=c("matching", "weighting", "subclassification")) {
+        #Computes sample size info. for unadjusted and adjusted samples. obj should be a cbps 
+        # object, or a data.frame containing the variables "weights" and "treat" (and optionally 
+        # "subclass") for each unit. method is what method the weights are to be used for. 
+        # method="subclassification" is for subclass sample sizes only.
+        method <- match.arg(method)
+        if (method=="matching") {
+                if (all(is.na(obj$weights))) {
+                    nn <- as.data.frame(matrix(0, ncol = 1, nrow = 1))
+                    nn[1, 1] <- length(obj$treat)
+                    dimnames(nn) <- list(c("All"), 
+                                         c("Total"))
+                }
+                else {
+                    nn <- as.data.frame(matrix(0, ncol = 1, nrow = 3))
+                    nn[1, 1] <- length(obj$treat)
+                    nn[2, 1] <- sum(obj$weights > 0)
+                    nn[3, 1] <- sum(obj$weights == 0)
+                    dimnames(nn) <- list(c("All", "Matched", "Unmatched"), 
+                                         c("Total"))
+            }
+            obs <- nn
+            attr(obs, "tag") <- "Sample sizes:"
+        }
+        else if (method == "weighting") {
+            w <- obj$weights
+            obs <- as.data.frame(matrix(c(length(w), 
+                                          (sum(w)^2)/sum(w^2)), 
+                                        ncol=1, dimnames = list(c("Unadjusted", "Adjusted"), c("Total"))))
+            attr(obs, "tag") <- "Effective sample sizes:"
+        }
+        else if (method == "subclassification") {
+            stop("Subclassification is not yet surpported with continuous treatments.", call. = FALSE)
+            # if (is.null(obj$subclass)) stop("obj must contain a vector of subclasses called \"subclass\".")
+            # qbins <- length(levels(obj$subclass))
+            # 
+            # nn <- as.data.frame(matrix(0, 3, qbins))
+            # 
+            # dimnames(nn) <- list(c("Control", "Treated", "Total"), 
+            #                      paste("Subclass", levels(obj$subclass)))
+            # 
+            # matched <- obj$weights!=0
+            # k <- 0
+            # for (i in levels(obj$subclass)) {
+            #     qi <- obj$subclass[matched]==i & (!is.na(obj$subclass[matched]))
+            #     qt <- obj$treat[matched][qi]
+            #     if (sum(qt==1)<2|(sum(qt==0)<2)){
+            #         if (sum(qt==1)<2)
+            #             warning("Not enough treatment units in subclass ", i, call. = FALSE)
+            #         else if (sum(qt==0)<2)
+            #             warning("Not enough control units in subclass ", i, call. = FALSE)
+            #     }
+            #     k <- k + 1
+            #     nn[, k] <- c(sum(qt==0), sum(qt==1), length(qt))
+            # }
+            # obs <- nn
+            # attr(obs, "tag") <- "Sample sizes by subclass:"
+        }
+        return(obs)
     }
     balance.table.cont <- function(C, weights, treat, r.threshold = NULL, un = FALSE, no.adj = FALSE, types = NULL, quick = FALSE) {
         #C=frame of variables, including distance; distance name (if any) stores in attr(C, "distance.name")
@@ -623,57 +683,70 @@ base.bal.tab.cont <- function(object, weights, treat, distance = NULL, subclass 
         C.list <- structure(lapply(levels(cluster), function(x) C[cluster == x, ]), names = levels(cluster))
         types <- get.types(C)
         
-        out[["Cluster.Balance"]] <- lapply(levels(cluster), function(i) balance.table.cont(C = C.list[[i]], weights = weights[cluster == i], treat = treat[cluster == i], r.threshold = r.threshold, un = un, no.adj = no.adj, types = types, quick = quick))
-        names(out[["Cluster.Balance"]]) <- levels(cluster)
-        
-        if (!(!cluster.summary && quick)) out[["Cluster.Summary"]] <- balance.table.cont.cluster.summary(balance.table.clusters.list = out[["Cluster.Balance"]], 
-                                                                       r.threshold = r.threshold, 
-                                                                       cluster.summary = cluster.summary,
-                                                                       no.adj = no.adj, types = types,
-                                                                       quick = quick)
-        out <- out[!names(out) %in% "Cluster.Balance.Across.Subclass"]
-        class(out) <- c("bal.tab.cont.cluster", "bal.cont.tab", "bal.tab.cluster", "bal.tab")
-        
-        out[["call"]] <- call
-        out[["print.options"]] <- list(r.threshold=r.threshold, 
-                                       un=un, 
-                                       disp.adj=!no.adj, 
-                                       which.cluster=which.cluster,
-                                       cluster.summary=cluster.summary,
-                                       quick = quick)
-        class(out) <- c("bal.tab.cont.cluster", "bal.tab.cluster", "bal.tab.cont", "bal.tab")
+        if (method == "subclassification") {
+            stop("Subclassification with clusters is not supported.", call. = FALSE)
+            #class(out) <- c("bal.tab.cluster", "bal.tab.subclass", "bal.tab") #add more for subclasses
+        }
+        else {
+            out[["Cluster.Balance"]] <- lapply(levels(cluster), function(i) balance.table.cont(C = C.list[[i]], weights = weights[cluster == i], treat = treat[cluster == i], r.threshold = r.threshold, un = un, no.adj = no.adj, types = types, quick = quick))
+            names(out[["Cluster.Balance"]]) <- levels(cluster)
+            
+            if (!(!cluster.summary && quick)) {
+                out[["Cluster.Summary"]] <- balance.table.cont.cluster.summary(balance.table.clusters.list = out[["Cluster.Balance"]], 
+                                                                                                             r.threshold = r.threshold, 
+                                                                                                             cluster.summary = cluster.summary,
+                                                                                                             no.adj = no.adj, types = types,
+                                                                                                             quick = quick)
+            }
+            out <- out[!names(out) %in% "Cluster.Balance.Across.Subclass"]
+            class(out) <- c("bal.tab.cont.cluster", "bal.cont.tab", "bal.tab.cluster", "bal.tab")
+            
+            out[["call"]] <- call
+            out[["print.options"]] <- list(r.threshold=r.threshold, 
+                                           un=un, 
+                                           disp.adj=!no.adj, 
+                                           which.cluster=which.cluster,
+                                           cluster.summary=cluster.summary,
+                                           quick = quick)
+            class(out) <- c("bal.tab.cont.cluster", "bal.tab.cluster", "bal.tab.cont", "bal.tab")
+        }
     }
     else {
-        out.names <- c("Balance", "Balanced.Corr", 
-                       "Max.Imbalance.Corr", 
-                       "Observations", 
-                       "call", "print.options")
-        out <- vector("list", length(out.names))
-        names(out) <- out.names
-        
-        C <- get.C(covs = covs, int = int, addl = addl, distance = distance, cluster = cluster)
-        
-        out[["Balance"]] <- balance.table.cont(C, weights, treat, r.threshold, un = un, no.adj = no.adj, quick = quick)
-        if (!is.null(r.threshold)) {
-            r.threshcheck <- ifelse(no.adj, "Corr.Un", "Corr.Adj")
-            out[["Balanced.Corr"]] <- baltal(out[["Balance"]][, "R.Threshold"])
-            out[["Max.Imbalance.Corr"]] <- max.imbal(out[["Balance"]][out[["Balance"]][,"Type"]!="Distance", ], r.threshcheck, "R.Threshold")
+        if (method %in% "subclassification") {
+            stop("Subclassification not yet supported with continuous treatments.", call. = FALSE)
         }
-        if (all(is.na(out[["Balance"]][,"Corr.Un"]))) {r.threshold <- NULL}
-        #out$Observations <- samplesize(object, method=method)
-        out[["call"]] <- call
-        out[["print.options"]] <- list(r.threshold=r.threshold, 
-                                       un=un, 
-                                       disp.adj=!no.adj,
-                                       quick = quick)
-        class(out) <- c("bal.tab.cont", "bal.tab")
+        else {
+            out.names <- c("Balance", "Balanced.Corr", 
+                           "Max.Imbalance.Corr", 
+                           "Observations", 
+                           "call", "print.options")
+            out <- vector("list", length(out.names))
+            names(out) <- out.names
+            
+            C <- get.C(covs = covs, int = int, addl = addl, distance = distance, cluster = cluster)
+            
+            out[["Balance"]] <- balance.table.cont(C, weights, treat, r.threshold, un = un, no.adj = no.adj, quick = quick)
+            if (!is.null(r.threshold)) {
+                r.threshcheck <- ifelse(no.adj, "Corr.Un", "Corr.Adj")
+                out[["Balanced.Corr"]] <- baltal(out[["Balance"]][, "R.Threshold"])
+                out[["Max.Imbalance.Corr"]] <- max.imbal(out[["Balance"]][out[["Balance"]][,"Type"]!="Distance", ], r.threshcheck, "R.Threshold")
+            }
+            if (all(is.na(out[["Balance"]][,"Corr.Un"]))) {r.threshold <- NULL}
+            out[["Observations"]] <- samplesize.cont(object, method = method)
+            out[["call"]] <- call
+            out[["print.options"]] <- list(r.threshold=r.threshold, 
+                                           un=un, 
+                                           disp.adj=!no.adj,
+                                           quick = quick)
+            class(out) <- c("bal.tab.cont", "bal.tab")
+        }
     }
     
     attr(out, "int") <- int
     return(out)
 }
 
-bal.tab.matchit <- function(x, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom = c("treated", "control", "pooled"), m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.subclass = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
+bal.tab.matchit <- function(m, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom = c("treated", "control", "pooled"), m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.subclass = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -690,13 +763,12 @@ bal.tab.matchit <- function(x, int = FALSE, addl = NULL, continuous = c("std", "
     }
     
     #Initializing variables
-    X <- x2base(x, cluster = cluster)
+    X <- x2base(m, cluster = cluster)
     
     out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, subclass=X$subclass, covs=X$covs, call=X$call, int=int, addl=addl, continuous=continuous, binary=binary, s.d.denom=s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, disp.subclass=disp.subclass, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
     return(out)
 }
-bal.tab.ps <- function(x, full.stop.method, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
-    #ps = ps object from twang
+bal.tab.ps <- function(ps, full.stop.method, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
     #full.stop.method = stopping rule/estimand from twang, e.g. "es.mean.att"; code to use first if none or incorrect is requested
     args <- as.list(environment())[-1]
     #Adjustments to arguments
@@ -711,9 +783,8 @@ bal.tab.ps <- function(x, full.stop.method, int = FALSE, addl = NULL, continuous
         }
     }
     
-    
     #Initializing variables
-    X <- x2base(x, 
+    X <- x2base(ps, 
                 full.stop.method = full.stop.method, 
                 s.d.denom = s.d.denom, 
                 cluster = cluster)
@@ -721,7 +792,7 @@ bal.tab.ps <- function(x, full.stop.method, int = FALSE, addl = NULL, continuous
     out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, covs=X$covs, call=X$call, int=int, addl=addl, continuous=continuous, binary=binary, s.d.denom=X$s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, method="weighting", cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
     return(out)
 }
-bal.tab.Match <- function(x, formula = NULL, data = NULL, treat = NULL, covs = NULL, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
+bal.tab.Match <- function(M, formula = NULL, data = NULL, treat = NULL, covs = NULL, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -738,7 +809,7 @@ bal.tab.Match <- function(x, formula = NULL, data = NULL, treat = NULL, covs = N
     }
     
     #Initializing variables
-    X <- x2base(x, 
+    X <- x2base(M, 
                 formula = formula,
                 data = data, 
                 treat = treat,
@@ -748,7 +819,7 @@ bal.tab.Match <- function(x, formula = NULL, data = NULL, treat = NULL, covs = N
     out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, covs=X$covs, call=X$call, int=int, addl=addl, continuous=continuous, binary=binary, s.d.denom=X$s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
     return(out)
 }
-bal.tab.formula <- function(formula, data, weights = NULL, distance = NULL, subclass = NULL, method, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom = c("treated", "pooled", "control"), m.threshold = NULL, v.threshold = NULL, r.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.subclass = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
+bal.tab.formula <- function(formula, data, weights = NULL, distance = NULL, subclass = NULL, method, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, r.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.subclass = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, estimand = NULL, quick = FALSE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     if (is.null(subclass)) disp.subclass <- FALSE
@@ -771,8 +842,10 @@ bal.tab.formula <- function(formula, data, weights = NULL, distance = NULL, subc
                 distance = distance,
                 subclass = subclass,
                 addl = addl,
+                s.d.denom = s.d.denom,
                 method = method,
-                cluster = cluster)
+                cluster = cluster,
+                estimand = estimand)
     
     if (length(unique(X$treat)) > 2 && is.numeric(X$treat)) {
         out <- base.bal.tab.cont(object=X$obj, weights=X$weights, treat = X$treat, distance = X$distance, covs=X$covs, call=X$call, int=int, addl = addl, r.threshold = r.threshold, un = un, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
@@ -780,10 +853,10 @@ bal.tab.formula <- function(formula, data, weights = NULL, distance = NULL, subc
     else if (length(unique(X$treat)) > 2 && (is.factor(X$treat) || is.character(X$treat))) {
         stop("Multinomial treaments are not yet supported.", call. = FALSE)
     }
-    else out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, subclass=X$subclass, covs=X$covs, call=X$call, int=int, addl=X$addl, continuous=continuous, binary=binary, s.d.denom=s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, disp.subclass=disp.subclass, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
+    else out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, subclass=X$subclass, covs=X$covs, call=X$call, int=int, addl=X$addl, continuous=continuous, binary=binary, s.d.denom=X$s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, disp.subclass=disp.subclass, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
     return(out)
 }
-bal.tab.data.frame <- function(x, treat, data = NULL, weights = NULL, distance = NULL, subclass = NULL, method, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom = c("treated", "pooled", "control"), m.threshold = NULL, v.threshold = NULL, r.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.subclass = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
+bal.tab.data.frame <- function(covs, treat, data = NULL, weights = NULL, distance = NULL, subclass = NULL, method, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, r.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.subclass = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, estimand = NULL, quick = FALSE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -801,15 +874,17 @@ bal.tab.data.frame <- function(x, treat, data = NULL, weights = NULL, distance =
         }
     }
     
-    X <- x2base(x,
+    X <- x2base(covs,
                 treat = treat,
                 data = data,
                 weights = weights,
                 distance = distance,
                 subclass = subclass,
                 addl = addl,
+                s.d.denom = s.d.denom,
                 method = method,
-                cluster = cluster)
+                cluster = cluster,
+                estimand = estimand)
     
     if (length(unique(X$treat)) > 2 && is.numeric(X$treat)) {
         out <- base.bal.tab.cont(object=X$obj, weights=X$weights, treat = X$treat, distance = X$distance, covs=X$covs, call=X$call, int=int, addl = addl, r.threshold = r.threshold, un = un, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
@@ -817,10 +892,10 @@ bal.tab.data.frame <- function(x, treat, data = NULL, weights = NULL, distance =
     else if (length(unique(X$treat)) > 2 && (is.factor(X$treat) || is.character(X$treat))) {
         stop("Multinomial treaments are not yet supported.", call. = FALSE)
     }
-    else out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, subclass=X$subclass, covs=X$covs, call=X$call, int=int, addl=X$addl, continuous=continuous, binary=binary, s.d.denom=s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, disp.subclass=disp.subclass, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
+    else out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, subclass=X$subclass, covs=X$covs, call=X$call, int=int, addl=X$addl, continuous=continuous, binary=binary, s.d.denom=X$s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, disp.subclass=disp.subclass, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
     return(out)
 }
-bal.tab.CBPS <- function(x, estimand, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, r.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
+bal.tab.CBPS <- function(cbps, estimand, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom, m.threshold = NULL, v.threshold = NULL, r.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
     args <- c(as.list(environment()), list(...))[-1]
     
     #Adjustments to arguments
@@ -836,16 +911,42 @@ bal.tab.CBPS <- function(x, estimand, int = FALSE, addl = NULL, continuous = c("
     }
     
     #Initializing variables
-    X <- x2base(x, 
+    X <- x2base(cbps, 
                 estimand = estimand, 
                 s.d.denom = s.d.denom,
                 cluster = cluster)
-    if (any(class(x) == "CBPSContinuous")) {
+    if (any(class(cbps) == "CBPSContinuous")) {
         out <- base.bal.tab.cont(object=X$obj, weights=X$weights, treat = X$treat, distance = X$distance, covs=X$covs, call=X$call, int=int, addl = addl, r.threshold = r.threshold, un = un, method = "weighting", cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
     }
     else if (nlevels(as.factor(X$treat)) > 2) {
         stop("Multinomial treaments are not yet supported.", call. = FALSE)
     }
     else out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, covs=X$covs, call=X$call, int=int, addl=addl, continuous=continuous, binary=binary, s.d.denom=X$s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, method="weighting", cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
+    return(out)
+}
+bal.tab.ebalance <- function(ebal, formula = NULL, data = NULL, treat = NULL, covs = NULL, int = FALSE, addl = NULL, continuous = c("std", "raw"), binary = c("raw", "std"), s.d.denom = c("treated", "control", "pooled"), m.threshold = NULL, v.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, quick = FALSE, ...) {
+    
+    args <- c(as.list(environment()), list(...))[-1]
+    
+    #Adjustments to arguments
+    args.with.choices <- names(formals()[-1])[sapply(formals()[-c(1, length(formals()))], function(x) length(x)>1)]
+    for (i in seq_along(args.with.choices)) assign(args.with.choices[i], eval(parse(text=paste0("match.arg(", args.with.choices[i], ")"))))
+    
+    if (any(sapply(formals()[-c(1, length(formals()))], function(x) identical(as.character(x), "")))) {
+        for (arg.name in names(args)[sapply(formals()[-c(1, length(formals()))], function(x) identical(as.character(x), ""))]) {
+            if (identical(as.character(args[arg.name]), "")) {
+                assign(arg.name, NULL)
+            }
+        }
+    }
+    
+    #Initializing variables
+    X <- x2base(ebal, 
+                formula = formula,
+                data = data, 
+                treat = treat,
+                covs = covs,
+                cluster = cluster)
+    out <- base.bal.tab(object=X$obj, weights=X$weights, treat=X$treat, distance=X$distance, covs=X$covs, call=X$call, int=int, addl=addl, continuous=continuous, binary=binary, s.d.denom=s.d.denom, m.threshold=m.threshold, v.threshold=v.threshold, un=un, disp.means=disp.means, disp.v.ratio=disp.v.ratio, method=X$method, cluster = X$cluster, which.cluster = which.cluster, cluster.summary = cluster.summary, quick = quick)
     return(out)
 }

@@ -1,4 +1,7 @@
-## ---- message = FALSE, eval = 2------------------------------------------
+## ---- include = FALSE----------------------------------------------------
+knitr::opts_chunk$set(message = FALSE)
+
+## ---- eval = 2-----------------------------------------------------------
 install.packages("cobalt")
 library("cobalt")
 
@@ -15,7 +18,7 @@ f.build("treat", covs)
 #  library("MatchIt")
 #  m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest")
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
@@ -28,25 +31,25 @@ bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights,
         method = "weighting")
 
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
         distance = "p.score", method = "weighting")
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
         binary = "std", continuous = "std")
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 # Balance on all covariates in data set, including interactions and squares
 bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
         addl = lalonde[,c("nodegree", "married")], int = TRUE)
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 # Balance tables with variance ratios and statistics for the unadjusted sample
 bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
         disp.v.ratio = TRUE, un = TRUE)
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 # Balance tables with thresholds for mean differences and variance ratios
 bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
         m.threshold = .1, v.threshold = 2)
@@ -69,12 +72,13 @@ bal.tab(covs.clust, treat = lalonde$treat, weights = lalonde$att.weights.clust,
 # Subclassification for ATT with 6 subclasses
 lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde, family = "binomial")$fitted.values
 lalonde$subclass <- findInterval(lalonde$p.score, 
-                                 quantile(lalonde$p.score[lalonde$treat==1], (0:6)/6), all.inside = T)
+                                 quantile(lalonde$p.score[lalonde$treat==1], 
+                                          (0:6)/6), all.inside = T)
 
 bal.tab(covs0, treat = lalonde$treat, subclass = lalonde$subclass, 
         method = "subclassification", disp.subclass = TRUE)
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
@@ -84,16 +88,16 @@ m.out <- matchit(f.build("treat", covs0), data = lalonde, method = "nearest", re
 
 bal.tab(m.out)
 
-## ---- message = FALSE, warning = FALSE-----------------------------------
+## ---- warning = FALSE----------------------------------------------------
 library("twang")
 data("lalonde", package = "cobalt") ##If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
-ps.out <- ps(f.build("treat", covs0), data = lalonde, stop.method = c("es.mean",
-             "es.max"), estimand = "ATT", n.trees = 1000, verbose = FALSE)
+ps.out <- ps(f.build("treat", covs0), data = lalonde, stop.method = c("es.mean"), 
+             estimand = "ATT", n.trees = 1000, verbose = FALSE)
 bal.tab(ps.out, full.stop.method = "es.mean.att")
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 library("Matching")
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
@@ -107,7 +111,7 @@ bal.tab(match.out, formula = f.build("treat", covs0), data = lalonde)
 ## ---- eval = FALSE-------------------------------------------------------
 #  bal.tab(match.out, treat = lalonde$treat, covs = covs0)
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 library("CBPS")
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
@@ -117,7 +121,17 @@ cbps.out <- CBPS(f.build("treat", covs0), data = lalonde, standardize = FALSE)
 
 bal.tab(cbps.out)
 
-## ---- message = FALSE, fig.show = "hold"---------------------------------
+## ------------------------------------------------------------------------
+library("ebal")
+data("lalonde", package = "cobalt") #If not yet loaded
+covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+
+#Generating entorpy balancing weights
+e.out <- ebalance(lalonde$treat, covs0)
+
+bal.tab(e.out, treat = lalonde$treat, covs = covs0)
+
+## ---- fig.show = "hold"--------------------------------------------------
 data("lalonde", package = "cobalt")
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
@@ -131,7 +145,7 @@ bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "
 bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting",
          var.name = "black")
 
-## ---- message = FALSE----------------------------------------------------
+## ------------------------------------------------------------------------
 library("ggplot2")
 bp <- bal.plot(m.out, "age")
 bp + theme_bw() + scale_fill_manual( values = c("black","white")) + 
@@ -203,7 +217,7 @@ lalonde$prog.score <- predict(ctrl.fit, lalonde)
 
 bal.tab(m.out, addl = data.frame(prog.score = lalonde$prog.score))
 
-## ---- echo = FALSE, message = FALSE, fig.show = 'hold', fig.width = 5----
+## ---- echo = FALSE, fig.show = 'hold', fig.width = 5---------------------
 plot(ps.out, plots = "es", subset = 1)
 love.plot(bal.tab(ps.out, full.stop.method = "es.max.att"), threshold = .1,
           abs = TRUE, var.order = "u")

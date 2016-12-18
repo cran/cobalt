@@ -8,28 +8,29 @@ Balance Statistics for Data Sets
 Generates balance statistics for unadjusted, matched, weighted, or stratified data using either a data frame or formula interface.
 }
 \usage{
-\method{bal.tab}{data.frame}(x, treat, data = NULL, weights = NULL, 
+\method{bal.tab}{data.frame}(covs, treat, data = NULL, weights = NULL, 
         distance = NULL, subclass = NULL, method, int = FALSE,
         addl = NULL, continuous = c("std", "raw"), 
-        binary = c("raw","std"), s.d.denom = c("treated", 
-        "pooled", "control"), m.threshold = NULL, 
-        v.threshold = NULL, r.threshold = NULL, un = FALSE,  disp.means = FALSE, 
-        disp.v.ratio = FALSE, disp.subclass = FALSE,
-        cluster = NULL, which.cluster = NULL, cluster.summary = TRUE, 
-        quick = FALSE, ...)
+        binary = c("raw","std"), s.d.denom, m.threshold = NULL, 
+        v.threshold = NULL, r.threshold = NULL, un = FALSE, 
+        disp.means = FALSE, disp.v.ratio = FALSE, 
+        disp.subclass = FALSE, cluster = NULL, 
+        which.cluster = NULL, cluster.summary = TRUE, 
+        estimand = NULL, quick = FALSE, ...)
 
 \method{bal.tab}{formula}(formula, data, weights = NULL, distance = NULL, 
         subclass = NULL, method, int = FALSE, addl = NULL, 
         continuous = c("std", "raw"), binary = c("raw", "std"),
-        s.d.denom = c("treated", "pooled", "control"), 
-        m.threshold = NULL, v.threshold = NULL, r.threshold = NULL, un = FALSE, 
-        disp.means = FALSE, disp.v.ratio = FALSE, 
-        disp.subclass = FALSE, cluster = NULL, which.cluster = NULL, 
-        cluster.summary = TRUE, quick = FALSE, ...)
+        s.d.denom, m.threshold = NULL, v.threshold = NULL, 
+        r.threshold = NULL, un = FALSE, disp.means = FALSE, 
+        disp.v.ratio = FALSE, disp.subclass = FALSE, 
+        cluster = NULL, which.cluster = NULL, 
+        cluster.summary = TRUE, estimand = NULL, quick = FALSE, 
+        ...)
 }
 
 \arguments{
-  \item{x}{
+  \item{covs}{
 A data frame containing covariate values for each unit.
 }
   \item{treat}{
@@ -68,7 +69,7 @@ Whether mean differences for continuous variables should be standardized ("std")
 Whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw").  Default "raw".  Abbreviations allowed.
 }
   \item{s.d.denom}{
-Whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), or the pooled standard deviation ("pooled"), computed as the square root of the mean of the group variances.  Abbreviations allowed.  The default is \code{"treated"}.
+Whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), or the pooled standard deviation ("pooled"), computed as the square root of the mean of the group variances.  Abbreviations allowed.  If weights are supplied, \code{bal.tab()} will try to determine whether the ATT, ATC, or ATE is being estimated based on the pattern of weights and supply \code{s.d.denom} accordingly. If matching or subclassification are used, the default is \code{"treated"}; if weighting is used, the default is \code{"pooled"}. If left blank, \code{bal.tab()} will try to use the \code{estimand} argument.
 }
   \item{m.threshold}{
 A numeric value for the threshold for mean differences.  .1 is recommended.  
@@ -99,6 +100,9 @@ which cluster(s) to display. If \code{NULL}, all clusters in \code{cluster} will
 }
   \item{cluster.summary}{
 \code{logical}; whether to display the cluster summary table if \code{cluster} is specified. If \code{which.cluster} is \code{NA}, \code{cluster.summary} will be set to \code{TRUE}.
+}
+  \item{estimand}{
+\code{character}; whether the desired estimand is the "ATT", "ATC", or "ATE." This argument can be used in place of \code{s.d.denom} to specify how standardized differences are calculated.
 }
   \item{quick}{
 \code{logical}; if \code{TRUE}, will not compute any values that will not be displayed. Leave \code{FALSE} if computed values not displayed will be used later.
@@ -176,16 +180,16 @@ Noah Greifer \email{noah@unc.edu}
 }
 \examples{
 data("lalonde", package = "cobalt")
-
-## Propensity score weighting using IPTW
 glm1 <- glm(treat ~ age + educ + black + hispan, data = lalonde, 
             family = "binomial")
 lalonde$distance <- glm1$fitted.values
+covariates <- subset(lalonde, 
+                     select = c(age, educ, black, hispan))
+                     
+## Propensity score weighting using IPTW
 lalonde$iptw.weights <- ifelse(lalonde$treat==1, 
                                1/lalonde$distance, 
                                1/(1-lalonde$distance))
-covariates <- subset(lalonde, 
-                     select = c(age, educ, black, hispan))
 
 # data frame interface:
 bal.tab(covariates, treat = "treat", data = lalonde, 
@@ -196,5 +200,20 @@ bal.tab(covariates, treat = "treat", data = lalonde,
 bal.tab(treat ~ age + educ + black + hispan, data = lalonde, 
       weights = "iptw.weights", method = "weighting", 
       s.d.denom = "pooled")
+      
+## Propensity score subclassification
+lalonde$subclass <- findInterval(lalonde$distance, 
+                        quantile(lalonde$distance[lalonde$treat==1], 
+                        (0:6)/6), all.inside = TRUE)
+
+# data frame interface:
+bal.tab(covariates, treat = "treat", data = lalonde, 
+      subclass = "subclass", method = "subclassification", 
+      disp.subclass = TRUE)
+
+# Formula interface:
+bal.tab(treat ~ age + educ + black + hispan, data = lalonde, 
+      subclass = "subclass", method = "subclassification", 
+      disp.subclass = TRUE)
 }
 \keyword{design}
