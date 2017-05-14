@@ -8,14 +8,14 @@ Generates balance statistics for \code{ebalance} objects from \pkg{ebal}.
 }
 \usage{
 \method{bal.tab}{ebalance}(ebal, formula = NULL, data = NULL, treat = NULL, 
-            covs = NULL, int = FALSE, addl = NULL, 
-            continuous = c("std","raw"), binary = c("raw",
-            "std"), s.d.denom = c("treated", "control", 
-            "pooled"), m.threshold = NULL, 
-            v.threshold = NULL, un = FALSE, 
-            disp.means = FALSE, disp.v.ratio = FALSE, 
-            cluster = NULL, which.cluster = NULL, 
-            cluster.summary = TRUE, quick = FALSE, ...)
+    covs = NULL, int = FALSE, distance = NULL, 
+    addl = NULL, continuous = c("std","raw"), 
+    binary = c("raw", "std"), s.d.denom = c("treated", 
+    "control", "pooled"), m.threshold = NULL, 
+    v.threshold = NULL, un = FALSE, disp.means = FALSE, 
+    disp.v.ratio = FALSE, cluster = NULL, 
+    which.cluster = NULL, cluster.summary = TRUE, 
+    quick = FALSE, ...)
 }
 
 \arguments{
@@ -36,6 +36,9 @@ a data frame of covariate values for which to check balance. See Details.
 }
   \item{int}{
 \code{logical}; whether or not to include 2-way interactions of covariates included in \code{formula} or \code{covs} and in \code{addl}.
+}
+  \item{distance}{
+Optional; either a vector or data.frame containing distance values (e.g., propensity scores) for each unit or a string containing the name of the distance variable in \code{data}.
 }
   \item{addl}{
 a data frame of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in \code{formula} or \code{covs}. In general, it makes more sense to include all desired variables in \code{formula} or \code{covs} than in \code{addl}. See note in Details for using \code{addl}.
@@ -65,7 +68,7 @@ a numeric value for the threshold for variance ratios. Will automatically conver
 \code{logical}; whether to display variance ratios in balance output.
 }
   \item{cluster}{
-a vector of cluster membership.
+either a vector containing cluster membserhip for each unit or a string containing the name of the cluster membership variable in \code{data}. 
 }
   \item{which.cluster}{
 which cluster(s) to display. If \code{NULL}, all clusters in \code{cluster} will be displayed. If \code{NA}, no clusters will be displayed. Otherwise, can be a vector of cluster names or numerical indices for which to display balance. Indices correspond to the alphabetical order of cluster names. 
@@ -81,13 +84,13 @@ further arguments passed to or from other methods. They are ignored in this func
 }
 }
 \details{
-\code{bal.tab.ebalance()} generates a list of balance summaries for the ebalance object given.
+\code{bal.tab.ebalance()} generates a list of balance summaries for the \code{ebalance} object given.
 
 The input to \code{bal.tab.ebalance()} must include either both \code{formula} and \code{data} or both \code{treat} and \code{covs}. 
 
-The last four arguments of \code{bal.tab()} affect display only; they are passed directly to \code{print.bal.tab} or \code{print.bal.tab.subclass}, and do not affect any calculations or the contents of the \code{bal.tab} object. All balance statistics are calculated whether they are displayed by print or not. The threshold values (\code{m.threshold} and \code{v.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
+All balance statistics are calculated whether they are displayed by print or not, unless \code{quick = TRUE}. The threshold values (\code{m.threshold} and \code{v.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
 
-The input to \code{addl} must be a data frame; if more than one variable is included, this is straightforward (i.e., because \code{data[,c("v1", "v2")]} is already a data frame), but if only one variable is used (e.g., \code{data[,"v1"]}), R will coerce it to a vector, thus making it unfit for input in \code{addl}. To avoid this, simply wrap the input to \code{addl} in \code{data.frame()} or use \code{subset()} if only one variable is to be added. Again, when more than one variable is included, the input is general already a data frame and nothing needs to be done. It is recommended to include all desired variables in \code{formula} or \code{covs} rather than specifying additional variables using \code{addl}.
+The inputs (if any) to \code{covs} must be a data frame; if more than one variable is included, this is straightforward (i.e., because \code{data[,c("v1", "v2")]} is already a data frame), but if only one variable is used (e.g., \code{data[,"v1"]}), R will coerce it to a vector, thus making it unfit for input. To avoid this, simply wrap the input to \code{covs} in \code{data.frame()} or use \code{subset()} if only one variable is to be added. Again, when more than one variable is included, the input is general already a data frame and nothing needs to be done.
 }
 \value{
 If clusters are not specified, an object of class \code{"bal.tab"} containing balance summaries for the \code{ebalance} object. The following are the elements of \code{bal.tab}:
@@ -126,11 +129,11 @@ Noah Greifer \email{noah@unc.edu}
 \examples{
 library("ebal"); data("lalonde", package = "cobalt")
 
-covariates <- subset(lalonde, select = -c(re78, treat))
+covariates <- subset(lalonde, select = -c(re78, treat, race))
 e.out <- ebalance(lalonde$treat, covariates)
 
 ## Using formula and data
-bal.tab(e.out, treat ~ age + educ + black + hispan + 
+bal.tab(e.out, treat ~ age + educ + race + 
         married + nodegree + re74 + re75, data = lalonde)
 
 ## Using treat and covs

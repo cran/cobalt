@@ -2,7 +2,7 @@
 knitr::opts_chunk$set(message = FALSE)
 
 ## ---- eval = 2-----------------------------------------------------------
-install.packages("cobalt")
+#install.packages("cobalt")
 library("cobalt")
 
 ## ------------------------------------------------------------------------
@@ -36,46 +36,35 @@ bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
         distance = "p.score", method = "weighting")
 
 ## ------------------------------------------------------------------------
-bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
-        binary = "std", continuous = "std")
+bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+        method = "weighting", binary = "std", continuous = "std")
 
 ## ------------------------------------------------------------------------
 # Balance on all covariates in data set, including interactions and squares
-bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
-        addl = lalonde[,c("nodegree", "married")], int = TRUE)
+bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+        method = "weighting", addl = c("nodegree", "married"), int = TRUE)
 
 ## ------------------------------------------------------------------------
 # Balance tables with variance ratios and statistics for the unadjusted sample
-bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
-        disp.v.ratio = TRUE, un = TRUE)
+bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+        method = "weighting", disp.v.ratio = TRUE, un = TRUE)
 
 ## ------------------------------------------------------------------------
 # Balance tables with thresholds for mean differences and variance ratios
-bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting", 
-        m.threshold = .1, v.threshold = 2)
-
-## ------------------------------------------------------------------------
-#Create cluster variable "zone"
-lalonde$zone <- sample(LETTERS[1:5], nrow(lalonde), replace = TRUE)
-covs.clust <- data.frame(covs0, zone = lalonde$zone)
-
-#Generating ATT weights with zones as model fixed effects
-lalonde$p.score.clust <- glm(f.build("treat", covs.clust), data = lalonde, 
-                             family = "binomial")$fitted.values
-lalonde$att.weights.clust <- with(lalonde, treat + (1-treat)*p.score.clust/(1-p.score.clust))
-
-bal.tab(covs.clust, treat = lalonde$treat, weights = lalonde$att.weights.clust, 
-        method = "weighting", cluster = lalonde$zone, which.cluster = c("A", "B"), 
-        cluster.summary = TRUE)
+bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+        method = "weighting", m.threshold = .1, v.threshold = 2)
 
 ## ------------------------------------------------------------------------
 # Subclassification for ATT with 6 subclasses
-lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde, family = "binomial")$fitted.values
+lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde, 
+                       family = "binomial")$fitted.values
+nsub <- 6 #number of subclasses
 lalonde$subclass <- findInterval(lalonde$p.score, 
-                                 quantile(lalonde$p.score[lalonde$treat==1], 
-                                          (0:6)/6), all.inside = T)
+                                 quantile(lalonde$p.score[lalonde$treat == 1], 
+                                          seq(0, 1, length.out = nsub + 1)), 
+                                 all.inside = T)
 
-bal.tab(covs0, treat = lalonde$treat, subclass = lalonde$subclass, 
+bal.tab(f.build("treat", covs0), data = lalonde, subclass = "subclass", 
         method = "subclassification", disp.subclass = TRUE)
 
 ## ------------------------------------------------------------------------
@@ -93,7 +82,8 @@ library("twang")
 data("lalonde", package = "cobalt") ##If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
-ps.out <- ps(f.build("treat", covs0), data = lalonde, stop.method = c("es.mean"), 
+ps.out <- ps(f.build("treat", covs0), data = lalonde, 
+             stop.method = c("es.mean", "es.max"), 
              estimand = "ATT", n.trees = 1000, verbose = FALSE)
 bal.tab(ps.out, full.stop.method = "es.mean.att")
 
@@ -112,19 +102,31 @@ bal.tab(match.out, formula = f.build("treat", covs0), data = lalonde)
 #  bal.tab(match.out, treat = lalonde$treat, covs = covs0)
 
 ## ------------------------------------------------------------------------
+#Optimal full matching on the propensity score
+library("optmatch")
+data("lalonde", package = "cobalt") #If not yet loaded
+covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+
+fit <- glm(f.build("treat", covs0), data = lalonde, family = "binomial")
+lalonde$p.score <- fit$fitted.values #get the propensity score
+fm <- fullmatch(treat ~ p.score, data = lalonde)
+
+bal.tab(fm, formula = f.build("treat", covs0), data = lalonde)
+
+## ------------------------------------------------------------------------
 library("CBPS")
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 #Generating covariate balancing propensity score weights for ATT
-cbps.out <- CBPS(f.build("treat", covs0), data = lalonde, standardize = FALSE)
+cbps.out <- CBPS(f.build("treat", covs0), data = lalonde)
 
 bal.tab(cbps.out)
 
 ## ------------------------------------------------------------------------
 library("ebal")
 data("lalonde", package = "cobalt") #If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+covs0 <- subset(lalonde, select = -c(treat, re78, race))
 
 #Generating entorpy balancing weights
 e.out <- ebalance(lalonde$treat, covs0)
@@ -141,54 +143,49 @@ lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde,
 lalonde$att.weights <- with(lalonde, treat + (1-treat)*p.score/(1-p.score))
 
 bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting",
-         var.name = "age")
+         estimand = "ATT", var.name = "age")
 bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting",
-         var.name = "black")
-
-## ------------------------------------------------------------------------
-library("ggplot2")
-bp <- bal.plot(m.out, "age")
-bp + theme_bw() + scale_fill_manual( values = c("black","white")) + 
-    labs(title = "Distributional Balance for Age", x = "Age")
+         estimand = "ATT", var.name = "race")
 
 ## ---- fig.show = "hold"--------------------------------------------------
 #Before weighting; un = TRUE
-bal.plot(f.build("treat", covs0), data = lalonde, var.name = ".distance",
+bal.plot(f.build("treat", covs0), data = lalonde, var.name = "p.score",
          weights = "att.weights", distance = "p.score", 
          method = "weighting", un = TRUE)
 
 #After weighting
-bal.plot(f.build("treat", covs0), data = lalonde, var.name = ".distance",
+bal.plot(f.build("treat", covs0), data = lalonde, var.name = "p.score",
          weights = "att.weights", distance = "p.score", 
          method = "weighting", un = FALSE)
 
 ## ---- fig.width = 5------------------------------------------------------
 data("lalonde", package = "cobalt")
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+covs <- subset(lalonde, select = -c(treat, re78))
 
 # Nearest neighbor 1:1 matching with replacement
 library("MatchIt") #if not yet loaded
-m.out <- matchit(f.build("treat", covs0), data = lalonde, method = "nearest", replace = TRUE)
+m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest", replace = TRUE)
 
 love.plot(bal.tab(m.out), threshold = .1)
 
 ## ---- fig.width = 5------------------------------------------------------
-v <- data.frame(old = c("age", "educ", "black", "hispan", 
-                        "re74", "re75"),
+v <- data.frame(old = c("age", "educ", "race_black", "race_hispan", 
+                        "race_white", "married", "nodegree", "re74", "re75", "distance"),
                 new = c("Age", "Years of Education", "Black", 
-                        "Hispanic", "Earnings 1974", 
-                        "Earnings 1975"))
+                        "Hispanic", "White", "Married", "No Degree Earned", 
+                        "Earnings 1974", "Earnings 1975", "Propensity Score"))
                 
 love.plot(bal.tab(m.out), stat = "mean.diffs", threshold = .1, 
-          var.order = "unadjusted", var.names = v, abs = TRUE)
+          var.order = "unadjusted", var.names = v, abs = TRUE,
+          line = TRUE, limits = c(0, 1))
 
 ## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
 library("CBPS")
 cov.c <- subset(lalonde, select = -c(treat, re78, re75))
 
-#Generating propensity scxores with re75 as the continuous treatment
-cbps.c <- CBPS(f.build("re75", cov.c), data = lalonde, standardize = FALSE)
+#Generating propensity scores with re75 as the continuous treatment
+cbps.c <- CBPS(f.build("re75", cov.c), data = lalonde)
 
 ## ------------------------------------------------------------------------
 #Assessing balance numerically
@@ -202,23 +199,24 @@ bal.plot(cbps.c, "re74")         #Balance improvement
 ## ---- fig.show = "hold"--------------------------------------------------
 bal.plot(cbps.c, "married", un = T) #Clear dependence
 bal.plot(cbps.c, "married")         #Remaining dependence, even though numerical
-                                    #Summary indicates balance
+                                    #summary indicates balance
 
 ## ---- fig.width = 5------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(bal.tab(cbps.c), threshold = .1, abs = TRUE, var.order = "unadjusted")
+love.plot(bal.tab(cbps.c), threshold = .1, abs = TRUE, var.order = "unadjusted",
+          line = TRUE)
 
 ## ------------------------------------------------------------------------
 ctrl.data <- lalonde[lalonde$treat == 0,]
-ctrl.fit <- glm(re78 ~ age + educ + black + hispan + 
+ctrl.fit <- glm(re78 ~ age + educ + race + 
                 married + nodegree + re74 + re75,
                 data = ctrl.data)
 lalonde$prog.score <- predict(ctrl.fit, lalonde)
 
-bal.tab(m.out, addl = data.frame(prog.score = lalonde$prog.score))
+bal.tab(m.out, distance = lalonde[, "prog.score", drop = FALSE])
 
 ## ---- echo = FALSE, fig.show = 'hold', fig.width = 5---------------------
 plot(ps.out, plots = "es", subset = 1)
-love.plot(bal.tab(ps.out, full.stop.method = "es.max.att"), threshold = .1,
-          abs = TRUE, var.order = "u")
+love.plot(bal.tab(ps.out, full.stop.method = "es.mean.att"), threshold = .1,
+          abs = TRUE, var.order = "u", color = c("red", "blue"), line = TRUE)
 
