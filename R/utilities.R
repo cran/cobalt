@@ -10,6 +10,374 @@ f.build <- function(y, rhs) {
     f <- reformulate(vars, y)
     return(f)
 }
+splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = NULL, drop.first = c(TRUE, FALSE, "if2"), drop.singleton = FALSE, check = TRUE) {
+    #Splits factor into multiple (0, 1) indicators, replacing original factor in dataset. 
+    #Retains all categories unless only 2 levels, in which case only the second level is retained.
+    #If variable only has one level, will delete.
+    #var.name= the name of the variable to split when data is specified
+    #data=data set to be changed
+    
+    if (is.data.frame(data)) {
+        if (check) {
+            factor.names <- names(data)[sapply(data, function(x) is.factor(x) || is.character(x))]
+            if (missing(var.name)) {
+                var.name <- factor.names
+            }
+            else if (is.character(var.name)) {
+                if (any(var.name %in% factor.names)) {
+                    if (any(!var.name %in% factor.names)) {
+                        not.in.factor.names <- var.name[!var.name %in% factor.names]
+                        warning(paste(word.list(not.in.factor.names, "and", is.are = TRUE), 
+                                      "not the name(s) of factor variable(s) in data and will not be split."), 
+                                call. = FALSE)
+                    }
+                    var.name <- var.name[var.name %in% factor.names]
+                }
+                else {
+                    stop("No names in var.name are names of factor variables in data.", call. = FALSE)
+                }
+            }
+            else {
+                stop("var.name must be a character vector of the name(s) of factor variable(s) in data.", call. = FALSE)
+            }
+            if (length(factor.names) == 0) {
+                stop("There are no factor variables to split in data.", call. = FALSE)
+            }
+        }
+        else {
+            if (missing(var.name) || !is.character(var.name)) {
+                stop("var.name must be a character vector of the names of variables in data.", call. = FALSE)
+            }
+            else {
+                if (any(var.name %in% names(data))) {
+                    if (any(!var.name %in% names(data))) {
+                        not.in.data.names <- var.name[!var.name %in% names(data)]
+                        warning(paste(word.list(not.in.data.names, "and", is.are = TRUE), 
+                                      "not the name(s) of variable(s) in data and will not be split."), 
+                                call. = FALSE)
+                    }
+                    var.name <- var.name[var.name %in% names(data)]
+                }
+                else {
+                    stop("No names in var.name are names of variables in data.", call. = FALSE)
+                }
+            }
+        }
+
+    }
+    else if (is.atomic(data)) {
+        dep <- deparse(substitute(data))
+        data <- data.frame(data)
+        if (missing(var.name)) {
+            names(data) <- dep
+        }
+        else if (is.vector(var.name) && (is.atomic(var.name) || is.factor(var.name))) {
+            if (length(var.name) == 0) {
+                names(data) <- dep
+            }
+            else if (length(var.name) == 1) {
+                names(data) <- var.name
+            }
+            else {
+                warning("Only using the first item of var.name.", call. = FALSE)
+                names(data) <- var.name[1]
+            }
+        }
+        else {
+            stop("var.name must be an atomic or factor vector of length 1 with the stem of the new variable.", call. = FALSE)
+        }
+        var.name <- names(data)
+    }
+    else {
+        stop("data must a be a data.frame or an atomic vector.", call. = FALSE)
+    }
+    
+    if (length(drop.level) > 0 && length(var.name) > 1) {
+        warning("drop.level cannot be used with multiple entries to var.name. Ignoring drop.level.", call. = FALSE)
+        drop.level <- NULL
+    }
+    
+    for (v in var.name) {
+        drop <- character(0)
+        x <- data[, names(data) == v] <- factor(data[, names(data) == v])
+        
+        skip <- FALSE
+        if (nlevels(x) > 1) {
+            k <- model.matrix(as.formula(paste0("~", v, "- 1")), data = data)
+        }
+        else {
+            if (drop.singleton) {
+                data <- data[, names(data)!=v, drop = FALSE]
+                skip <- TRUE
+            }
+            else {
+                k <- matrix(1, ncol = 1, nrow = length(x))
+                colnames(k) <- paste0(v, levels(x)[1])
+            }
+        }
+        
+        if (!skip) {
+            colnames(k) <- paste(v, sapply(strsplit(colnames(k), v, fixed = TRUE), function(n) paste(n, collapse = "")), sep = sep)
+            
+            if (length(drop.level) > 0) {
+                if (is.character(drop.level) && length(drop.level) == 1 && drop.level %in% levels(x)) {
+                    drop <- drop.level
+                }
+                else {
+                    stop(paste("drop must be the name of a level of", v, "which is to be dropped."), call. = FALSE)
+                }
+            }
+            else {
+                if ((ncol(k) == 2 && drop.first %in% c("if2", TRUE)) ||
+                    (ncol(k) > 2 && drop.first == TRUE)) {
+                    drop <- levels(x)[1]
+                }
+            }
+            if (length(drop) > 0) k <- k[, levels(x)!=drop, drop = FALSE]
+            
+            if (ncol(data) == 1) {
+                data <- data.frame(k)
+            }
+            else if (replace) {
+                if (match(v, names(data)) == 1){
+                    data <- data.frame(k, data[, names(data)!=v, drop = FALSE])
+                }
+                else if (match(v, names(data)) == ncol(data)) {
+                    data <- data.frame(data[, names(data)!=v, drop = FALSE], k)
+                }
+                else {
+                    where <- match(v, names(data))
+                    data <- data.frame(data[, 1:(where-1), drop = FALSE], k, data[, (where+1):ncol(data), drop = FALSE])
+                }
+            }
+            else {
+                data <- data.frame(data, k)
+            }
+            
+        }
+        
+    }
+    
+    return(data)
+}
+unsplitfactor <- function(data, var.name, replace = TRUE, sep = "_", dropped.level = NULL) {
+    
+    if (!is.data.frame(data)) stop("data must be a data.frame containing the variables to unsplit.", call = FALSE)
+    if (!is.character(var.name)) stop("var.name must be a string containing the name of the variables to unsplit.", call. = FALSE)
+    if (length(dropped.level) > 0 && length(var.name) > 1) {
+        warning("dropped.level cannot be used with multiple var.names and will be ignored.", call. = FALSE, immediate. = TRUE)
+        dropped.level <- NULL
+    }
+    
+    if (!is.character(var.name)) stop("var.name must be a character vector containing the name of the variable to unsplit.", call. = FALSE)
+    if (length(sep) > 1 || !is.character(sep)) stop("sep must be a character vector of length 1 containing the seperating character in the names of the split variables.", call. = FALSE)
+    if (length(dropped.level) > 1 && !is.atomic(dropped.level)) {
+        warning("dopped.level must be an atomic vector of length 1 containing the value of the dropped category of the split variable. It will be ignored.", call. = FALSE, immediate. = TRUE)
+        dropped.level <- NULL
+    }
+    not.the.stem <- character(0)
+    
+    for (v in var.name) {
+        dropped.level0 <- dropped.level
+        #var.to.combine <- apply(data[, startsWith(names(data), paste0(var.name, sep)), drop = FALSE], 2, binarize)
+        var.to.combine <- data[, startsWith(names(data), paste0(v, sep)), drop = FALSE]
+        if (length(var.to.combine) == 0) {
+            not.the.stem <- c(not.the.stem, paste0(v, sep))
+            next
+        }
+        var.sum <- rowSums(var.to.combine)
+        if (isTRUE(all.equal(unique(var.sum), 1))) {
+            
+        }
+        else if (isTRUE(all.equal(sort(unique(var.sum)), c(0, 1)))) {
+            #Missing category
+            
+            if (length(dropped.level) == 0) {
+                k.levels0 <- sapply(names(var.to.combine), function(x) strsplit(x, paste0(v, sep))[[1]][2])
+                
+                if (suppressWarnings(all(!is.na(as.numeric(k.levels0))))) {
+                    dropped.level0 <- as.character(min(as.numeric(k.levels0)) - 1)
+                    dropped.name <- paste0(v, sep, dropped.level0)
+                }
+                else {
+                    message("The dropped category will be set to NA.")
+                    dropped.name <- dropped.level0 <- NA_character_
+                }
+                
+            }
+            else dropped.name <- paste0(v, sep, dropped.level)
+            var.to.combine <- setNames(data.frame(1-var.sum, var.to.combine),
+                                       c(dropped.name, names(var.to.combine)))
+            
+        }
+        else {
+            stop("The variables in data selected based on var.name and sep do not seem to form a split variable.", call. = FALSE)
+        }
+        
+        k.levels <- sapply(names(var.to.combine), function(x) strsplit(x, paste0(v, sep))[[1]][2])
+        
+        k <- rep(NA_character_, nrow(data))
+        for (i in seq_along(k.levels)) {
+            k <- ifelse(var.to.combine[, i] == 1, k.levels[i], k)
+        }
+        
+        k <- factor(k, levels = k.levels)
+        
+        
+        if (replace) {
+            where <- which(names(data) %in% names(var.to.combine))
+            
+            data[, min(where)] <- k
+            remove.cols <- where[where!=min(where)]
+            if (length(remove.cols) > 0) data <- data[, -remove.cols, drop = FALSE]
+            names(data)[min(where)] <- v
+        }
+        else {
+            data <- cbind(data, setNames(data.frame(k), v))
+        }
+    }
+    
+    if (length(not.the.stem) > 0) warning(paste0(word.list(not.the.stem, is.are = TRUE, quotes = TRUE), " not the stem of any variables in data and will be ignored. Ensure var.name and sep are correct."), call. = FALSE)
+    
+    return(data)
+}
+
+get.w <- function(...) UseMethod("get.w")
+get.w.matchit <- function(m,...) {
+    return(m$weights)
+}
+get.w.ps <- function(ps, stop.method = NULL, ...) {
+    if (length(stop.method) > 1) {
+        warning("The argument to stop.method must have length 1; using the first available stop method instead.", call. = FALSE)
+        rule1 <- names(ps$w)[1]
+    }
+    else if (length(stop.method)==1) {
+        if (is.character(stop.method)) {
+            rule1 <- tryCatch(match.arg(tolower(stop.method), tolower(names(ps$w))),
+                              error = function(cond) {message(paste0("Warning: stop.method should be one of ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing ", word.list(names(ps$w)[1], quotes = TRUE), " instead."));
+                                  return(names(ps$w)[1])})
+        }
+        else if (is.numeric(stop.method) && stop.method %in% seq_along(names(ps$w))) {
+            rule1 <- names(ps$w)[stop.method]
+        }
+        else {
+            warning("stop.method should be ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing ", word.list(names(ps$w)[1], quotes = TRUE), " instead.", call. = FALSE)
+            rule1 <- names(ps$w)[1]
+        }
+    }
+    else {
+        rule1 <- names(ps$w)[1]
+    }
+    
+    s <- names(ps$w)[match(tolower(rule1), tolower(names(ps$w)))]
+    return(ps$w[, s])
+}
+get.w.Match <- function(M,  ...) {
+    nobs <- M$orig.nobs
+    weights.list <- index.list <- setNames(vector("list", 4), c("control", "treated", "unmatched", "dropped"))
+    
+    index.list$control <- seq_len(nobs)[seq_len(nobs) %in% M$index.control]
+    index.list$treated <- seq_len(nobs)[seq_len(nobs) %in% M$index.treated]
+    index.list$unmatched <- seq_len(nobs)[!seq_len(nobs) %in% c(M$index.treated, M$index.control, M$index.dropped)]
+    index.list$dropped <- seq_len(nobs)[seq_len(nobs) %in% M$index.dropped]
+    
+    weights.list$control <- weights.list$treated <- M$weights
+    weights.list$unmatched <- rep(0, sum(!seq_len(nobs) %in% c(M$index.treated, M$index.control, M$index.dropped)))
+    weights.list$dropped <- rep(0, length(M$index.dropped))
+    
+    data.list <- lapply(1:4, function(x) cbind(data.frame(index=index.list[[x]]), data.frame(weights=weights.list[[x]])))
+    o.data <- do.call(rbind, data.list)
+    o.data2 <- merge(unique(o.data[, is.na(match(names(o.data), "weights")), drop = FALSE]), 
+                     aggregate(weights~index, data=o.data, FUN=sum), 
+                     by="index")
+    return(o.data2$weights)
+}
+get.w.CBPS <- function(c, use.weights = TRUE, estimand = NULL, ...) {
+    if ("CBPSContinuous" %in% class(c)) { #continuous
+        return(c$weights)
+    }
+    else {
+        if (use.weights) return(c$weights)
+        else {
+            ps <- c$fitted.values
+            t <- c$y 
+            if (length(estimand) == 0) {
+                if (abs(max(c$weights[t == 1], na.rm = TRUE) - 
+                        min(c$weights[t == 1], na.rm = TRUE)) < 
+                    sqrt(.Machine$double.eps)) {
+                    estimand <- "att"
+                }
+                else estimand <- "ate"
+            }
+            
+            estimand <- match.arg(tolower(estimand), c("att", "ate"))
+            if (estimand == "att") {
+                return(ifelse(t == 1, 1, ps/(1-ps)))
+            }
+            else if (estimand == "ate") {
+                return(ifelse(t == 1, 1/ps, 1/(1-ps)))
+            }
+        }
+    }
+}
+get.w.ebalance <- function(e, treat, ...) {
+    if (missing(treat)) stop("treat must be specified.", call. = FALSE)
+    
+    weights <- rep(1, length(treat))
+    
+    if (length(e$w) != sum(treat == 0)) {
+        stop("There are more control units in treat than weights in the ebalance object.", call. = FALSE)
+    }
+    weights[treat == 0] <- e$w
+    return(weights)
+}
+get.w.optmatch <- function(o, treat, ...) {
+    return(match.strata2weights(o, treat = treat, covs = NULL))
+}
+
+#For cobalt
+word.list <- function(word.list = NULL, and.or = c("and", "or"), is.are = FALSE, quotes = FALSE) {
+    #When given a vector of strings, creates a string of the form "a and b"
+    #or "a, b, and c"
+    #If is.are, adds "is" or "are" appropriately
+    L <- length(word.list)
+    if (quotes) word.list <- sapply(word.list, function(x) paste0("\"", x, "\""))
+    if (L == 0) {
+        out <- ""
+        attr(out, "plural") = FALSE
+    }
+    else {
+        word.list <- word.list[!word.list %in% c(NA, "")]
+        L <- length(word.list)
+        if (L == 0) {
+            out <- ""
+            attr(out, "plural") = FALSE
+        }
+        else if (L == 1) {
+            out <- word.list
+            if (is.are) out <- paste(out, "is")
+            attr(out, "plural") = FALSE
+        }
+        else {
+            and.or <- match.arg(and.or)
+            if (L == 2) {
+                out <- paste(word.list, collapse = paste0(" ", and.or," "))
+            }
+            else {
+                out <- paste(paste(word.list[seq_len(L-1)], collapse = ", "), 
+                             word.list[L], sep = paste0(", ", and.or," "))
+                
+            }
+            if (is.are) out <- paste(out, "are")
+            attr(out, "plural") = TRUE
+        }
+        
+        
+    }
+    return(out)
+}
+
+#Under construction
 inxnoty <- function(x, y) {
     #Creates a list or data frame of names in x that are not in y.
     #Useful for subsetting data sets into two groups of variables.
@@ -23,43 +391,4 @@ inxnoty <- function(x, y) {
     if(is.character(x)) out <- x[is.na(match(X, Y))]
     else out <- x[, is.na(match(X, Y))]
     return(out)
-}
-word.list <- function(word.list = NULL, and.or = "and") {
-    #When given a vector of strings, creates a string of the form "a and b"
-    #or "a, b, and c"
-    L <- length(word.list)
-    if (L == 0) {
-        out <- ""
-    }
-    else {
-        word.list <- word.list[!word.list %in% c(NA, "")]
-        L <- length(word.list)
-        if (L == 0) {
-            out <- ""
-        }
-        else if (L == 1) {
-            out <- word.list
-        }
-        else if (L == 2) {
-            out <- paste(word.list, collapse = paste0(" ", and.or," "))
-        }
-        else if (L >= 3) {
-            out <- paste(paste(word.list[seq_len(L-1)], collapse = ", "), 
-                         word.list[L], sep = paste0(", ", and.or," "))
-        }
-            
-    }
-    return(out)
-}
-f.recode <- function(f, ...) {
-    #Simplified version of forcats::fct_recode
-    f <- factor(f)
-    new_levels <- unlist(list(...))
-    old_levels <- levels(f)
-    idx <- match(new_levels, old_levels)
-    
-    old_levels[idx] <- names(new_levels)
-    
-    levels(f) <- old_levels
-    return(f)
 }

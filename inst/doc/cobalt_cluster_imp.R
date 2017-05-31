@@ -105,7 +105,7 @@ library("MatchIt"); library("cobalt"); library("mice")
 data("lalonde_mis", package = "cobalt")
 
 #Generate imputed data sets
-m <- 10 #number of imputed data sets
+m <- 5 #number of imputed data sets
 imp <- mice(lalonde_mis, m = m, print = FALSE) 
 imp.data <- complete(imp, "long", include = FALSE)
 

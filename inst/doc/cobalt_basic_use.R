@@ -19,6 +19,16 @@ f.build("treat", covs)
 #  m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest")
 
 ## ------------------------------------------------------------------------
+head(lalonde)
+lalonde.split <- splitfactor(lalonde, "race")
+head(lalonde.split)
+
+## ------------------------------------------------------------------------
+lalonde.unsplit <- unsplitfactor(lalonde.split, "race", 
+                                   dropped.level = "black")
+head(lalonde.unsplit)
+
+## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
@@ -53,6 +63,15 @@ bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
 # Balance tables with thresholds for mean differences and variance ratios
 bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
         method = "weighting", m.threshold = .1, v.threshold = 2)
+
+## ------------------------------------------------------------------------
+# Generating ATT weights with different covariates
+lalonde$p.score2 <- glm(treat ~ age + I(age^2) + race + educ + re74, 
+                        data = lalonde, family = "binomial")$fitted.values
+lalonde$att.weights2 <- with(lalonde, treat + (1-treat)*p.score2/(1-p.score2))
+
+bal.tab(f.build("treat", covs0), data = lalonde, weights = c("att.weights", "att.weights2"),
+        method = "weighting", estimand = "ATT")
 
 ## ------------------------------------------------------------------------
 # Subclassification for ATT with 6 subclasses
@@ -147,16 +166,12 @@ bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "
 bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting",
          estimand = "ATT", var.name = "race")
 
-## ---- fig.show = "hold"--------------------------------------------------
-#Before weighting; un = TRUE
+## ---- fig.width = 5------------------------------------------------------
+#Before and after weighting; which = "both"
 bal.plot(f.build("treat", covs0), data = lalonde, var.name = "p.score",
          weights = "att.weights", distance = "p.score", 
-         method = "weighting", un = TRUE)
+         method = "weighting", which = "both")
 
-#After weighting
-bal.plot(f.build("treat", covs0), data = lalonde, var.name = "p.score",
-         weights = "att.weights", distance = "p.score", 
-         method = "weighting", un = FALSE)
 
 ## ---- fig.width = 5------------------------------------------------------
 data("lalonde", package = "cobalt")
@@ -191,20 +206,35 @@ cbps.c <- CBPS(f.build("re75", cov.c), data = lalonde)
 #Assessing balance numerically
 bal.tab(cbps.c, un = TRUE, r.threshold = .1, int = TRUE)
 
-## ---- fig.show = "hold"--------------------------------------------------
+## ---- fig.width = 5------------------------------------------------------
 #Assessing balance graphically
-bal.plot(cbps.c, "re74", un = T) #Clear dependence
-bal.plot(cbps.c, "re74")         #Balance improvement
+bal.plot(cbps.c, "re74", which = "both")
 
-## ---- fig.show = "hold"--------------------------------------------------
-bal.plot(cbps.c, "married", un = T) #Clear dependence
-bal.plot(cbps.c, "married")         #Remaining dependence, even though numerical
-                                    #summary indicates balance
+bal.plot(cbps.c, "married", which = "both")
 
 ## ---- fig.width = 5------------------------------------------------------
 #Summarizing balance in a Love plot
 love.plot(bal.tab(cbps.c), threshold = .1, abs = TRUE, var.order = "unadjusted",
           line = TRUE)
+
+## ------------------------------------------------------------------------
+bal.tab(f.build("treat", covs0), data = lalonde, 
+        weights = data.frame(GBM = get.w(ps.out),
+                             CBPS = get.w(cbps.out)),
+        method = "weighting", disp.v.ratio = TRUE)
+
+## ---- fig.width=7--------------------------------------------------------
+bal.plot(f.build("treat", covs0), data = lalonde, 
+         weights = data.frame(GBM = get.w(ps.out),
+                              CBPS = get.w(cbps.out)),
+         method = "weighting", var.name = "age", which = "both")
+
+## ---- fig.width=5--------------------------------------------------------
+love.plot(bal.tab(f.build("treat", covs0), data = lalonde, 
+                  weights = data.frame(GBM = get.w(ps.out),
+                                       CBPS = get.w(cbps.out)),
+                  method = "weighting"), var.order = "unadjusted",
+          abs = TRUE, colors = c("red", "blue", "darkgreen"))
 
 ## ------------------------------------------------------------------------
 ctrl.data <- lalonde[lalonde$treat == 0,]
@@ -218,5 +248,6 @@ bal.tab(m.out, distance = lalonde[, "prog.score", drop = FALSE])
 ## ---- echo = FALSE, fig.show = 'hold', fig.width = 5---------------------
 plot(ps.out, plots = "es", subset = 1)
 love.plot(bal.tab(ps.out, full.stop.method = "es.mean.att"), threshold = .1,
-          abs = TRUE, var.order = "u", color = c("red", "blue"), line = TRUE)
+          abs = TRUE, var.order = "u", color = c("red", "blue"), line = TRUE,
+          drop.distance = TRUE)
 
