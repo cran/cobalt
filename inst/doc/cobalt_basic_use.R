@@ -90,9 +90,10 @@ bal.tab(f.build("treat", covs0), data = lalonde, subclass = "subclass",
 data("lalonde", package = "cobalt")
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
-# Nearest neighbor 1:1 matching with replacement
+# Nearest neighbor 2:1 matching with replacement
 library("MatchIt") #if not yet loaded
-m.out <- matchit(f.build("treat", covs0), data = lalonde, method = "nearest", replace = TRUE)
+m.out <- matchit(f.build("treat", covs0), data = lalonde, method = "nearest", 
+                 ratio = 1,  replace = TRUE)
 
 bal.tab(m.out)
 
@@ -104,7 +105,7 @@ covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 ps.out <- ps(f.build("treat", covs0), data = lalonde, 
              stop.method = c("es.mean", "es.max"), 
              estimand = "ATT", n.trees = 1000, verbose = FALSE)
-bal.tab(ps.out, full.stop.method = "es.mean.att")
+bal.tab(ps.out, stop.method = "es.mean")
 
 ## ------------------------------------------------------------------------
 library("Matching")

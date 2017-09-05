@@ -10,7 +10,7 @@ f.build <- function(y, rhs) {
     f <- reformulate(vars, y)
     return(f)
 }
-splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = NULL, drop.first = c(TRUE, FALSE, "if2"), drop.singleton = FALSE, check = TRUE) {
+splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = NULL, drop.first = c(TRUE, FALSE, "if2"), drop.singleton = FALSE, drop.na = TRUE, check = TRUE) {
     #Splits factor into multiple (0, 1) indicators, replacing original factor in dataset. 
     #Retains all categories unless only 2 levels, in which case only the second level is retained.
     #If variable only has one level, will delete.
@@ -63,7 +63,7 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
                 }
             }
         }
-
+        
     }
     else if (is.atomic(data)) {
         dep <- deparse(substitute(data))
@@ -96,14 +96,24 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
         warning("drop.level cannot be used with multiple entries to var.name. Ignoring drop.level.", call. = FALSE)
         drop.level <- NULL
     }
-    
+    drop.na <- setNames(rep(drop.na, length(var.name)), var.name)
     for (v in var.name) {
         drop <- character(0)
-        x <- data[, names(data) == v] <- factor(data[, names(data) == v])
+        x <- data[, names(data) == v] <- factor(data[, names(data) == v], exclude = NULL)
         
         skip <- FALSE
         if (nlevels(x) > 1) {
             k <- model.matrix(as.formula(paste0("~", v, "- 1")), data = data)
+            
+            if (any(is.na(levels(x)))) {
+                
+                if (drop.na[v]) {
+                    k[k[,is.na(levels(x))] == 1,] <- NA
+                    #k <- k[, !is.na(levels(x)), drop = FALSE]
+                }
+            }
+            else drop.na[v] <- FALSE
+            
         }
         else {
             if (drop.singleton) {
@@ -133,7 +143,13 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
                     drop <- levels(x)[1]
                 }
             }
-            if (length(drop) > 0) k <- k[, levels(x)!=drop, drop = FALSE]
+            
+            dropl <- rep(FALSE, ncol(k))
+            if (length(drop) > 0) {
+                dropl[!is.na(levels(x)) & levels(x) %in% drop] <- TRUE
+            }
+            if (drop.na[v]) dropl[is.na(levels(x))] <- TRUE
+            k <- k[, !dropl, drop = FALSE]
             
             if (ncol(data) == 1) {
                 data <- data.frame(k)
@@ -160,7 +176,7 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
     
     return(data)
 }
-unsplitfactor <- function(data, var.name, replace = TRUE, sep = "_", dropped.level = NULL) {
+unsplitfactor <- function(data, var.name, replace = TRUE, sep = "_", dropped.level = NULL, dropped.na = TRUE) {
     
     if (!is.data.frame(data)) stop("data must be a data.frame containing the variables to unsplit.", call = FALSE)
     if (!is.character(var.name)) stop("var.name must be a string containing the name of the variables to unsplit.", call. = FALSE)
@@ -179,15 +195,30 @@ unsplitfactor <- function(data, var.name, replace = TRUE, sep = "_", dropped.lev
     
     for (v in var.name) {
         dropped.level0 <- dropped.level
-        #var.to.combine <- apply(data[, startsWith(names(data), paste0(var.name, sep)), drop = FALSE], 2, binarize)
         var.to.combine <- data[, startsWith(names(data), paste0(v, sep)), drop = FALSE]
         if (length(var.to.combine) == 0) {
             not.the.stem <- c(not.the.stem, paste0(v, sep))
             next
         }
+        
+        if (!all(rowSums(apply(var.to.combine, 2, is.na)) %in% c(0, ncol(var.to.combine)))) {
+            stop("The variables in data selected based on var.name and sep do not seem to form a split variable based on the <NA> pattern.", call. = FALSE)
+        }
+        NA.column <- character(0)
+        
+        if (!isTRUE(dropped.na)) {
+            NA.column <- paste0(v, sep, ifelse(dropped.na == FALSE, "NA", dropped.na))
+            if (NA.column %in% names(var.to.combine)) {
+                var.to.combine[var.to.combine[, NA.column] == 1,] <- NA
+                var.to.combine <- var.to.combine[, names(var.to.combine) != NA.column, drop = FALSE]
+            }
+            else {
+                stop(paste("There is no variable called", word.list(NA.column, quotes = TRUE), "to generate the NA values."), call. = FALSE)
+            }
+        }
         var.sum <- rowSums(var.to.combine)
         if (isTRUE(all.equal(unique(var.sum), 1))) {
-            
+            #Already unsplit
         }
         else if (isTRUE(all.equal(sort(unique(var.sum)), c(0, 1)))) {
             #Missing category
@@ -211,7 +242,7 @@ unsplitfactor <- function(data, var.name, replace = TRUE, sep = "_", dropped.lev
             
         }
         else {
-            stop("The variables in data selected based on var.name and sep do not seem to form a split variable.", call. = FALSE)
+            stop("The variables in data selected based on var.name and sep do not seem to form a split variable based on the row sums.", call. = FALSE)
         }
         
         k.levels <- sapply(names(var.to.combine), function(x) strsplit(x, paste0(v, sep))[[1]][2])
@@ -225,7 +256,7 @@ unsplitfactor <- function(data, var.name, replace = TRUE, sep = "_", dropped.lev
         
         
         if (replace) {
-            where <- which(names(data) %in% names(var.to.combine))
+            where <- which(names(data) %in% c(names(var.to.combine), NA.column))
             
             data[, min(where)] <- k
             remove.cols <- where[where!=min(where)]
@@ -246,31 +277,99 @@ get.w <- function(...) UseMethod("get.w")
 get.w.matchit <- function(m,...) {
     return(m$weights)
 }
-get.w.ps <- function(ps, stop.method = NULL, ...) {
-    if (length(stop.method) > 1) {
-        warning("The argument to stop.method must have length 1; using the first available stop method instead.", call. = FALSE)
-        rule1 <- names(ps$w)[1]
-    }
-    else if (length(stop.method)==1) {
-        if (is.character(stop.method)) {
-            rule1 <- tryCatch(match.arg(tolower(stop.method), tolower(names(ps$w))),
-                              error = function(cond) {message(paste0("Warning: stop.method should be one of ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing ", word.list(names(ps$w)[1], quotes = TRUE), " instead."));
-                                  return(names(ps$w)[1])})
+get.w.ps <- function(ps, stop.method = NULL, estimand = NULL, ...) {
+    if (length(stop.method) > 0) {
+        if (any(is.character(stop.method))) {
+            rule1 <- names(ps$w)[sapply(names(ps$w), function(x) any(startsWith(tolower(x), tolower(stop.method))))]
+            if (length(rule1) == 0) {
+                message(paste0("Warning: stop.method should be ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
+                rule1 <- names(ps$w)
+            }
+            # rule1 <- tryCatch(match.arg(tolower(stop.method), tolower(names(ps$w)), several.ok = TRUE),
+            #                   error = function(cond) {message(paste0("Warning: stop.method should be ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."));
+            #                       return(names(ps$w))})
         }
-        else if (is.numeric(stop.method) && stop.method %in% seq_along(names(ps$w))) {
-            rule1 <- names(ps$w)[stop.method]
+        else if (is.numeric(stop.method) && any(stop.method %in% seq_along(names(ps$w)))) {
+            if (any(!stop.method %in% seq_along(names(ps$w)))) {
+                message(paste0("Warning: There are ", length(names(ps$w)), " stop methods available, but you requested ", 
+                               word.list(stop.method[!stop.method %in% seq_along(names(ps$w))], and.or = "and"),"."))
+            }
+            rule1 <- names(ps$w)[stop.method %in% seq_along(names(ps$w))]
         }
         else {
-            warning("stop.method should be ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing ", word.list(names(ps$w)[1], quotes = TRUE), " instead.", call. = FALSE)
-            rule1 <- names(ps$w)[1]
+            warning("stop.method should be ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead.", call. = FALSE)
+            rule1 <- names(ps$w)
         }
     }
     else {
-        rule1 <- names(ps$w)[1]
+        rule1 <- names(ps$w)
     }
     
     s <- names(ps$w)[match(tolower(rule1), tolower(names(ps$w)))]
-    return(ps$w[, s])
+    
+    if (length(estimand) == 0) estimand <- setNames(substr(tolower(s), nchar(s)-2, nchar(s)), s)
+    else if (!all(tolower(estimand) %in% c("att", "ate", "atc"))) {
+        stop('estimand must be "ATT", "ATE", or "ATC".', call. = FALSE)
+    }
+    else {
+        names(estimand) <- s
+    }
+    
+    w <- setNames(as.data.frame(lapply(seq_along(s), function(p) {
+        if (estimand[p] == "att") ps$treat + (1-ps$treat)*ps$ps[,s[p]]/(1-ps$ps[,s[p]])
+        else if (estimand[p] == "ate") ps$treat/ps$ps[,s[p]] + (1-ps$treat)/(1-ps$ps[,s[p]])
+        else (1-ps$treat) + ps$treat*ps$ps[,s[p]]/(1-ps$ps[,s[p]])})),
+        ifelse(tolower(substr(s, nchar(s)-2, nchar(s))) == tolower(estimand), s, paste0(s, " (", toupper(estimand), ")")))
+    
+    return(w)
+}
+get.w.mnps <- function(mnps, stop.method = NULL, ...) {
+    if (length(stop.method) > 0) {
+        if (any(is.character(stop.method))) {
+            rule1 <- mnps$stopMethods[sapply(t(sapply(tolower(stop.method), function(x) startsWith(tolower(mnps$stopMethods), x))), any)]
+            if (length(rule1) == 0) {
+                message(paste0("Warning: stop.method should be ", word.list(mnps$stopMethods, and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
+                rule1 <- mnps$stopMethods
+            }
+            # rule1 <- tryCatch(match.arg(tolower(stop.method), tolower(names(ps$w)), several.ok = TRUE),
+            #                   error = function(cond) {message(paste0("Warning: stop.method should be ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."));
+            #                       return(names(ps$w))})
+        }
+        else if (is.numeric(stop.method) && any(stop.method %in% seq_along(mnps$stopMethods))) {
+            if (any(!stop.method %in% seq_along(mnps$stopMethods))) {
+                message(paste0("Warning: There are ", length(mnps$stopMethods), " stop methods available, but you requested ", 
+                               word.list(stop.method[!stop.method %in% seq_along(mnps$stopMethods)], and.or = "and"),"."))
+            }
+            rule1 <- mnps$stopMethods[stop.method %in% seq_along(mnps$stopMethods)]
+        }
+        else {
+            warning("stop.method should be ", word.list(mnps$stopMethods, and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead.", call. = FALSE)
+            rule1 <- mnps$stopMethods
+        }
+    }
+    else {
+        rule1 <- mnps$stopMethods
+    }
+    
+    s <- paste(mnps$stopMethods[match(tolower(rule1), tolower(mnps$stopMethods))],
+               mnps$estimand, sep = ".")
+    
+    estimand <- setNames(mnps$estimand, s)
+    
+    w <- setNames(as.data.frame(matrix(1, nrow = length(mnps$treatVar), ncol = length(s))),
+                  s)
+    
+    if (estimand == "ATT") {
+        for (i in mnps$levExceptTreatATT) {
+            w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == FALSE, s]
+        }
+    }
+    else if (estimand == "ATE") {
+        for (i in mnps$treatLev) {
+            w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == TRUE, s]
+        }
+    }
+    return(w)
 }
 get.w.Match <- function(M,  ...) {
     nobs <- M$orig.nobs
@@ -292,31 +391,28 @@ get.w.Match <- function(M,  ...) {
                      by="index")
     return(o.data2$weights)
 }
-get.w.CBPS <- function(c, use.weights = TRUE, estimand = NULL, ...) {
+get.w.CBPS <- function(c, estimand = NULL, ...) {
     if ("CBPSContinuous" %in% class(c)) { #continuous
         return(c$weights)
     }
     else {
-        if (use.weights) return(c$weights)
-        else {
-            ps <- c$fitted.values
-            t <- c$y 
-            if (length(estimand) == 0) {
-                if (abs(max(c$weights[t == 1], na.rm = TRUE) - 
-                        min(c$weights[t == 1], na.rm = TRUE)) < 
-                    sqrt(.Machine$double.eps)) {
-                    estimand <- "att"
-                }
-                else estimand <- "ate"
+        ps <- c$fitted.values
+        t <- c$y 
+        if (length(estimand) == 0) {
+            if (abs(max(c$weights[t == 1], na.rm = TRUE) - 
+                    min(c$weights[t == 1], na.rm = TRUE)) < 
+                sqrt(.Machine$double.eps)) {
+                estimand <- "att"
             }
-            
-            estimand <- match.arg(tolower(estimand), c("att", "ate"))
-            if (estimand == "att") {
-                return(ifelse(t == 1, 1, ps/(1-ps)))
-            }
-            else if (estimand == "ate") {
-                return(ifelse(t == 1, 1/ps, 1/(1-ps)))
-            }
+            else estimand <- "ate"
+        }
+        
+        estimand <- match.arg(tolower(estimand), c("att", "ate"))
+        if (estimand == "att") {
+            return(ifelse(t == 1, 1, ps/(1-ps)))
+        }
+        else if (estimand == "ate") {
+            return(ifelse(t == 1, 1/ps, 1/(1-ps)))
         }
     }
 }

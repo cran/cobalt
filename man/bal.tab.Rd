@@ -37,7 +37,11 @@ When subclassification is used, the balance tables for each subclass stored in \
 
 \strong{With Continuous Treatments}
 
-When continuous treatment variables are considered, the balance statistic calculated is the Pearson correlation between the covariate and treatment. Currently only weighting and matching are supported with continuous treatments; the calculated correlation after adjustment is weighted by the generated weights.
+When continuous treatment variables are considered, the balance statistic calculated is the Pearson correlation between the covariate and treatment. The calculated correlation after adjustment is weighted by the generated weights.
+
+\strong{With Multinomial Treatments}
+
+Most functions in \pkg{cobalt} are not yet ready for multinomial treatments. If a single set of weights or subclasses is used across all treatments, it may be possible to display balance in the following ways. Using the data.frame or formula method, display balance as usual but subsetting all inputs with a restriction to view only two treatment levels at a time. Do this for all desired treatment value pairs to assess balance on each. The treatment value with the lowest value (e.g., 2 in 2, 3) will be considered the control condition. \code{link{bal.plot}} can display distributional balance on multiple treatments with no modificaion; simply specify the inputs without subsetting.
 
 \strong{Quick}
 
@@ -59,7 +63,9 @@ Noah Greifer \email{noah@unc.edu}
 
 \code{\link{bal.tab.matchit}} for the method for objects returned by \pkg{MatchIt}.
 
-\code{\link{bal.tab.ps}} for the method for objects returned by \pkg{twang}.
+\code{\link{bal.tab.ps}} for the method for \code{ps} objects returned by \pkg{twang}.
+
+\code{\link{bal.tab.mnps}} for the method for \code{mnps} objects returned by \pkg{twang}.
 
 \code{\link{bal.tab.Match}} for the method for objects returned by \pkg{Matching}.
 
@@ -72,8 +78,3 @@ Noah Greifer \email{noah@unc.edu}
 \code{\link{bal.tab.ebalance}} for the method for objects returned by \pkg{ebal}.
 
 }
-\keyword{design}
-
-
-
-

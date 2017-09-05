@@ -1,6 +1,6 @@
 Package: cobalt
 Title: Covariate Balance Tables and Plots
-Version: 2.1.0
+Version: 2.2.0
 Author: Noah Greifer [aut, cre]
 Maintainer: Noah Greifer <noah@unc.edu>
 Description: Generate balance tables and plots for covariates of groups
@@ -16,9 +16,9 @@ Suggests: MatchIt, twang, Matching, optmatch, CBPS, ebal, mice, knitr,
 License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
-Date: 2017-05-30
+Date: 2017-09-05
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2017-05-31 03:58:18 UTC; NoahGreifer
+Packaged: 2017-09-05 04:53:50 UTC; NoahGreifer
 Repository: CRAN
-Date/Publication: 2017-05-31 06:19:50 UTC
+Date/Publication: 2017-09-05 14:28:31 UTC
