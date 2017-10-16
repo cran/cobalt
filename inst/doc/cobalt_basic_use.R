@@ -148,10 +148,23 @@ library("ebal")
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, race))
 
-#Generating entorpy balancing weights
+#Generating entropy balancing weights
 e.out <- ebalance(lalonde$treat, covs0)
 
 bal.tab(e.out, treat = lalonde$treat, covs = covs0)
+
+## ---- eval = FALSE-------------------------------------------------------
+#  #Note: this code will not work until WeightIt is on CRAN
+#  
+#  library("WeightIt")
+#  data("lalonde", package = "cobalt") #If not yet loaded
+#  covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+#  
+#  #Generating propensity score weights for the ATC
+#  W.out <- weightit(f.build("treat", covs0), data = lalonde,
+#                    methid = "ps", estimand = "ATC")
+#  
+#  bal.tab(W.out)
 
 ## ---- fig.show = "hold"--------------------------------------------------
 data("lalonde", package = "cobalt")
@@ -200,8 +213,9 @@ data("lalonde", package = "cobalt")
 library("CBPS")
 cov.c <- subset(lalonde, select = -c(treat, re78, re75))
 
-#Generating propensity scores with re75 as the continuous treatment
-cbps.c <- CBPS(f.build("re75", cov.c), data = lalonde)
+#Generating weights with re75 as the continuous treatment
+cbps.c <- CBPS(f.build("re75", cov.c), data = lalonde, 
+               method = "exact")
 
 ## ------------------------------------------------------------------------
 #Assessing balance numerically
@@ -219,20 +233,44 @@ love.plot(bal.tab(cbps.c), threshold = .1, abs = TRUE, var.order = "unadjusted",
           line = TRUE)
 
 ## ------------------------------------------------------------------------
+data("lalonde", package = "cobalt")
+library("CBPS")
+cov.mn <- subset(lalonde, select = -c(treat, re78, race))
+
+#Using CBPS to generate weights
+cbps.mn <- CBPS(f.build("race", cov.mn), data = lalonde)
+
+## ------------------------------------------------------------------------
+#Assessing balance numerically
+bal.tab(cbps.mn, un = TRUE, which.treat = NULL)
+
+## ---- fig.width = 5------------------------------------------------------
+#Assessing balance graphically
+bal.plot(cbps.mn, "age", which = "both")
+
+bal.plot(cbps.mn, "married", which = "both",
+         which.treat = c("black", "white"))
+
+## ---- fig.width = 5------------------------------------------------------
+#Summarizing balance in a Love plot
+love.plot(bal.tab(cbps.mn), threshold = .1,
+          which.treat = NULL)
+
+## ------------------------------------------------------------------------
 bal.tab(f.build("treat", covs0), data = lalonde, 
-        weights = data.frame(GBM = get.w(ps.out),
+        weights = data.frame(GBM = get.w(ps.out, "es.max"),
                              CBPS = get.w(cbps.out)),
         method = "weighting", disp.v.ratio = TRUE)
 
 ## ---- fig.width=7--------------------------------------------------------
 bal.plot(f.build("treat", covs0), data = lalonde, 
-         weights = data.frame(GBM = get.w(ps.out),
+         weights = data.frame(GBM = get.w(ps.out, "es.max"),
                               CBPS = get.w(cbps.out)),
          method = "weighting", var.name = "age", which = "both")
 
 ## ---- fig.width=5--------------------------------------------------------
 love.plot(bal.tab(f.build("treat", covs0), data = lalonde, 
-                  weights = data.frame(GBM = get.w(ps.out),
+                  weights = data.frame(GBM = get.w(ps.out, "es.max"),
                                        CBPS = get.w(cbps.out)),
                   method = "weighting"), var.order = "unadjusted",
           abs = TRUE, colors = c("red", "blue", "darkgreen"))

@@ -1,5 +1,20 @@
 cobalt News and Updates
 ======
+
+Version 3.0.0
+
+* Added support for multinomial treatments in `bal.tab()`, including output from `CBPS` and `twang`
+
+* Added support for `weightit` objects from `WeightIt`, including for multinomial treatments.
+
+* Added support for `ebalance.trim` objects from `ebal`.
+
+* Fixes to the vignette.
+
+* Fixes to `splitfactor()` to handle tibbles better. 
+
+* Fixed bug when using `bal.tab()` with multiply imputed data without adjustment. Fixed bug when using `s.weights` with the `formula` method of `bal.tab()`.
+
 Version 2.2.0
 
 * Added `disp.ks` and `ks.threshold` options to `bal.tab()` to display Kolmogorov-Smirnov statistics before and after preprocessing.
