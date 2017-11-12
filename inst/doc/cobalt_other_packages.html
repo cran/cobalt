@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="author" content="Noah Greifer" />
+
+<meta name="date" content="2017-11-11" />
+
+<title>Appendix 1: Using cobalt with Other Preprocessing Packages</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+
+
+<link href="data:text/css;charset=utf-8,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23header%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%20code%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" rel="stylesheet" type="text/css" />
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Appendix 1: Using cobalt with Other Preprocessing Packages</h1>
+<h4 class="author"><em>Noah Greifer</em></h4>
+<h4 class="date"><em>2017-11-11</em></h4>
+
+
+<div id="TOC">
+<ul>
+<li><a href="#utilities">Utilities</a><ul>
+<li><a href="#f.build"><code>f.build()</code></a></li>
+<li><a href="#splitfactor-and-unsplitfactor"><code>splitfactor()</code> and <code>unsplitfactor()</code></a></li>
+<li><a href="#get.w"><code>get.w()</code></a></li>
+</ul></li>
+<li><a href="#bal.tab"><code>bal.tab()</code></a><ul>
+<li><a href="#using-bal.tab-with-twang">Using <code>bal.tab()</code> with <code>twang</code></a></li>
+<li><a href="#using-bal.tab-with-matching">Using <code>bal.tab()</code> with <code>Matching</code></a></li>
+<li><a href="#using-bal.tab-with-optmatch">Using <code>bal.tab()</code> with <code>optmatch</code></a></li>
+<li><a href="#using-bal.tab-with-cbps">Using <code>bal.tab()</code> with <code>CBPS</code></a></li>
+<li><a href="#using-bal.tab-with-ebal">Using <code>bal.tab()</code> with <code>ebal</code></a></li>
+</ul></li>
+</ul>
+</div>
+
+<p>This is an appendix to the main vignette, “Covariate Balance Tables and Plots: A Guide to the cobalt Package”. It contains descriptions and demonstrations of several utility functions in <code>cobalt</code> and the use of <code>bal.tab()</code> with <code>twang</code>, <code>Matching</code>, <code>optmatch</code>, <code>CBPS</code>, and <code>ebal</code>. Note that <code>MatchIt</code> can perform most of the functions that <code>Matching</code> and <code>optmatch</code> can, and <code>WeightIt</code> completely subsumes and expands the capabilities of <code>twang</code>, <code>CBPS</code>, and <code>ebal</code>. Because <code>cobalt</code> has been optimized to work with <code>MatchIt</code> and <code>WeightIt</code>, it is recommended to use those package to simplify preprocessing and balance assessment, but we recognize users may prefer to use the packages described in this vignette.</p>
+<div id="utilities" class="section level2">
+<h2>Utilities</h2>
+<p>In addition to its main balance assessment functions, <code>cobalt</code> contains several utility functions. These are meant to reduce the typing and programming burden that often accompany the use of R with a diverse set of packages.</p>
+<div id="f.build" class="section level3">
+<h3><code>f.build()</code></h3>
+<p><code>f.build()</code> is a small tool that can be helpful in quickly specifying formula inputs to functions. An example is provided below:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)
+covs &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78))
+<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs)</code></pre></div>
+<pre><code>## treat ~ age + educ + race + married + nodegree + re74 + re75
+## &lt;environment: 0x7fa126b1be30&gt;</code></pre>
+<p>The function creates a <code>formula</code> object from two inputs: the first argument is the quoted name of the variable to be the left hand side (response) variable in the formula; the second argument is a vector of right hand side (predictor) variable names or a data frame, the variable names of which are to be the predictor variables. The utility of <code>f.build()</code> is that the user does not have to manually type out the name of every covariate when entering a formula into a function. It can be used simply in place of a formula, as in the following examples, which make use of the objects defined above:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Generating propensity scores using logistic regression</span>
+p.score &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)<span class="op">$</span>fitted.values
+
+<span class="co"># Using matchit() from the MatchIt package</span>
+<span class="kw">library</span>(<span class="st">&quot;MatchIt&quot;</span>)
+m.out &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">method =</span> <span class="st">&quot;nearest&quot;</span>)</code></pre></div>
+<p><code>f.build()</code> can also be used in the <code>Matching</code>, <code>optmatch</code>, <code>ebalance</code>, and formula interfaces in <code>bal.tab()</code>.</p>
+<p><em>Note</em>: in an earlier version of <code>cobalt</code>, the first argument of <code>f.build()</code> was unquoted; this has been changed to reap the benefits of standard evaluation, including the ability to loop through response variables.</p>
+</div>
+<div id="splitfactor-and-unsplitfactor" class="section level3">
+<h3><code>splitfactor()</code> and <code>unsplitfactor()</code></h3>
+<p>Some functions (outside of <code>cobalt</code>) are not friendly to factor or character variables, and require numeric variables to operate correctly. For example, some regression-style functions, such as <code>ebalance()</code> in <code>ebal</code>, can only take in non-singular numeric matrices. Other functions will process factor variables, but will return output in terms of dummy coded version of the factors. For example, <code>lm()</code> will create dummy variables out of a factor and drop the reference category to create regression coefficients.</p>
+<p>To prepare data sets for use in functions that do not allow factors or to mimic the output of functions that split factor variables, users can use <code>splitfactor()</code>, which takes in a data set and the names of variables to split, and outputs a new data set with newly created dummy variables. Below is an example splitting the <code>race</code> variable in the Lalonde data set into dummies, eliminating the reference category (<code>&quot;black&quot;</code>):</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">head</span>(lalonde)</code></pre></div>
+<div class="kable-table">
+<table>
+<thead>
+<tr class="header">
+<th align="right">treat</th>
+<th align="right">age</th>
+<th align="right">educ</th>
+<th align="left">race</th>
+<th align="right">married</th>
+<th align="right">nodegree</th>
+<th align="right">re74</th>
+<th align="right">re75</th>
+<th align="right">re78</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">37</td>
+<td align="right">11</td>
+<td align="left">black</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">9930.0460</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">22</td>
+<td align="right">9</td>
+<td align="left">hispan</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">3595.8940</td>
+</tr>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">30</td>
+<td align="right">12</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">24909.4500</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">27</td>
+<td align="right">11</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">7506.1460</td>
+</tr>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">33</td>
+<td align="right">8</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">289.7899</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">22</td>
+<td align="right">9</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">4056.4940</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">lalonde.split &lt;-<span class="st"> </span><span class="kw">splitfactor</span>(lalonde, <span class="st">&quot;race&quot;</span>)
+<span class="kw">head</span>(lalonde.split)</code></pre></div>
+<div class="kable-table">
+<table>
+<thead>
+<tr class="header">
+<th align="right">treat</th>
+<th align="right">age</th>
+<th align="right">educ</th>
+<th align="right">race_hispan</th>
+<th align="right">race_white</th>
+<th align="right">married</th>
+<th align="right">nodegree</th>
+<th align="right">re74</th>
+<th align="right">re75</th>
+<th align="right">re78</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">37</td>
+<td align="right">11</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">9930.0460</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">22</td>
+<td align="right">9</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">3595.8940</td>
+</tr>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">30</td>
+<td align="right">12</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">24909.4500</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">27</td>
+<td align="right">11</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">7506.1460</td>
+</tr>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">33</td>
+<td align="right">8</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">289.7899</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">22</td>
+<td align="right">9</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">4056.4940</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>It is possible to undo the action of <code>splitfactor()</code> with <code>unsplitfactor()</code>, which takes in a data set with dummy variables formed from <code>splitfactor()</code> or otherwise and recreates the original factor variable. If the reference category was dropped, its value needs to be supplied.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">lalonde.unsplit &lt;-<span class="st"> </span><span class="kw">unsplitfactor</span>(lalonde.split, <span class="st">&quot;race&quot;</span>, 
+                                 <span class="dt">dropped.level =</span> <span class="st">&quot;black&quot;</span>)
+<span class="kw">head</span>(lalonde.unsplit)</code></pre></div>
+<div class="kable-table">
+<table>
+<thead>
+<tr class="header">
+<th align="right">treat</th>
+<th align="right">age</th>
+<th align="right">educ</th>
+<th align="left">race</th>
+<th align="right">married</th>
+<th align="right">nodegree</th>
+<th align="right">re74</th>
+<th align="right">re75</th>
+<th align="right">re78</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">37</td>
+<td align="right">11</td>
+<td align="left">black</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">9930.0460</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">22</td>
+<td align="right">9</td>
+<td align="left">hispan</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">3595.8940</td>
+</tr>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">30</td>
+<td align="right">12</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">24909.4500</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">27</td>
+<td align="right">11</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">7506.1460</td>
+</tr>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">33</td>
+<td align="right">8</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">289.7899</td>
+</tr>
+<tr class="even">
+<td align="right">1</td>
+<td align="right">22</td>
+<td align="right">9</td>
+<td align="left">black</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">4056.4940</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Notice the original data set and the unsplit data set look identical.</p>
+</div>
+<div id="get.w" class="section level3">
+<h3><code>get.w()</code></h3>
+<p><code>get.w()</code> allows users to extract weights from the output of a call to a preprocessing function in one of the supported packages. Because each package stores weights in different ways, it can be helpful to have a single function that applies equally to all outputs. <code>twang</code> has a function called <code>get.weights()</code> that performs the same functions with slightly finer control for the output of a call to <code>ps()</code>. See the section “Comparing balancing methods” in the main vignette for examples of the use of <code>get.w()</code>.</p>
+</div>
+</div>
+<div id="bal.tab" class="section level2">
+<h2><code>bal.tab()</code></h2>
+<p>The next sections describe the use of <code>bal.tab()</code> with packages other than those described in the main vignette. Even if you are using <code>bal.tab()</code> with one of these packages, it may be useful to read the main vignette to understand <code>bal.tab()</code>’s main options, which are not detailed here.</p>
+<div id="using-bal.tab-with-twang" class="section level3">
+<h3>Using <code>bal.tab()</code> with <code>twang</code></h3>
+<p>Generalized boosted modeling (GBM), as implemented in <code>twang</code>, can be an effective way to generate propensity scores and weights for use in propensity score weighting. <code>bal.tab()</code> functions similarly to the functions <code>bal.table()</code> and <code>summary()</code> when used with GBM in <code>twang</code>. Below is a simple example of its use:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;twang&quot;</span>)
+<span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) ##If not yet loaded
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, nodegree, married))
+
+ps.out &lt;-<span class="st"> </span><span class="kw">ps</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde, 
+             <span class="dt">stop.method =</span> <span class="kw">c</span>(<span class="st">&quot;es.mean&quot;</span>, <span class="st">&quot;es.max&quot;</span>), 
+             <span class="dt">estimand =</span> <span class="st">&quot;ATT&quot;</span>, <span class="dt">n.trees =</span> <span class="dv">1000</span>, <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
+<span class="kw">bal.tab</span>(ps.out, <span class="dt">stop.method =</span> <span class="st">&quot;es.mean&quot;</span>)</code></pre></div>
+<pre><code>## 
+## Call:
+##   ps(formula = f.build(&quot;treat&quot;, covs0), data = lalonde, n.trees = 1000, 
+##       verbose = FALSE, estimand = &quot;ATT&quot;, stop.method = c(&quot;es.mean&quot;, 
+##           &quot;es.max&quot;))
+## 
+## Balance Measures:
+##                 Type Diff.Adj
+## prop.score  Distance   0.4781
+## age          Contin.   0.0143
+## educ         Contin.  -0.0921
+## race_black    Binary   0.0436
+## race_hispan   Binary  -0.0049
+## race_white    Binary  -0.0387
+## re74         Contin.  -0.0001
+## re75         Contin.   0.0403
+## 
+## Effective sample sizes:
+##            Control Treated
+## Unadjusted  429.00     185
+## Adjusted     52.78     185</code></pre>
+<p>The output looks a bit different from <code>twang</code>’s <code>bal.table()</code> output. First is the original call to <code>ps()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>ps()</code>. Last is a table displaying sample size information, similar to what would be generated using <code>twang</code>’s <code>summary()</code> function. The “effective” sample size is displayed when weighting is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation.</p>
+<p>When using <code>bal.tab()</code> with <code>twang</code>, the user must specify the <code>ps</code> object, the output of a call to <code>ps()</code>, as the first argument. The second argument, <code>stop.method</code>, is the name of the stop method(s) for which balance is to be assessed, since a <code>ps</code> object may contain more than one if so specified. <code>bal.tab()</code> can display the balance for more than one stop method at a time by specifying a vector of stop method names. If this argument is left empty or if the argument to <code>stop.method</code> does not correspond to any of the stop methods in the <code>ps</code> object, <code>bal.tab()</code> will default to displaying balance for all stop methods available. Abbreviations are allowed for the stop method, which is not case sensitive.</p>
+<p>The other arguments to <code>bal.tab()</code> when using it with <code>twang</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the stop method used is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>, mimicking the behavior of <code>twang</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advised.</p>
+<p>If sampling weights are used in the call to <code>ps()</code>, they will be automatically incorporated into the <code>bal.tab()</code> calculations for both the adjusted and unadjusted samples, just as <code>twang</code> does.</p>
+</div>
+<div id="using-bal.tab-with-matching" class="section level3">
+<h3>Using <code>bal.tab()</code> with <code>Matching</code></h3>
+<p>The <code>Matching</code> package is used for propensity score matching, and was also the first package to implement genetic matching. <code>MatchIt</code> calls <code>Matching</code> to use genetic matching and can accomplish many of the matching methods <code>Matching</code> can, but <code>Matching</code> is still a widely used package with its own strengths. <code>bal.tab()</code> functions similarly to <code>Matching</code>’s <code>MatchBalance()</code> command, which yields a thorough presentation of balance, and makes <code>Matching</code> the only package of those integrated with <code>cobalt</code> to display variance ratios by default. Below is a simple example of the use of <code>bal.tab()</code> with <code>Matching</code>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;Matching&quot;</span>)
+<span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, nodegree, married))
+
+fit &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)
+p.score &lt;-<span class="st"> </span>fit<span class="op">$</span>fitted.values
+match.out &lt;-<span class="st"> </span><span class="kw">Match</span>(<span class="dt">Tr =</span> lalonde<span class="op">$</span>treat, <span class="dt">X =</span> p.score, <span class="dt">estimand =</span> <span class="st">&quot;ATT&quot;</span>)
+
+<span class="kw">bal.tab</span>(match.out, <span class="dt">formula =</span> <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
+<pre><code>## Balance Measures:
+##                Type Diff.Adj
+## age         Contin.   0.2144
+## educ        Contin.  -0.1025
+## race_black   Binary   0.0108
+## race_hispan  Binary  -0.0070
+## race_white   Binary  -0.0038
+## re74        Contin.   0.0500
+## re75        Contin.   0.0886
+## 
+## Sample sizes:
+##                      Control Treated
+## All                      429     185
+## Matched                  185     185
+## Matched (Unweighted)     159     185
+## Unmatched                270       0</code></pre>
+<p>The output looks quite different from <code>Matching</code>’s <code>MatchBalance()</code> output. Rather than being stacked vertically, balance statistics are arranged horizontally in a table format, allowing for quick balance checking. Below the balance table is a summary of the sample size before and after matching, similar to what <code>Matching</code>’s <code>summary()</code> command would display. The sample size can include a “weighted” and “unweighted” count; the “weighted” count is the sum of the matching weights, while the “unweighted” is the count of units with nonzero matching weights.</p>
+<p>The input to <code>bal.tab()</code> is similar to that given to <code>MatchBalance()</code>: the <code>Match</code> object resulting from the call to <code>Match()</code>, a formula relating treatment to the covariates for which balance is to be assessed, and the original data set. This is not the only way to call <code>bal.tab()</code>: instead of a formula and a data set, one can also input a data frame of covariates and a vector of treatment status indicators, just as when using <code>bal.tab()</code> wihout a conditioning package. For example, the code below will yield the same results as the call to <code>bal.tab()</code> above:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(match.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</code></pre></div>
+<p>The other arguments to <code>bal.tab()</code> when using it with <code>Matching</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the original call to <code>Match()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified; if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>; if the estimand is the ATC, <code>s.d.denom</code> will default to <code>&quot;control&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable. In addition, the use of the <code>addl</code> argument is unnecessary because the covariates are entered manually as arguments, so all covariates for which balance is to be assessed can be entered through the <code>formula</code> or <code>covs</code> argument. If the covariates are stored in two separate data frames, it may be useful to include one in <code>formula</code> or <code>covs</code> and the other in <code>addl</code>.</p>
+</div>
+<div id="using-bal.tab-with-optmatch" class="section level3">
+<h3>Using <code>bal.tab()</code> with <code>optmatch</code></h3>
+<p>The <code>optmatch</code> package is useful for performing optimal pairwise or full matching. Most functions in <code>optmatch</code> are subsumed in <code>MatchIt</code>, but <code>optmatch</code> sees use from those who want finer control of the matching process than <code>MatchIt</code> allows. The output of calls to functions in <code>optmatch</code> is an <code>optmatch</code> object, which contains matching stratum membership for each unit in the given data set. Units that are matched with each other are assigned the same matching stratum. The user guide for <code>optmatch</code> recommends using the <code>RItools</code> package for balance assessment, but below is an example of how to use <code>bal.tab()</code> for the same purpose. Note that some results will differ between <code>cobalt</code> and <code>RItools</code> because of differences in how balance is calculated in each.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#Optimal full matching on the propensity score</span>
+<span class="kw">library</span>(<span class="st">&quot;optmatch&quot;</span>)
+<span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, nodegree, married))
+
+fit &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)
+lalonde<span class="op">$</span>p.score &lt;-<span class="st"> </span>fit<span class="op">$</span>fitted.values <span class="co">#get the propensity score</span>
+fm &lt;-<span class="st"> </span><span class="kw">fullmatch</span>(treat <span class="op">~</span><span class="st"> </span>p.score, <span class="dt">data =</span> lalonde)
+
+<span class="kw">bal.tab</span>(fm, <span class="dt">formula =</span> <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
+<pre><code>## Balance Measures:
+##                Type Diff.Adj
+## age         Contin.   0.1204
+## educ        Contin.  -0.0635
+## race_black   Binary   0.0054
+## race_hispan  Binary  -0.0059
+## race_white   Binary   0.0005
+## re74        Contin.   0.0172
+## re75        Contin.   0.0854
+## 
+## Sample sizes:
+##         Control Treated
+## All         429     185
+## Matched     429     185</code></pre>
+<p>Most details for the use of <code>bal.tab()</code> with <code>optmatch</code> are similar to those when using <code>bal.tab()</code> with <code>Matching</code>. Users can enter either a formula and a data set or a vector of treatment status and a set of covariates.</p>
+</div>
+<div id="using-bal.tab-with-cbps" class="section level3">
+<h3>Using <code>bal.tab()</code> with <code>CBPS</code></h3>
+<p>The <code>CBPS</code> (Covariate Balancing Propensity Score) package is a great tool for generating covariate balancing propensity scores, a class of propensity scores that are quite effective at balancing covariates among groups. <code>CBPS</code> includes functions for estimating propensity scores for binary, multinomial, and continuous treatments. <code>bal.tab()</code> functions similarly to <code>CBPS</code>’s <code>balance()</code> command. Below is a simple example of its use with a binary treatment:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;CBPS&quot;</span>)
+<span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, nodegree, married))
+
+<span class="co">#Generating covariate balancing propensity score weights for ATT</span>
+cbps.out &lt;-<span class="st"> </span><span class="kw">CBPS</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
+<pre><code>## [1] &quot;Finding ATT with T=1 as the treatment.  Set ATT=2 to find ATT with T=0 as the treatment&quot;</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(cbps.out)</code></pre></div>
+<pre><code>## 
+## Call:
+##   CBPS(formula = f.build(&quot;treat&quot;, covs0), data = lalonde)
+## 
+## Balance Measures:
+##                 Type Diff.Adj
+## prop.score  Distance  -0.0159
+## age          Contin.  -0.0085
+## educ         Contin.   0.0050
+## race_black    Binary   0.0002
+## race_hispan   Binary  -0.0001
+## race_white    Binary  -0.0001
+## re74         Contin.   0.0005
+## re75         Contin.   0.0021
+## 
+## Effective sample sizes:
+##            Control Treated
+## Unadjusted   429.0     185
+## Adjusted     110.8     185</code></pre>
+<p>First is the original call to <code>CBPS()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>CBPS()</code>. Last is a table displaying sample size information. The “effective” sample size is displayed when weighting (rather than matching or subclassification) is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation.</p>
+<p>The other arguments to <code>bal.tab()</code> when using it with <code>CBPS</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the original call to <code>CBPS()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable.</p>
+<p>When using <code>CBPS</code> and <code>bal.tab()</code> with continuous treatments, the same guidelines apply as when using <code>bal.tab()</code> with continuous treatments without a conditioning package. See the section “Using cobalt with continuous treatments” in the main vignette for more details.</p>
+</div>
+<div id="using-bal.tab-with-ebal" class="section level3">
+<h3>Using <code>bal.tab()</code> with <code>ebal</code></h3>
+<p>The <code>ebal</code> package implements entropy balancing, a method of weighting for the ATT that yields perfect balance on all desired moments of the covariate distributions between groups. Rather than estimate a propensity score, entropy balancing generates weights directly that satisfy a user-defined moment condition, specifying which moments are to be balanced. <code>ebal</code> does not have its own balance assessment function; thus, <code>cobalt</code> is the only way to assess balance without programming, which the <code>ebal</code> documentation instructs. Below is a simple example of using <code>bal.tab()</code> with <code>ebal</code>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(<span class="st">&quot;ebal&quot;</span>)
+<span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span>
+covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, race))
+
+<span class="co">#Generating entropy balancing weights</span>
+e.out &lt;-<span class="st"> </span><span class="kw">ebalance</span>(lalonde<span class="op">$</span>treat, covs0)</code></pre></div>
+<pre><code>## Converged within tolerance</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(e.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</code></pre></div>
+<pre><code>## Balance Measures:
+##             Type Diff.Adj
+## age      Contin.        0
+## educ     Contin.        0
+## married   Binary        0
+## nodegree  Binary        0
+## re74     Contin.        0
+## re75     Contin.        0
+## 
+## Effective sample sizes:
+##            Control Treated
+## Unadjusted   429.0     185
+## Adjusted     247.6     185</code></pre>
+<p>First is the balance table containing mean differences for covariates included in the original call to <code>ebalance</code>. In general, these will all be very close to 0. Next is a table displaying effective sample size information. The “effective” sample size is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation. A common issue when using entropy balancing is small effective sample size, which can yield low precision in effect estimation when using weighted regression, so it is important that users pay attention to this measure. That said, in simulations by Zhao and Percival (2015), entropy balancing reliably had smaller empirical standard errors than did covariate balancing propensity scores.</p>
+<p>The input is similar to that for using <code>bal.tab()</code> with <code>Matching</code> or <code>optmatch</code>. In additon to the <code>ebalance</code> object, one must specify either both a formula and a data set or both a treatment vector and a data frame of covariates.</p>
+</div>
+</div>
+
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

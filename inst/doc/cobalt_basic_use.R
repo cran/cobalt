@@ -6,29 +6,6 @@ knitr::opts_chunk$set(message = FALSE)
 library("cobalt")
 
 ## ------------------------------------------------------------------------
-data("lalonde", package = "cobalt")
-covs <- subset(lalonde, select = -c(treat, re78))
-f.build("treat", covs)
-
-## ---- eval = FALSE-------------------------------------------------------
-#  # Generating propensity scores using logistic regression
-#  p.score <- glm(f.build("treat", covs), data = lalonde, family = "binomial")$fitted.values
-#  
-#  # Using matchit() from the MatchIt package
-#  library("MatchIt")
-#  m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest")
-
-## ------------------------------------------------------------------------
-head(lalonde)
-lalonde.split <- splitfactor(lalonde, "race")
-head(lalonde.split)
-
-## ------------------------------------------------------------------------
-lalonde.unsplit <- unsplitfactor(lalonde.split, "race", 
-                                   dropped.level = "black")
-head(lalonde.unsplit)
-
-## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
@@ -77,7 +54,7 @@ bal.tab(f.build("treat", covs0), data = lalonde, weights = c("att.weights", "att
 # Subclassification for ATT with 6 subclasses
 lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde, 
                        family = "binomial")$fitted.values
-nsub <- 6 #number of subclasses
+nsub <- 5 #number of subclasses
 lalonde$subclass <- findInterval(lalonde$p.score, 
                                  quantile(lalonde$p.score[lalonde$treat == 1], 
                                           seq(0, 1, length.out = nsub + 1)), 
@@ -97,94 +74,26 @@ m.out <- matchit(f.build("treat", covs0), data = lalonde, method = "nearest",
 
 bal.tab(m.out)
 
-## ---- warning = FALSE----------------------------------------------------
-library("twang")
-data("lalonde", package = "cobalt") ##If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
-
-ps.out <- ps(f.build("treat", covs0), data = lalonde, 
-             stop.method = c("es.mean", "es.max"), 
-             estimand = "ATT", n.trees = 1000, verbose = FALSE)
-bal.tab(ps.out, stop.method = "es.mean")
-
 ## ------------------------------------------------------------------------
-library("Matching")
+#Note: this code will not work until WeightIt is on CRAN
+
+library("WeightIt")
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
-fit <- glm(f.build("treat", covs0), data = lalonde, family = "binomial")
-p.score <- fit$fitted.values
-match.out <- Match(Tr = lalonde$treat, X = p.score, estimand = "ATT")
+#Generating propensity score weights for the ATT
+W.out <- weightit(f.build("treat", covs0), data = lalonde,
+                  method = "ps", estimand = "ATT")
 
-bal.tab(match.out, formula = f.build("treat", covs0), data = lalonde)
-
-## ---- eval = FALSE-------------------------------------------------------
-#  bal.tab(match.out, treat = lalonde$treat, covs = covs0)
-
-## ------------------------------------------------------------------------
-#Optimal full matching on the propensity score
-library("optmatch")
-data("lalonde", package = "cobalt") #If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
-
-fit <- glm(f.build("treat", covs0), data = lalonde, family = "binomial")
-lalonde$p.score <- fit$fitted.values #get the propensity score
-fm <- fullmatch(treat ~ p.score, data = lalonde)
-
-bal.tab(fm, formula = f.build("treat", covs0), data = lalonde)
-
-## ------------------------------------------------------------------------
-library("CBPS")
-data("lalonde", package = "cobalt") #If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
-
-#Generating covariate balancing propensity score weights for ATT
-cbps.out <- CBPS(f.build("treat", covs0), data = lalonde)
-
-bal.tab(cbps.out)
-
-## ------------------------------------------------------------------------
-library("ebal")
-data("lalonde", package = "cobalt") #If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, race))
-
-#Generating entropy balancing weights
-e.out <- ebalance(lalonde$treat, covs0)
-
-bal.tab(e.out, treat = lalonde$treat, covs = covs0)
-
-## ---- eval = FALSE-------------------------------------------------------
-#  #Note: this code will not work until WeightIt is on CRAN
-#  
-#  library("WeightIt")
-#  data("lalonde", package = "cobalt") #If not yet loaded
-#  covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
-#  
-#  #Generating propensity score weights for the ATC
-#  W.out <- weightit(f.build("treat", covs0), data = lalonde,
-#                    methid = "ps", estimand = "ATC")
-#  
-#  bal.tab(W.out)
+bal.tab(W.out)
 
 ## ---- fig.show = "hold"--------------------------------------------------
-data("lalonde", package = "cobalt")
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
-
-# Generating ATT weights as specified in Austin (2011)
-lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde, 
-                       family = "binomial")$fitted.values
-lalonde$att.weights <- with(lalonde, treat + (1-treat)*p.score/(1-p.score))
-
-bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting",
-         estimand = "ATT", var.name = "age")
-bal.plot(covs0, treat = lalonde$treat, weights = lalonde$att.weights, method = "weighting",
-         estimand = "ATT", var.name = "race")
+bal.plot(W.out, var.name = "age")
+bal.plot(W.out, var.name = "race")
 
 ## ---- fig.width = 5------------------------------------------------------
 #Before and after weighting; which = "both"
-bal.plot(f.build("treat", covs0), data = lalonde, var.name = "p.score",
-         weights = "att.weights", distance = "p.score", 
-         method = "weighting", which = "both")
+bal.plot(W.out, var.name = "prop.score", which = "both")
 
 
 ## ---- fig.width = 5------------------------------------------------------
@@ -203,88 +112,104 @@ v <- data.frame(old = c("age", "educ", "race_black", "race_hispan",
                 new = c("Age", "Years of Education", "Black", 
                         "Hispanic", "White", "Married", "No Degree Earned", 
                         "Earnings 1974", "Earnings 1975", "Propensity Score"))
-                
+
 love.plot(bal.tab(m.out), stat = "mean.diffs", threshold = .1, 
           var.order = "unadjusted", var.names = v, abs = TRUE,
           line = TRUE, limits = c(0, 1))
 
 ## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
-library("CBPS")
+library("WeightIt")
 cov.c <- subset(lalonde, select = -c(treat, re78, re75))
 
 #Generating weights with re75 as the continuous treatment
-cbps.c <- CBPS(f.build("re75", cov.c), data = lalonde, 
-               method = "exact")
+W.out.c <- weightit(re75 ~ age + educ + race + married + nodegree + 
+                        re74 + I(re74^2), 
+                    data = lalonde, method = "ps")
 
 ## ------------------------------------------------------------------------
 #Assessing balance numerically
-bal.tab(cbps.c, un = TRUE, r.threshold = .1, int = TRUE)
+bal.tab(W.out.c, un = TRUE, r.threshold = .1, int = TRUE,
+        imbalanced.only = TRUE)
 
 ## ---- fig.width = 5------------------------------------------------------
 #Assessing balance graphically
-bal.plot(cbps.c, "re74", which = "both")
-
-bal.plot(cbps.c, "married", which = "both")
+bal.plot(W.out.c, "re74", which = "both")
+bal.plot(W.out.c, "married", which = "both")
 
 ## ---- fig.width = 5------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(bal.tab(cbps.c), threshold = .1, abs = TRUE, var.order = "unadjusted",
-          line = TRUE)
+love.plot(bal.tab(W.out.c), threshold = .1, abs = TRUE, 
+          var.order = "unadjusted", line = TRUE)
 
 ## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
-library("CBPS")
+library("WeightIt")
 cov.mn <- subset(lalonde, select = -c(treat, re78, race))
 
 #Using CBPS to generate weights
-cbps.mn <- CBPS(f.build("race", cov.mn), data = lalonde)
+W.out.mn <- weightit(f.build("race", cov.mn), data = lalonde,
+                     method = "ps")
 
 ## ------------------------------------------------------------------------
 #Assessing balance numerically
-bal.tab(cbps.mn, un = TRUE, which.treat = NULL)
+bal.tab(W.out.mn, un = TRUE, which.treat = NULL)
+
+#Just black vs. white
+bal.tab(W.out.mn, un = TRUE, disp.means = TRUE,
+        which.treat = c("black", "white"),
+        multi.summary = FALSE)
 
 ## ---- fig.width = 5------------------------------------------------------
 #Assessing balance graphically
-bal.plot(cbps.mn, "age", which = "both")
+bal.plot(W.out.mn, "age", which = "both")
 
-bal.plot(cbps.mn, "married", which = "both",
+bal.plot(W.out.mn, "married", which = "both",
          which.treat = c("black", "white"))
 
 ## ---- fig.width = 5------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(bal.tab(cbps.mn), threshold = .1,
+love.plot(bal.tab(W.out.mn), threshold = .1,
           which.treat = NULL)
 
 ## ------------------------------------------------------------------------
 bal.tab(f.build("treat", covs0), data = lalonde, 
-        weights = data.frame(GBM = get.w(ps.out, "es.max"),
-                             CBPS = get.w(cbps.out)),
-        method = "weighting", disp.v.ratio = TRUE)
+        weights = data.frame(Matched = get.w(m.out),
+                             IPW = get.w(W.out)),
+        method = c("matching", "weighting"), 
+        disp.v.ratio = TRUE)
 
 ## ---- fig.width=7--------------------------------------------------------
 bal.plot(f.build("treat", covs0), data = lalonde, 
-         weights = data.frame(GBM = get.w(ps.out, "es.max"),
-                              CBPS = get.w(cbps.out)),
-         method = "weighting", var.name = "age", which = "both")
+         weights = data.frame(Matched = get.w(m.out),
+                              IPW = get.w(W.out)),
+         method = c("matching", "weighting"), 
+         var.name = "age", which = "both")
 
 ## ---- fig.width=5--------------------------------------------------------
 love.plot(bal.tab(f.build("treat", covs0), data = lalonde, 
-                  weights = data.frame(GBM = get.w(ps.out, "es.max"),
-                                       CBPS = get.w(cbps.out)),
-                  method = "weighting"), var.order = "unadjusted",
-          abs = TRUE, colors = c("red", "blue", "darkgreen"))
+                  weights = data.frame(Matched = get.w(m.out),
+                                       IPW = get.w(W.out)),
+                  method = c("matching", "weighting")), var.order = "unadjusted",
+          abs = TRUE, colors = c("red", "blue", "darkgreen"), 
+          shapes = c(21, 22, 23))
 
 ## ------------------------------------------------------------------------
 ctrl.data <- lalonde[lalonde$treat == 0,]
 ctrl.fit <- glm(re78 ~ age + educ + race + 
-                married + nodegree + re74 + re75,
+                    married + nodegree + re74 + re75,
                 data = ctrl.data)
 lalonde$prog.score <- predict(ctrl.fit, lalonde)
 
-bal.tab(m.out, distance = lalonde[, "prog.score", drop = FALSE])
+bal.tab(m.out, distance = lalonde["prog.score"])
 
 ## ---- echo = FALSE, fig.show = 'hold', fig.width = 5---------------------
+library("twang")
+data("lalonde", package = "cobalt") ##If not yet loaded
+covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+ps.out <- ps(f.build("treat", covs0), data = lalonde, 
+             stop.method = c("es.mean", "es.max"), 
+             estimand = "ATT", n.trees = 100, verbose = FALSE)
 plot(ps.out, plots = "es", subset = 1)
 love.plot(bal.tab(ps.out, full.stop.method = "es.mean.att"), threshold = .1,
           abs = TRUE, var.order = "u", color = c("red", "blue"), line = TRUE,

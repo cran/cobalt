@@ -11,12 +11,13 @@ Generates balance statistics for \code{weightit} objects from \pkg{WeightIt}.
     data = NULL, continuous = c("std", "raw"), 
     binary = c("raw", "std"), s.d.denom, m.threshold = NULL, 
     v.threshold = NULL, ks.threshold = NULL, 
-    r.threshold = NULL, un = FALSE, 
+    r.threshold = NULL, imbalanced.only = FALSE, un = FALSE, disp.bal.tab = TRUE,
     disp.means = FALSE, disp.v.ratio = FALSE, 
     disp.ks = FALSE, disp.subclass = FALSE, 
     cluster = NULL, which.cluster = NULL, 
     cluster.summary = TRUE, which.treat = NA, 
-    multi.summary = TRUE, quick = FALSE, ...)
+    pairwise = TRUE, focal = NULL, multi.summary = TRUE, 
+    quick = FALSE, ...)
 }
 
 \arguments{
@@ -56,8 +57,14 @@ a numeric value for the threshold for Kolmogorov-Smirnov statistics. Must be bet
   \item{r.threshold}{
 a numeric value for the threshold for correlations between covariates and treatment when treatment is continuous.
 }
+  \item{imbalanced.only}{
+\code{logical}; whether to display only the covariates that failed to meet at least one of balance thresholds.
+}
   \item{un}{
 \code{logical}; whether to print statistics for the unadjusted sample as well as for the adjusted sample.
+}
+  \item{disp.bal.tab}{
+\code{logical}; whether to display the table of balance statistics.
 }
   \item{disp.means}{
 \code{logical}; whether to print the group means in balance output.
@@ -82,6 +89,12 @@ which cluster(s) to display if \code{cluster} is specified. See \code{\link{bal.
 }
   \item{which.treat}{
 which treatments to display when multiple categorical treatments are used. See \code{\link{bal.tab.multi}} for details.
+}
+  \item{pairwise}{
+Whether balance should be computed for pairs of treatments or for each treatment against all others combined. See \code{\link{bal.tab.multi}} for details. 
+}
+  \item{focal}{
+Currently ignored.
 }
   \item{multi.summary}{
 \code{logical}; whether to display the balance summary table across pairwise comparisons when multiple categorical treatments are used. See \code{\link{bal.tab.multi}} for details.
@@ -137,7 +150,6 @@ Noah Greifer \email{noah@unc.edu}
 \code{\link{bal.tab}} for details of calculations.
 }
 \examples{
-\dontrun{
 library(WeightIt); data("lalonde", package = "cobalt")
 
 ## Basic propensity score weighting
@@ -153,5 +165,4 @@ w.out2 <- weightit(treat ~ age + educ + race +
                   data = lalonde, method = "entropy",
                   estimand = "ATE")
 bal.tab(w.out2)
-}
 }

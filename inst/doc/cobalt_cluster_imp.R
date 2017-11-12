@@ -31,7 +31,7 @@ love.plot(bal.tab(m.out, cluster = "race"), agg.fun = "mean")
 love.plot(bal.tab(m.out, cluster = "race"), agg.fun = "range")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(m.out, cluster = "race", which.cluster = 1:3))
+love.plot(bal.tab(m.out, cluster = "race"), which.cluster = NULL)
 
 ## ------------------------------------------------------------------------
 library("MatchIt"); library("cobalt"); library("mice")
@@ -91,7 +91,7 @@ bal.plot(treat ~ age + educ + race + married + nodegree + re74 + re75,
 ## ------------------------------------------------------------------------
 love.plot(bal.tab(treat ~ age + educ + race + married + nodegree + re74 + re75, 
                   data = imp.data, weights = "match.weight", method = "matching", 
-                  imp = ".imp", which.imp = 1), 
+                  imp = ".imp"), which.imp = 1, 
           var.order = "unadjusted", threshold = .2)
 
 ## ------------------------------------------------------------------------
@@ -132,16 +132,16 @@ bal.plot(treat ~ age + educ + married + nodegree + re74 + re75,
          which.cluster = NULL, var.name = "age")
 
 ## ------------------------------------------------------------------------
-#2)
-love.plot(bal.tab(treat ~ age + educ + married + nodegree + re74 + re75, 
-                  data = imp.data, weights = "match.weight", 
-                  method = "matching", imp = ".imp", cluster = "race", 
-                  which.imp = NULL, which.cluster = 1:3), 
-          agg.fun = "range")
-
 #4)
 love.plot(bal.tab(treat ~ age + educ + married + nodegree + re74 + re75, 
                   data = imp.data, weights = "match.weight", 
-                  method = "matching", imp = ".imp", cluster = "race", 
-                  which.imp = 1, which.cluster = 1:3))
+                  method = "matching", imp = ".imp", cluster = "race"), 
+          which.imp = NA, which.cluster = NULL, 
+          agg.fun = "range")
+
+#7)
+love.plot(bal.tab(treat ~ age + educ + married + nodegree + re74 + re75, 
+                  data = imp.data, weights = "match.weight", 
+                  method = "matching", imp = ".imp", cluster = "race"), 
+          which.imp = 1, which.cluster = NULL)
 

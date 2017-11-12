@@ -1,9 +1,24 @@
 cobalt News and Updates
 ======
+Version 3.1.0
+
+* Added full support for tibbles.
+
+* Examples for `weightit` methods in documentation and vignette now work.
+
+* Improved speed and performance.
+
+* Added `pairwise` option for `bal.tab()` with multinomial treatments.
+
+* Increased flexibility for displaying balance using `love.plot()` with clustered or multiply imputed data.
+
+* Added `imbalanced.only` and `disp.bal.tab` options to `bal.tab()`.
+
+* Fixes to the vignettes. Also, creation of a new vignette to simplify the main one.
 
 Version 3.0.0
 
-* Added support for multinomial treatments in `bal.tab()`, including output from `CBPS` and `twang`
+* Added support for multinomial treatments in `bal.tab()`, including output from `CBPS` and `twang`.
 
 * Added support for `weightit` objects from `WeightIt`, including for multinomial treatments.
 
