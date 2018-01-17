@@ -75,8 +75,6 @@ m.out <- matchit(f.build("treat", covs0), data = lalonde, method = "nearest",
 bal.tab(m.out)
 
 ## ------------------------------------------------------------------------
-#Note: this code will not work until WeightIt is on CRAN
-
 library("WeightIt")
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
@@ -94,7 +92,6 @@ bal.plot(W.out, var.name = "race")
 ## ---- fig.width = 5------------------------------------------------------
 #Before and after weighting; which = "both"
 bal.plot(W.out, var.name = "prop.score", which = "both")
-
 
 ## ---- fig.width = 5------------------------------------------------------
 data("lalonde", package = "cobalt")
@@ -167,7 +164,7 @@ bal.plot(W.out.mn, "age", which = "both")
 bal.plot(W.out.mn, "married", which = "both",
          which.treat = c("black", "white"))
 
-## ---- fig.width = 5------------------------------------------------------
+## ---- fig.width = 7------------------------------------------------------
 #Summarizing balance in a Love plot
 love.plot(bal.tab(W.out.mn), threshold = .1,
           which.treat = NULL)

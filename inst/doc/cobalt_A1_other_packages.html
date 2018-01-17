@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2017-11-11" />
+<meta name="date" content="2018-01-16" />
 
 <title>Appendix 1: Using cobalt with Other Preprocessing Packages</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Appendix 1: Using cobalt with Other Preprocessing Packages</h1>
 <h4 class="author"><em>Noah Greifer</em></h4>
-<h4 class="date"><em>2017-11-11</em></h4>
+<h4 class="date"><em>2018-01-16</em></h4>
 
 
 <div id="TOC">
@@ -101,7 +101,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 covs &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78))
 <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs)</code></pre></div>
 <pre><code>## treat ~ age + educ + race + married + nodegree + re74 + re75
-## &lt;environment: 0x7fa126b1be30&gt;</code></pre>
+## &lt;environment: 0x7fcf83a9b340&gt;</code></pre>
 <p>The function creates a <code>formula</code> object from two inputs: the first argument is the quoted name of the variable to be the left hand side (response) variable in the formula; the second argument is a vector of right hand side (predictor) variable names or a data frame, the variable names of which are to be the predictor variables. The utility of <code>f.build()</code> is that the user does not have to manually type out the name of every covariate when entering a formula into a function. It can be used simply in place of a formula, as in the following examples, which make use of the objects defined above:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Generating propensity scores using logistic regression</span>
 p.score &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)<span class="op">$</span>fitted.values
@@ -431,6 +431,7 @@ ps.out &lt;-<span class="st"> </span><span class="kw">ps</span>(<span class="kw"
 <p>When using <code>bal.tab()</code> with <code>twang</code>, the user must specify the <code>ps</code> object, the output of a call to <code>ps()</code>, as the first argument. The second argument, <code>stop.method</code>, is the name of the stop method(s) for which balance is to be assessed, since a <code>ps</code> object may contain more than one if so specified. <code>bal.tab()</code> can display the balance for more than one stop method at a time by specifying a vector of stop method names. If this argument is left empty or if the argument to <code>stop.method</code> does not correspond to any of the stop methods in the <code>ps</code> object, <code>bal.tab()</code> will default to displaying balance for all stop methods available. Abbreviations are allowed for the stop method, which is not case sensitive.</p>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>twang</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the stop method used is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>, mimicking the behavior of <code>twang</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advised.</p>
 <p>If sampling weights are used in the call to <code>ps()</code>, they will be automatically incorporated into the <code>bal.tab()</code> calculations for both the adjusted and unadjusted samples, just as <code>twang</code> does.</p>
+<p><code>mnps</code> objects resulting from fitting models in <code>twang</code> with multinomial treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with multinomial treatments” in the main vignette. <code>iptw</code> objects resulting from fitting models in <code>twang</code> with longitduinal treatments are also compatible with <code>cobalt</code>. See the Appendix 3 vignette.</p>
 </div>
 <div id="using-bal.tab-with-matching" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>Matching</code></h3>
@@ -478,7 +479,11 @@ lalonde<span class="op">$</span>p.score &lt;-<span class="st"> </span>fit<span c
 fm &lt;-<span class="st"> </span><span class="kw">fullmatch</span>(treat <span class="op">~</span><span class="st"> </span>p.score, <span class="dt">data =</span> lalonde)
 
 <span class="kw">bal.tab</span>(fm, <span class="dt">formula =</span> <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
-<pre><code>## Balance Measures:
+<pre><code>## 
+## Call:
+##   fullmatch(x = treat ~ p.score, data = lalonde)
+## 
+## Balance Measures:
 ##                Type Diff.Adj
 ## age         Contin.   0.1204
 ## educ        Contin.  -0.0635
@@ -511,13 +516,13 @@ cbps.out &lt;-<span class="st"> </span><span class="kw">CBPS</span>(<span class=
 ## 
 ## Balance Measures:
 ##                 Type Diff.Adj
-## prop.score  Distance  -0.0159
+## prop.score  Distance  -0.0157
 ## age          Contin.  -0.0085
 ## educ         Contin.   0.0050
-## race_black    Binary   0.0002
+## race_black    Binary   0.0003
 ## race_hispan   Binary  -0.0001
-## race_white    Binary  -0.0001
-## re74         Contin.   0.0005
+## race_white    Binary  -0.0002
+## re74         Contin.   0.0003
 ## re75         Contin.   0.0021
 ## 
 ## Effective sample sizes:
@@ -527,6 +532,7 @@ cbps.out &lt;-<span class="st"> </span><span class="kw">CBPS</span>(<span class=
 <p>First is the original call to <code>CBPS()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>CBPS()</code>. Last is a table displaying sample size information. The “effective” sample size is displayed when weighting (rather than matching or subclassification) is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation.</p>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>CBPS</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the original call to <code>CBPS()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable.</p>
 <p>When using <code>CBPS</code> and <code>bal.tab()</code> with continuous treatments, the same guidelines apply as when using <code>bal.tab()</code> with continuous treatments without a conditioning package. See the section “Using cobalt with continuous treatments” in the main vignette for more details.</p>
+<p><code>CBPSContinuous</code> objects resulting from fitting models in <code>CBPS</code> with continuous treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with continuous treatments” in the main vignette. <code>CBPS</code> objects resulting from fitting models in <code>CBPS</code> with multinomial treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with multinomial treatments” in the main vignette. <code>CBMSM</code> objects resulting from fitting models in <code>CBPS</code> with longitudinal treatments are also compatible with <code>cobalt</code>. See the Appendix 3 vignette.</p>
 </div>
 <div id="using-bal.tab-with-ebal" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>ebal</code></h3>

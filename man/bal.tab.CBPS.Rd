@@ -33,13 +33,15 @@ Generates balance statistics for \code{CBPS} objects from the \pkg{CBPS} package
     focal = NULL, 
     which.treat = NA, 
     multi.summary = TRUE, 
+    which.time = NULL,
+    msm.summary = TRUE, 
     quick = FALSE, 
     ...)
 }
 
 \arguments{
   \item{cbps}{
-a \code{CBPS} object; the output of a call to \code{CBPS()} from the \pkg{CBPS} package.
+a \code{CBPS} or \code{CBMSM} object; the output of a call to \code{CBPS()} or \code{CBMSM()} from the \pkg{CBPS} package.
 }
   \item{int}{
 \code{logical}; whether or not to include squares and 2-way interactions of covariates included in the call to \code{CBPS()} and in \code{addl}.
@@ -113,6 +115,12 @@ which treatments to display when multiple categorical treatments are used. See \
   \item{multi.summary}{
 \code{logical}; whether to display the balance summary table across pairwise comparisons when multiple categorical treatments are used. See \code{\link{bal.tab.multi}} for details.
 }
+  \item{which.time}{
+which time periods to display if longutdinal treatments are used. See \code{\link{bal.tab.msm}} for details.
+}
+  \item{msm.summary}{
+\code{logical}; whether to display the balance summary table across time periods when longitudinal treatments are used. See \code{\link{bal.tab.msm}} for details.
+}
   \item{quick}{
 \code{logical}; if \code{TRUE}, will not compute any values that will not be displayed. Leave \code{FALSE} if computed values not displayed will be used later.
 }
@@ -127,39 +135,21 @@ All balance statistics are calculated whether they are displayed by \code{print}
 
 }
 \value{
-If clusters are not specified, an object of class \code{"bal.tab"} containing balance summaries for the \code{CBPS} object. The following are the elements of \code{bal.tab}:
-
-\item{Balance}{A data frame containing balance information for each covariate.  Balance contains the following columns:
-\itemize{
-\item{\code{Type}: Whether the covariate is binary, continuous, or a measure of distance (e.g., the propensity score).}
-\item{\code{M.C.Un}: The mean of the control group prior to adjusting.}
-\item{\code{M.T.Un}: The mean of the treated group prior to adjusting.}
-\item{\code{Diff.Un}: The (standardized) difference in means between the two groups prior to adjusting.}
-\item{\code{V.Ratio.Un}: The ratio of the variances of the two groups prior to adjusting.  \code{NA} for binary variables.  If less than 1, the reciprocal is reported.}
-\item{\code{M.C.Adj}: The mean of the control group after adjusting.}
-\item{\code{M.T.Adj}: The mean of the treated group after adjusting.}
-\item{\code{Diff.Adj}: The (standardized) difference in means between the two groups after adjusting.}
-\item{\code{M.Threshold}: Whether or not the calculated mean difference after adjusting exceeds or is within the threshold given by \code{m.threshold}.  If \code{m.threshold} is \code{NULL}, this column will be \code{NA}.}
-\item{\code{V.Ratio.Adj}: The ratio of the variances of the two groups after adjusting.  \code{NA} for binary variables.  If less than 1, the reciprocal is reported.}
-\item{\code{V.Threshold}: Whether or not the calculated variance ratio after adjusting exceeds or is within the threshold given by \code{v.threshold} for continuous variables.  If \code{v.threshold} is \code{NULL}, this column will be \code{NA}.}
-}}
-\item{Balanced.Means}{If \code{m.threshold} is specified, a table tallying the number of variables that exceed or are within the threshold for mean differences.}
-\item{Max.Imbalance.Means}{If \code{m.threshold} is specified, a table displaying the variable with the greatest absolute mean difference.}
-\item{Balanced.Variances}{If \code{v.threshold} is specified, a table tallying the number of variables that exceed or are within the threshold for variance ratios.}
-\item{Max.Imbalance.Variance}{If \code{v.threshold} is specified, a table displaying the variable with the greatest variance ratio.}
-\item{Observations}{A table displaying the sample sizes before and after adjusting.}
-\item{call}{The original \code{CBPS()} call.}
-\item{print.options}{A list of print options passed to \code{print.bal.tab}.}
+For point treatments, if clusters are not specified, an object of class \code{"bal.tab"} containing balance summaries for the \code{CBPS} object. See \code{\link{bal.tab}} for details.
 
 If clusters are specified, an object of class \code{"bal.tab.cluster"} containing balance summaries within each cluster and a summary of balance across clusters. See \code{\link{bal.tab.cluster}} for details.
 
 If treatment is continuous, means, mean differences, and variance ratios are replaced by (weighted) Pearson correlations between each covariate and treatment. The \code{r.threshold} argument works the same as \code{m.threshold}, \code{v.threshold}, or \code{ks.threshold}, adding an extra column to the balance table output and creating additional summaries for balance tallies and maximum imbalances. All arguments related to the calculation or display of mean differences or variance ratios are ignored. The \code{int}, \code{addl}, \code{un}, \code{distance}, and cluster arguments are still used as described above.
 
 If multiple categorical treatments are used, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
+
+If \code{CBPS()} is used with multiple categorical treatments, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
+
+If \code{CBMSM()} is used for longitudinal treatments, an object of class \code{"bal.tab.msm"} containing balance summaries for each time period and a summary of balance across tme periods. See \code{\link{bal.tab.msm}} for details.
 }
 
 \author{
-Noah Greifer \email{noah@unc.edu}
+Noah Greifer 
 }
 
 
@@ -167,11 +157,13 @@ Noah Greifer \email{noah@unc.edu}
 \code{\link{bal.tab}} for details of calculations.
 \code{\link{bal.tab.cluster}} for more information on clustered data.
 \code{\link{bal.tab.multi}} for more information on multiple categorical treatments.
+\code{\link{bal.tab.msm}} for more information on longitudinal treatments.
 }
 \examples{
 library(CBPS); data("lalonde", package = "cobalt")
 
-## Using CBPS() for generating covariate balancing propensity score weights
+## Using CBPS() for generating covariate balancing 
+## propensity score weights
 cbps.out <- CBPS(treat ~ age + educ + married + race +
              nodegree + re74 + re75, data = lalonde)
 bal.tab(cbps.out)

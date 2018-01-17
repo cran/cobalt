@@ -1,5 +1,21 @@
 cobalt News and Updates
 ======
+Version 3.2.0
+
+* Added support for longitudinal treatments in `bal.tab()`, `bal.plot()`, and `love.plot()`, including outut from `iptw()` in `twang`, `CBMSM()` from `CBPS`, and `weightitMSM()` from `WeightIt`.
+
+* Added a vignette to explain use with longitudinal treatments.
+
+* Edits to help files.
+
+* Added ability to change density options in `bal.plot()`.
+
+* Added support for `imp` in `bal.tab()` for `weightit` objects.
+
+* Fixed bug when limited variables were present. (One found and fixed by sumtxt.)
+
+* Fixed bug with multiple methods when weights were entered as a list.
+
 Version 3.1.0
 
 * Added full support for tibbles.

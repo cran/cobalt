@@ -1,6 +1,5 @@
 ## ---- include = FALSE----------------------------------------------------
-  knitr::opts_chunk$set(message = FALSE, warning = FALSE)
-knitr::opts_chunk$set(fig.width = 5)
+  knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.width = 5)
 
 ## ------------------------------------------------------------------------
 library("MatchIt"); library("cobalt")
