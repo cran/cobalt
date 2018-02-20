@@ -1,5 +1,14 @@
 cobalt News and Updates
 ======
+
+Version 3.2.1
+
+* Edits to vignettes and help files to respond to missing packages. Some vignette items may not display if packages are (temporarily) unavailable.
+
+* Fixed issue with sampling weights in `CBPS` objects. Thanks to @kkranker on Github.
+
+* Added more support for sampling weights in `get.w()` and help files.
+
 Version 3.2.0
 
 * Added support for longitudinal treatments in `bal.tab()`, `bal.plot()`, and `love.plot()`, including outut from `iptw()` in `twang`, `CBMSM()` from `CBPS`, and `weightitMSM()` from `WeightIt`.
@@ -12,7 +21,7 @@ Version 3.2.0
 
 * Added support for `imp` in `bal.tab()` for `weightit` objects.
 
-* Fixed bug when limited variables were present. (One found and fixed by sumtxt.)
+* Fixed bug when limited variables were present. (One found and fixed by @sumtxt on Github.)
 
 * Fixed bug with multiple methods when weights were entered as a list.
 
@@ -98,17 +107,17 @@ Version 2.0.0
 
 * Updated `bal.plot()`, giving the capability to view multiple plots for subclassified or clustered data. Multinomial treatments are also supported.
 
-* Created of a new vignette for clustered and multiply imputed data
+* Created a new vignette for clustered and multiply imputed data
 
 * Speed improvements
 
 * Fixed a bug causing mislabelling of categorical variables
 
-* Changed calculation of weighted variance to be in line with recommendations; CBPS can now be used with standardized weights
+* Changed calculation of weighted variance to be in line with recommendations; `CBPS` can now be used with standardized weights
 
 Version 1.3.1
 
-* Added support for entropy balancing through the ebal package.
+* Added support for entropy balancing through the `ebal` package.
 
 * Changed default color scheme of `love.plot()` to be black and white and added options for color, shape, and size of points.
 
@@ -122,7 +131,7 @@ Version 1.3.0
 
 * Increased information and decreased redundancy when assessing balance on interactions
 
-* Added "quick" option for `bal.tab()` to increase speed
+* Added `quick` option for `bal.tab()` to increase speed
 
 * Added options for `print()`
 
@@ -134,7 +143,7 @@ Version 1.3.0
 
 Version 1.2.0
 
-* Added support for continous treatment variables in `bal.tab()`, `bal.plot()`, and `love.plot()`
+* Added support for continuous treatment variables in `bal.tab()`, `bal.plot()`, and `love.plot()`
 
 * Added balance assessment within and across clusters
 

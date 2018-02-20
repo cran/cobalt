@@ -279,7 +279,7 @@ get.w <- function(...) UseMethod("get.w")
 get.w.matchit <- function(m,...) {
     return(m$weights)
 }
-get.w.ps <- function(ps, stop.method = NULL, estimand = NULL, ...) {
+get.w.ps <- function(ps, stop.method = NULL, estimand = NULL, s.weights = FALSE, ...) {
     estimand <- tolower(estimand)
     if (length(stop.method) > 0) {
         if (any(is.character(stop.method))) {
@@ -324,13 +324,17 @@ get.w.ps <- function(ps, stop.method = NULL, estimand = NULL, ...) {
         else if (estimand[p] == "atc") (1-ps$treat) + ps$treat*ps$ps[,s[p]]/(1-ps$ps[,s[p]])}),
         ifelse(tolower(substr(s, nchar(s)-2, nchar(s))) == tolower(estimand), s, paste0(s, " (", toupper(estimand), ")")))
     
+    if (s.weights) {
+        w <- w * ps$sampw
+    }
+    
     if (length(w) == 1) w <- w[[1]]
     else {
         class(w) <- "data.frame"; attr(w, "row.names") <- .set_row_names(length(w[[1]]))
     }
     return(w)
 }
-get.w.mnps <- function(mnps, stop.method = NULL, ...) {
+get.w.mnps <- function(mnps, stop.method = NULL, s.weights = FALSE, ...) {
     if (length(stop.method) > 0) {
         if (any(is.character(stop.method))) {
             rule1 <- mnps$stopMethods[sapply(t(sapply(tolower(stop.method), function(x) startsWith(tolower(mnps$stopMethods), x))), any)]
@@ -377,11 +381,15 @@ get.w.mnps <- function(mnps, stop.method = NULL, ...) {
         }
     }
     
+    if (s.weights) {
+        w <- w * mnps$sampw
+    }
+    
     if (ncol(w) == 1) w <- w[[1]]
     
     return(w)
 }
-get.w.iptw <- function(iptw, stop.method = NULL, ...) {
+get.w.iptw <- function(iptw, stop.method = NULL, s.weights = FALSE, ...) {
     if (length(stop.method) > 0) {
         if (any(is.character(stop.method))) {
             rule1 <- names(iptw$psList[[1]]$ps)[sapply(names(iptw$psList[[1]]$ps), function(x) any(startsWith(tolower(x), tolower(stop.method))))]
@@ -412,6 +420,11 @@ get.w.iptw <- function(iptw, stop.method = NULL, ...) {
     for (i in rule1) {
         w[i] <- Reduce("*", lapply(iptw$psList, function(x) get.w.ps(x, stop.method = i)))
     }
+    
+    if (s.weights) {
+        w <- w * iptw$psList[[1]]$sampw
+    }
+    
     return(w)
 }
 get.w.Match <- function(M,  ...) {
@@ -435,32 +448,43 @@ get.w.Match <- function(M,  ...) {
     return(o.data2$weights)
 }
 get.w.CBPS <- function(c, estimand = NULL, ...) {
+    A <- list(...)
+    if (length(A$use.weights) == 0) use.weights <- TRUE
+    else use.weights <- A$use.weights
+    
     estimand <- tolower(estimand)
+    
     if ("CBPSContinuous" %in% class(c) || is.factor(c$y)) { #continuous
         return(c$weights)
     }
     else {
-        ps <- c$fitted.values
-        t <- c$y 
-        if (length(estimand) == 0) {
-            if (abs(max(c$weights[t == 1], na.rm = TRUE) - 
-                    min(c$weights[t == 1], na.rm = TRUE)) < 
-                sqrt(.Machine$double.eps)) {
-                estimand <- "att"
+        if (!use.weights) {
+            ps <- c$fitted.values
+            t <- c$y 
+            if (length(estimand) == 0) {
+                if (abs(max(c$weights[t == 1], na.rm = TRUE) - 
+                        min(c$weights[t == 1], na.rm = TRUE)) < 
+                    sqrt(.Machine$double.eps)) {
+                    estimand <- "att"
+                }
+                else estimand <- "ate"
             }
-            else estimand <- "ate"
+            
+            estimand <- match.arg(tolower(estimand), c("att", "atc", "ate"))
+            if (estimand == "att") {
+                return(ifelse(t == 1, 1, ps/(1-ps)))
+            }
+            if (estimand == "atc") {
+                return(ifelse(t == 1, (1-ps)/ps, 1))
+            }
+            else if (estimand == "ate") {
+                return(ifelse(t == 1, 1/ps, 1/(1-ps)))
+            }
+        }
+        else {
+            return(c$weights)
         }
         
-        estimand <- match.arg(tolower(estimand), c("att", "atc", "ate"))
-        if (estimand == "att") {
-            return(ifelse(t == 1, 1, ps/(1-ps)))
-        }
-        if (estimand == "atc") {
-            return(ifelse(t == 1, (1-ps)/ps, 1))
-        }
-        else if (estimand == "ate") {
-            return(ifelse(t == 1, 1/ps, 1/(1-ps)))
-        }
     }
 }
 get.w.npCBPS <- function(c, estimand = NULL, ...) {
@@ -485,8 +509,9 @@ get.w.optmatch <- function(o, ...) {
     treat <- as.numeric(attr(o, "contrast.group"))
     return(match.strata2weights(o, treat = treat, covs = NULL))
 }
-get.w.weightit <- function(W, ...) {
-    return(W$weights)
+get.w.weightit <- function(W, s.weights = FALSE, ...) {
+    if (s.weights) return(W$weights * W$s.weights)
+    else return(W$weights)
 }
 
 #For cobalt

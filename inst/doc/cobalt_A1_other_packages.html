@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2018-01-16" />
+<meta name="date" content="2018-02-19" />
 
 <title>Appendix 1: Using cobalt with Other Preprocessing Packages</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Appendix 1: Using cobalt with Other Preprocessing Packages</h1>
 <h4 class="author"><em>Noah Greifer</em></h4>
-<h4 class="date"><em>2018-01-16</em></h4>
+<h4 class="date"><em>2018-02-19</em></h4>
 
 
 <div id="TOC">
@@ -100,8 +100,6 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)
 covs &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78))
 <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs)</code></pre></div>
-<pre><code>## treat ~ age + educ + race + married + nodegree + re74 + re75
-## &lt;environment: 0x7fcf83a9b340&gt;</code></pre>
 <p>The function creates a <code>formula</code> object from two inputs: the first argument is the quoted name of the variable to be the left hand side (response) variable in the formula; the second argument is a vector of right hand side (predictor) variable names or a data frame, the variable names of which are to be the predictor variables. The utility of <code>f.build()</code> is that the user does not have to manually type out the name of every covariate when entering a formula into a function. It can be used simply in place of a formula, as in the following examples, which make use of the objects defined above:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Generating propensity scores using logistic regression</span>
 p.score &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)<span class="op">$</span>fitted.values
@@ -116,275 +114,13 @@ m.out &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class=
 <h3><code>splitfactor()</code> and <code>unsplitfactor()</code></h3>
 <p>Some functions (outside of <code>cobalt</code>) are not friendly to factor or character variables, and require numeric variables to operate correctly. For example, some regression-style functions, such as <code>ebalance()</code> in <code>ebal</code>, can only take in non-singular numeric matrices. Other functions will process factor variables, but will return output in terms of dummy coded version of the factors. For example, <code>lm()</code> will create dummy variables out of a factor and drop the reference category to create regression coefficients.</p>
 <p>To prepare data sets for use in functions that do not allow factors or to mimic the output of functions that split factor variables, users can use <code>splitfactor()</code>, which takes in a data set and the names of variables to split, and outputs a new data set with newly created dummy variables. Below is an example splitting the <code>race</code> variable in the Lalonde data set into dummies, eliminating the reference category (<code>&quot;black&quot;</code>):</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">head</span>(lalonde)</code></pre></div>
-<div class="kable-table">
-<table>
-<thead>
-<tr class="header">
-<th align="right">treat</th>
-<th align="right">age</th>
-<th align="right">educ</th>
-<th align="left">race</th>
-<th align="right">married</th>
-<th align="right">nodegree</th>
-<th align="right">re74</th>
-<th align="right">re75</th>
-<th align="right">re78</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">37</td>
-<td align="right">11</td>
-<td align="left">black</td>
-<td align="right">1</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">9930.0460</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">22</td>
-<td align="right">9</td>
-<td align="left">hispan</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">3595.8940</td>
-</tr>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">30</td>
-<td align="right">12</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">24909.4500</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">27</td>
-<td align="right">11</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">7506.1460</td>
-</tr>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">33</td>
-<td align="right">8</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">289.7899</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">22</td>
-<td align="right">9</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">4056.4940</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">lalonde.split &lt;-<span class="st"> </span><span class="kw">splitfactor</span>(lalonde, <span class="st">&quot;race&quot;</span>)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">head</span>(lalonde)
+lalonde.split &lt;-<span class="st"> </span><span class="kw">splitfactor</span>(lalonde, <span class="st">&quot;race&quot;</span>)
 <span class="kw">head</span>(lalonde.split)</code></pre></div>
-<div class="kable-table">
-<table>
-<thead>
-<tr class="header">
-<th align="right">treat</th>
-<th align="right">age</th>
-<th align="right">educ</th>
-<th align="right">race_hispan</th>
-<th align="right">race_white</th>
-<th align="right">married</th>
-<th align="right">nodegree</th>
-<th align="right">re74</th>
-<th align="right">re75</th>
-<th align="right">re78</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">37</td>
-<td align="right">11</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">9930.0460</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">22</td>
-<td align="right">9</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">3595.8940</td>
-</tr>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">30</td>
-<td align="right">12</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">24909.4500</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">27</td>
-<td align="right">11</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">7506.1460</td>
-</tr>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">33</td>
-<td align="right">8</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">289.7899</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">22</td>
-<td align="right">9</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">4056.4940</td>
-</tr>
-</tbody>
-</table>
-</div>
 <p>It is possible to undo the action of <code>splitfactor()</code> with <code>unsplitfactor()</code>, which takes in a data set with dummy variables formed from <code>splitfactor()</code> or otherwise and recreates the original factor variable. If the reference category was dropped, its value needs to be supplied.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">lalonde.unsplit &lt;-<span class="st"> </span><span class="kw">unsplitfactor</span>(lalonde.split, <span class="st">&quot;race&quot;</span>, 
                                  <span class="dt">dropped.level =</span> <span class="st">&quot;black&quot;</span>)
 <span class="kw">head</span>(lalonde.unsplit)</code></pre></div>
-<div class="kable-table">
-<table>
-<thead>
-<tr class="header">
-<th align="right">treat</th>
-<th align="right">age</th>
-<th align="right">educ</th>
-<th align="left">race</th>
-<th align="right">married</th>
-<th align="right">nodegree</th>
-<th align="right">re74</th>
-<th align="right">re75</th>
-<th align="right">re78</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">37</td>
-<td align="right">11</td>
-<td align="left">black</td>
-<td align="right">1</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">9930.0460</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">22</td>
-<td align="right">9</td>
-<td align="left">hispan</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">3595.8940</td>
-</tr>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">30</td>
-<td align="right">12</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">24909.4500</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">27</td>
-<td align="right">11</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">7506.1460</td>
-</tr>
-<tr class="odd">
-<td align="right">1</td>
-<td align="right">33</td>
-<td align="right">8</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">289.7899</td>
-</tr>
-<tr class="even">
-<td align="right">1</td>
-<td align="right">22</td>
-<td align="right">9</td>
-<td align="left">black</td>
-<td align="right">0</td>
-<td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td align="right">4056.4940</td>
-</tr>
-</tbody>
-</table>
-</div>
 <p>Notice the original data set and the unsplit data set look identical.</p>
 </div>
 <div id="get.w" class="section level3">
@@ -406,27 +142,6 @@ ps.out &lt;-<span class="st"> </span><span class="kw">ps</span>(<span class="kw"
              <span class="dt">stop.method =</span> <span class="kw">c</span>(<span class="st">&quot;es.mean&quot;</span>, <span class="st">&quot;es.max&quot;</span>), 
              <span class="dt">estimand =</span> <span class="st">&quot;ATT&quot;</span>, <span class="dt">n.trees =</span> <span class="dv">1000</span>, <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
 <span class="kw">bal.tab</span>(ps.out, <span class="dt">stop.method =</span> <span class="st">&quot;es.mean&quot;</span>)</code></pre></div>
-<pre><code>## 
-## Call:
-##   ps(formula = f.build(&quot;treat&quot;, covs0), data = lalonde, n.trees = 1000, 
-##       verbose = FALSE, estimand = &quot;ATT&quot;, stop.method = c(&quot;es.mean&quot;, 
-##           &quot;es.max&quot;))
-## 
-## Balance Measures:
-##                 Type Diff.Adj
-## prop.score  Distance   0.4781
-## age          Contin.   0.0143
-## educ         Contin.  -0.0921
-## race_black    Binary   0.0436
-## race_hispan   Binary  -0.0049
-## race_white    Binary  -0.0387
-## re74         Contin.  -0.0001
-## re75         Contin.   0.0403
-## 
-## Effective sample sizes:
-##            Control Treated
-## Unadjusted  429.00     185
-## Adjusted     52.78     185</code></pre>
 <p>The output looks a bit different from <code>twang</code>’s <code>bal.table()</code> output. First is the original call to <code>ps()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>ps()</code>. Last is a table displaying sample size information, similar to what would be generated using <code>twang</code>’s <code>summary()</code> function. The “effective” sample size is displayed when weighting is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation.</p>
 <p>When using <code>bal.tab()</code> with <code>twang</code>, the user must specify the <code>ps</code> object, the output of a call to <code>ps()</code>, as the first argument. The second argument, <code>stop.method</code>, is the name of the stop method(s) for which balance is to be assessed, since a <code>ps</code> object may contain more than one if so specified. <code>bal.tab()</code> can display the balance for more than one stop method at a time by specifying a vector of stop method names. If this argument is left empty or if the argument to <code>stop.method</code> does not correspond to any of the stop methods in the <code>ps</code> object, <code>bal.tab()</code> will default to displaying balance for all stop methods available. Abbreviations are allowed for the stop method, which is not case sensitive.</p>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>twang</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the stop method used is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>, mimicking the behavior of <code>twang</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advised.</p>
@@ -445,22 +160,6 @@ p.score &lt;-<span class="st"> </span>fit<span class="op">$</span>fitted.values
 match.out &lt;-<span class="st"> </span><span class="kw">Match</span>(<span class="dt">Tr =</span> lalonde<span class="op">$</span>treat, <span class="dt">X =</span> p.score, <span class="dt">estimand =</span> <span class="st">&quot;ATT&quot;</span>)
 
 <span class="kw">bal.tab</span>(match.out, <span class="dt">formula =</span> <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
-<pre><code>## Balance Measures:
-##                Type Diff.Adj
-## age         Contin.   0.2144
-## educ        Contin.  -0.1025
-## race_black   Binary   0.0108
-## race_hispan  Binary  -0.0070
-## race_white   Binary  -0.0038
-## re74        Contin.   0.0500
-## re75        Contin.   0.0886
-## 
-## Sample sizes:
-##                      Control Treated
-## All                      429     185
-## Matched                  185     185
-## Matched (Unweighted)     159     185
-## Unmatched                270       0</code></pre>
 <p>The output looks quite different from <code>Matching</code>’s <code>MatchBalance()</code> output. Rather than being stacked vertically, balance statistics are arranged horizontally in a table format, allowing for quick balance checking. Below the balance table is a summary of the sample size before and after matching, similar to what <code>Matching</code>’s <code>summary()</code> command would display. The sample size can include a “weighted” and “unweighted” count; the “weighted” count is the sum of the matching weights, while the “unweighted” is the count of units with nonzero matching weights.</p>
 <p>The input to <code>bal.tab()</code> is similar to that given to <code>MatchBalance()</code>: the <code>Match</code> object resulting from the call to <code>Match()</code>, a formula relating treatment to the covariates for which balance is to be assessed, and the original data set. This is not the only way to call <code>bal.tab()</code>: instead of a formula and a data set, one can also input a data frame of covariates and a vector of treatment status indicators, just as when using <code>bal.tab()</code> wihout a conditioning package. For example, the code below will yield the same results as the call to <code>bal.tab()</code> above:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(match.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</code></pre></div>
@@ -479,24 +178,6 @@ lalonde<span class="op">$</span>p.score &lt;-<span class="st"> </span>fit<span c
 fm &lt;-<span class="st"> </span><span class="kw">fullmatch</span>(treat <span class="op">~</span><span class="st"> </span>p.score, <span class="dt">data =</span> lalonde)
 
 <span class="kw">bal.tab</span>(fm, <span class="dt">formula =</span> <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
-<pre><code>## 
-## Call:
-##   fullmatch(x = treat ~ p.score, data = lalonde)
-## 
-## Balance Measures:
-##                Type Diff.Adj
-## age         Contin.   0.1204
-## educ        Contin.  -0.0635
-## race_black   Binary   0.0054
-## race_hispan  Binary  -0.0059
-## race_white   Binary   0.0005
-## re74        Contin.   0.0172
-## re75        Contin.   0.0854
-## 
-## Sample sizes:
-##         Control Treated
-## All         429     185
-## Matched     429     185</code></pre>
 <p>Most details for the use of <code>bal.tab()</code> with <code>optmatch</code> are similar to those when using <code>bal.tab()</code> with <code>Matching</code>. Users can enter either a formula and a data set or a vector of treatment status and a set of covariates.</p>
 </div>
 <div id="using-bal.tab-with-cbps" class="section level3">
@@ -507,28 +188,9 @@ fm &lt;-<span class="st"> </span><span class="kw">fullmatch</span>(treat <span c
 covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, nodegree, married))
 
 <span class="co">#Generating covariate balancing propensity score weights for ATT</span>
-cbps.out &lt;-<span class="st"> </span><span class="kw">CBPS</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)</code></pre></div>
-<pre><code>## [1] &quot;Finding ATT with T=1 as the treatment.  Set ATT=2 to find ATT with T=0 as the treatment&quot;</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(cbps.out)</code></pre></div>
-<pre><code>## 
-## Call:
-##   CBPS(formula = f.build(&quot;treat&quot;, covs0), data = lalonde)
-## 
-## Balance Measures:
-##                 Type Diff.Adj
-## prop.score  Distance  -0.0157
-## age          Contin.  -0.0085
-## educ         Contin.   0.0050
-## race_black    Binary   0.0003
-## race_hispan   Binary  -0.0001
-## race_white    Binary  -0.0002
-## re74         Contin.   0.0003
-## re75         Contin.   0.0021
-## 
-## Effective sample sizes:
-##            Control Treated
-## Unadjusted   429.0     185
-## Adjusted     110.8     185</code></pre>
+cbps.out &lt;-<span class="st"> </span><span class="kw">CBPS</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde)
+
+<span class="kw">bal.tab</span>(cbps.out)</code></pre></div>
 <p>First is the original call to <code>CBPS()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>CBPS()</code>. Last is a table displaying sample size information. The “effective” sample size is displayed when weighting (rather than matching or subclassification) is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation.</p>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>CBPS</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the original call to <code>CBPS()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable.</p>
 <p>When using <code>CBPS</code> and <code>bal.tab()</code> with continuous treatments, the same guidelines apply as when using <code>bal.tab()</code> with continuous treatments without a conditioning package. See the section “Using cobalt with continuous treatments” in the main vignette for more details.</p>
@@ -542,22 +204,9 @@ cbps.out &lt;-<span class="st"> </span><span class="kw">CBPS</span>(<span class=
 covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, race))
 
 <span class="co">#Generating entropy balancing weights</span>
-e.out &lt;-<span class="st"> </span><span class="kw">ebalance</span>(lalonde<span class="op">$</span>treat, covs0)</code></pre></div>
-<pre><code>## Converged within tolerance</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">bal.tab</span>(e.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</code></pre></div>
-<pre><code>## Balance Measures:
-##             Type Diff.Adj
-## age      Contin.        0
-## educ     Contin.        0
-## married   Binary        0
-## nodegree  Binary        0
-## re74     Contin.        0
-## re75     Contin.        0
-## 
-## Effective sample sizes:
-##            Control Treated
-## Unadjusted   429.0     185
-## Adjusted     247.6     185</code></pre>
+e.out &lt;-<span class="st"> </span><span class="kw">ebalance</span>(lalonde<span class="op">$</span>treat, covs0)
+
+<span class="kw">bal.tab</span>(e.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</code></pre></div>
 <p>First is the balance table containing mean differences for covariates included in the original call to <code>ebalance</code>. In general, these will all be very close to 0. Next is a table displaying effective sample size information. The “effective” sample size is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation. A common issue when using entropy balancing is small effective sample size, which can yield low precision in effect estimation when using weighted regression, so it is important that users pay attention to this measure. That said, in simulations by Zhao and Percival (2015), entropy balancing reliably had smaller empirical standard errors than did covariate balancing propensity scores.</p>
 <p>The input is similar to that for using <code>bal.tab()</code> with <code>Matching</code> or <code>optmatch</code>. In additon to the <code>ebalance</code> object, one must specify either both a formula and a data set or both a treatment vector and a data frame of covariates.</p>
 </div>

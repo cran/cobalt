@@ -14,9 +14,11 @@ vignette: >
 ---
 ```{r, include = FALSE}
 knitr::opts_chunk$set(message = FALSE)
+#WeightIt unavailable:
+knitr::opts_chunk$set(eval = FALSE)
 ```
 
-This is an introductory guide for the use of `cobalt` in most common scenarios. Two appendices are available for its use with more complicated data scenarios.
+This is an introductory guide for the use of `cobalt` in most common scenarios. Two appendices are available for its use with more complicated data scenarios.^[If none of the examples are working, this may be because `MatchIt`, `twang`, or `WeightIt` is missing. Such issues should be fixed soon.]
 
 # Introduction
 
@@ -84,7 +86,7 @@ There are unique features in `cobalt` that do not exist in any other package. Th
 There are three main functions for use in `cobalt`: `bal.tab()`, `bal.plot()`, and `love.plot()`. There are also several utility functions which can be used to ease the use of `cobalt` and other packages. The next sections describe how to use each, complete with example code and output. To start, install and load `cobalt` with the following code:
 
 ```{r, eval = 2}
-#install.packages("cobalt")
+install.packages("cobalt")
 library("cobalt")
 ```
 ###Utilities
@@ -251,6 +253,7 @@ W.out <- weightit(f.build("treat", covs0), data = lalonde,
 bal.tab(W.out)
 ```
 
+
 ## `bal.plot()`
 
 The gold standard for covariate balance is multidimensional independence between treatment and covariates. Because this is hard to visualize and assess with the large numbers of covariates typical of causal effect analysis, univariate balance is typically assessed as a proxy. Most conditioning packages, as well as `cobalt`, will provide numerical summaries of balance, typically by comparing moments between the treated and control groups. But even univariate balance is more complicated than simple numerical summaries can address; examining distributional balance is a more thorough method to assess balance between groups. Although there are statistics such as the Kolmogorov-Smirnov distance that attempt to summarize distributional balance beyond the first few moments (Ali et al., 2016; Austin & Stuart, 2015), complimenting statistics with a visual examination of the distributional densities can be an effective way of assessing distributional similarity between the groups (Ho et al., 2007).
@@ -387,7 +390,7 @@ data("lalonde", package = "cobalt")
 library("WeightIt")
 cov.mn <- subset(lalonde, select = -c(treat, re78, race))
 
-#Using CBPS to generate weights
+#Using WeightIt to generate weights
 W.out.mn <- weightit(f.build("race", cov.mn), data = lalonde,
                      method = "ps")
 ```
