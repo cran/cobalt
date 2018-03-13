@@ -200,7 +200,7 @@ x2base.ps <- function(ps, ...) {
             distance <- data.frame(prop.score = ps$ps[s])
         }
     }
-
+    
     ensure.equal.lengths <- TRUE
     vectors <- c("cluster")
     data.frames <- c("covs", "weights", "distance", "addl")
@@ -219,6 +219,10 @@ x2base.ps <- function(ps, ...) {
     }
     if (any(problematic)) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to ps()."), call. = FALSE)
+    }
+    
+    if (any(is.na(covs))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
     X$weights <- weights
@@ -343,6 +347,10 @@ x2base.mnps <- function(mnps, ...) {
     }
     if (any(problematic)) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to ps()."), call. = FALSE)
+    }
+    
+    if (any(is.na(covs))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
     X$weights <- weights
@@ -530,13 +538,13 @@ x2base.data.frame <- function(covs, ...) {
         stop("covs dataframe must be specified.", call. = FALSE)
     }
     if (!is.data.frame(covs)) {
-        stop("covs must be a dataframe.", call. = FALSE)
+        stop("covs must be a data.frame.", call. = FALSE)
     }
-    if (sum(is.na(covs)) > 0) {
+    if (any(is.na(covs))) {
         stop("Missing values exist in the covariates.", call. = FALSE)
     }
     if (length(data) > 0 && !is.data.frame(data)) {
-        warning("The argument to data is not a data.frame and will be ignored. If the argument to treat is not a vector, the execuction will halt.")
+        warning("The argument to data is not a data.frame and will be ignored. If the argument to treat is not a vector, the execution will halt.")
         data <- NULL
     }
     # if (length(distance) > 0 && !is.character(distance) && !is.numeric(distance) && !is.data.frame(distance)) {
@@ -864,7 +872,7 @@ x2base.data.frame <- function(covs, ...) {
             if (focal <= nunique(treat)) focal <- levels(treat)[focal]
             else 
                 stop(paste0("focal was specified as ", focal, 
-                             ", but there are only ", levels(treat), " treatment groups."), call. = FALSE)
+                            ", but there are only ", levels(treat), " treatment groups."), call. = FALSE)
         }
         else {
             if (!any(levels(treat) == focal)) 
@@ -1192,7 +1200,7 @@ x2base.ebalance <- function(ebalance, ...) {
     
     treat <- t.c$treat
     covs  <- t.c$covs
-
+    
     weights <- data.frame(weights = get.w(ebalance, treat))
     
     #Process cluster
@@ -1362,7 +1370,7 @@ x2base.weightit <- function(weightit, ...) {
             X$s.d.denom <- switch(tolower(estimand), att = "treated", ate = "pooled", atc = "control", ato = "pooled")
         }
     }
-
+    
     weights <- data.frame(weights = get.w(weightit))
     treat <- weightit$treat
     covs <- weightit$covs
@@ -1486,7 +1494,7 @@ x2base.weightit <- function(weightit, ...) {
     if (any(problematic)) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as covs."), call. = FALSE)
     }
-
+    
     X$weights <- weights
     X$treat <- treat
     X$distance <- distance
@@ -1643,6 +1651,10 @@ x2base.iptw <- function(iptw, ...) {
     }
     if (any(problematic)) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to iptw()."), call. = FALSE)
+    }
+    
+    if (any(sapply(covs.list, function(x) any(is.na(x))))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
     X$weights <- weights
@@ -1860,8 +1872,8 @@ X2base.data.frame.list <- function(covs.list, ...) {
                               else max(sapply(get(x), function(y) if (length(y) > 0) {
                                   if (is.data.frame(y) || is.matrix(y)) nrow(y)
                                   else length(y)
-                                  }
-                                  else 0))
+                              }
+                              else 0))
                           })), c(vectors, data.frames, lists))
     
     #Ensure all input lengths are the same.
@@ -1970,7 +1982,7 @@ x2base.CBMSM <- function(cbmsm, ...) {
     }
     
     data <- A$data
-
+    
     cbmsm.data <- cbmsm$data[ID, , drop = FALSE][cbmsm$time == 1, , drop = FALSE]
     
     #Process cluster

@@ -44,16 +44,18 @@ imp.data <- complete(imp, "long", include = FALSE)
 imp.data <- imp.data[with(imp.data, order(.imp, .id)),]
 
 #Estimate propensity scores and perform matching within each one
-ps <- match.weight <- rep(0, nrow(imp.data))
+imp.data$ps <- imp.data$match.weight <- rep(0, nrow(imp.data))
 for (i in levels(imp.data$.imp)) {
     in.imp <- imp.data$.imp == i
-    ps[in.imp] <- glm(treat ~ age + educ + race + married + nodegree +
-                          re74 + re75, data = imp.data[in.imp,], 
-                      family = "binomial")$fitted.values
-    m.out <- matchit(treat ~ age, data = imp.data[in.imp,], distance = ps[in.imp])
-    match.weight[in.imp] <- m.out$weights
+    imp.data$ps[in.imp] <- glm(treat ~ age + educ + race + 
+                                   married + nodegree +
+                                   re74 + re75, 
+                               data = imp.data[in.imp,], 
+                               family = "binomial")$fitted.values
+    m.out <- matchit(treat ~ ps, data = imp.data[in.imp,], 
+                     distance = imp.data$ps[in.imp])
+    imp.data$match.weight[in.imp] <- m.out$weights
 }
-imp.data <- cbind(imp.data, ps = ps, match.weight = match.weight)
 
 ## ------------------------------------------------------------------------
 bal.tab(treat ~ age + educ + race + married + nodegree + re74 + re75, 
@@ -110,15 +112,14 @@ imp <- mice(lalonde_mis, m = m, print = FALSE)
 imp.data <- complete(imp, "long", include = FALSE)
 
 #Estimate propensity scores and perform matching within each one
-ps <- match.weight <- rep(0, nrow(imp.data))
+imp.data$match.weight <- rep(0, nrow(imp.data))
 for (i in levels(imp.data$.imp)) {
     in.imp <- imp.data$.imp == i
     m.out <- matchit(treat ~ race*(age + educ + married + nodegree + re74 + re75), 
                      data = imp.data[in.imp,], method = "nearest", exact = "race", 
                      replace = TRUE, ratio = 2)
-    match.weight[in.imp] <- m.out$weights
+    imp.data$match.weight[in.imp] <- m.out$weights
 }
-imp.data <- cbind(imp.data, match.weight = match.weight)
 
 ## ------------------------------------------------------------------------
 bal.tab(treat ~ age + educ + married + nodegree + re74 + re75, 

@@ -82,7 +82,7 @@ Optional; either a vector containing matching stratum membership for each unit o
 A character vector containing the method of adjustement, if any.  If \code{weights} are specified, the user must specify either "matching" or "weighting"; "weighting" is the default. If multiple sets of weights are used, each must have a corresponding value for \code{method}, but if they are all of the same type, only one value is required. If \code{subclass} is specified, "subclassification" is the default.  Abbreviations allowed.
 }
   \item{int}{
-\code{logical}; whether or not to include squares and 2-way interactions of covariates included in \code{covs} and in \code{addl}.
+\code{logical} or \code{numeric}; whether or not to include powers and 2-way interactions of covariates included in \code{covs} and in \code{addl}. If \code{numeric} and equal to \code{1} or \code{2}, squares of each covariate will be displayed; greater numbers will display corresponding powers up to the provided input (e.g., \code{3} will display squares and cubes of each covariate). 
 }
   \item{addl}{
 A vector, data frame, or the quoted names of additional covariates for which to present balance.  These may be covariates included in the original dataset but not included in \code{covs}.  In general, it makes more sense to include all desired variables in \code{covs} than in \code{addl}. If the argument is a vector, the variable will be displayed as "addl" in the output.

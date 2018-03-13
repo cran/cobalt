@@ -14,8 +14,6 @@ vignette: >
 ---
 ```{r, include = FALSE}
 knitr::opts_chunk$set(message = FALSE)
-#WeightIt unavailable:
-knitr::opts_chunk$set(eval = FALSE)
 ```
 
 This is an introductory guide for the use of `cobalt` in most common scenarios. Two appendices are available for its use with more complicated data scenarios.^[If none of the examples are working, this may be because `MatchIt`, `twang`, or `WeightIt` is missing. Such issues should be fixed soon.]
@@ -390,7 +388,8 @@ data("lalonde", package = "cobalt")
 library("WeightIt")
 cov.mn <- subset(lalonde, select = -c(treat, re78, race))
 
-#Using WeightIt to generate weights
+#Using WeightIt to generate weights with multinomial
+#logistic regression
 W.out.mn <- weightit(f.build("race", cov.mn), data = lalonde,
                      method = "ps")
 ```

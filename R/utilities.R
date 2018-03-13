@@ -105,7 +105,8 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
         
         skip <- FALSE
         if (nlevels(x) > 1) {
-            k <- model.matrix(as.formula(paste0("~", v, "- 1")), data = data)
+            k <- model.matrix(as.formula(paste0("~`", v, "`- 1")), data = data)
+            colnames(k) <- gsub("`", colnames(k), replacement = "")
             
             if (any(is.na(levels(x)))) {
                 
@@ -372,12 +373,22 @@ get.w.mnps <- function(mnps, stop.method = NULL, s.weights = FALSE, ...) {
     
     if (estimand == "ATT") {
         for (i in mnps$levExceptTreatATT) {
-            w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == FALSE, s]
+            if (length(s) > 1) {
+                w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == FALSE, s]
+            }
+            else {
+                w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == FALSE]
+            }
         }
     }
     else if (estimand == "ATE") {
         for (i in mnps$treatLev) {
-            w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == TRUE, s]
+            if (length(s) > 1) {
+                w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == TRUE, s]
+            }
+            else {
+                w[mnps$treatVar == i, s] <- get.w.ps(mnps$psList[[i]])[mnps$psList[[i]]$treat == TRUE]
+            }
         }
     }
     
