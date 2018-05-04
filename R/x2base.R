@@ -91,6 +91,10 @@ x2base.matchit <- function(m, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to matchit()."), call. = FALSE)
     }
     
+    if (any(is.na(c(covs, addl)))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$treat <- treat
     X$weights <- weights
     X$discarded <- m$discarded
@@ -221,7 +225,7 @@ x2base.ps <- function(ps, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to ps()."), call. = FALSE)
     }
     
-    if (any(is.na(covs))) {
+    if (any(is.na(c(covs, addl)))) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -349,7 +353,7 @@ x2base.mnps <- function(mnps, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to ps()."), call. = FALSE)
     }
     
-    if (any(is.na(covs))) {
+    if (any(is.na(c(covs, addl)))) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -392,9 +396,6 @@ x2base.Match <- function(Match, ...) {
     data <- A$data
     t.c <- use.tc.fd(A$formula, data, A$treat, A$covs)
     
-    if (sum(is.na(t.c$covs))>0)
-        stop("Missing values exist in the covariates.", call. = FALSE)
-    
     #Initializing variables
     m <- Match
     s <- m$estimand
@@ -406,8 +407,10 @@ x2base.Match <- function(Match, ...) {
                                     return(new.s.d.denom)})
     }
     else X$s.d.denom <- switch(toupper(s), ATT = "treated", ATE = "treated", ATC = "control")
-    treat0 <- t.c$treat
-    covs0  <- t.c$covs
+    
+    treat0 <- t.c[["treat"]]
+    covs0  <- t.c[["covs"]]
+
     nobs <- nrow(covs0)
     
     #distance <- NULL
@@ -477,6 +480,10 @@ x2base.Match <- function(Match, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original call to Match()."), call. = FALSE)
     }
     
+    if (any(is.na(c(covs, addl)))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$treat <- treat
     X$weights <- weights
     X$discarded <- dropped
@@ -487,6 +494,18 @@ x2base.Match <- function(Match, ...) {
     X$method <- "matching"
     X$cluster <- factor(cluster)
     
+    return(X)
+}
+x2base.formula <- function(f, ...) {
+    A <- list(...)
+    A[["covs"]] <- NULL
+    A[["treat"]] <- NULL
+    
+    t.c <- get.covs.and.treat.from.formula(f, A[["data"]])
+    covs <- t.c[["covs"]]
+    treat <- t.c[["treat"]]
+
+    X <- do.call("x2base.data.frame", c(list(covs = covs, treat = treat), A))
     return(X)
 }
 x2base.data.frame <- function(covs, ...) {
@@ -539,9 +558,6 @@ x2base.data.frame <- function(covs, ...) {
     }
     if (!is.data.frame(covs)) {
         stop("covs must be a data.frame.", call. = FALSE)
-    }
-    if (any(is.na(covs))) {
-        stop("Missing values exist in the covariates.", call. = FALSE)
     }
     if (length(data) > 0 && !is.data.frame(data)) {
         warning("The argument to data is not a data.frame and will be ignored. If the argument to treat is not a vector, the execution will halt.")
@@ -991,6 +1007,10 @@ x2base.data.frame <- function(covs, ...) {
         }
     }
     
+    if (any(is.na(c(covs, addl)))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$covs <- covs
     X$weights <- weights
     X$treat <- treat
@@ -1002,41 +1022,6 @@ x2base.data.frame <- function(covs, ...) {
     X$imp <- factor(imp)
     X$s.weights <- s.weights
     
-    return(X)
-}
-x2base.formula <- function(formula, ...) {
-    #data
-    #weights
-    #distance
-    #subclass
-    #match.strata
-    #addl
-    #s.d.denom
-    #method
-    #cluster
-    #estimand
-    
-    A <- list(...)
-    
-    #Checks
-    if (length(A$data) == 0) {
-        stop("Data must be specified.", call. = FALSE)}
-    if (!is.data.frame(A$data)) {
-        stop("Data must be a data.frame.", call. = FALSE)}
-    
-    #Initializing variables
-    tt <- terms(formula)
-    attr(tt, "intercept") <- 0
-    if (is.na(match(rownames(attr(tt, "factors"))[1], names(A$data)))) {
-        stop(paste0("The given response variable, \"", rownames(attr(tt, "factors"))[1], "\", is not a variable in data."))
-    }
-    m.try <- try({mf <- model.frame(tt, A$data)}, TRUE)
-    if (class(m.try) == "try-error") {
-        stop(paste0(c("All variables of formula must be variables in data.\nVariables not in data: ",
-                      paste(attr(tt, "term.labels")[is.na(match(attr(tt, "term.labels"), names(A$data)))], collapse=", "))), call. = FALSE)}
-    treat <- model.response(mf)
-    covs <- A$data[!is.na(match(names(A$data), attr(tt, "term.labels")))]
-    X <- x2base.data.frame(covs, treat = treat, ...)
     return(X)
 }
 x2base.CBPS <- function(cbps.fit, ...) {
@@ -1053,11 +1038,12 @@ x2base.CBPS <- function(cbps.fit, ...) {
               cluster=NA)
     #Checks
     
-    treat <- cbps.fit$y
+    treat <- model.response(model.frame(cbps.fit$terms, cbps.fit$data))
     covs <- cbps.fit$data[!is.na(match(names(cbps.fit$data), attributes(terms(cbps.fit))$term.labels))]
     data <- A$data
     s.weights <- A$s.weights
     weights <- data.frame(weights = get.w(cbps.fit, use.weights = A$use.weights))
+    
     #Process sampling weights
     if (length(s.weights) > 0) {
         if (!(is.character(s.weights) && length(s.weights) == 1) && !is.numeric(s.weights)) {
@@ -1077,7 +1063,7 @@ x2base.CBPS <- function(cbps.fit, ...) {
     
     weights <- weights/s.weights #Because CBPS weights contain s.weights in them
     
-    if (!(any(class(cbps.fit) == "CBPSContinuous") || nunique(treat) > 2)) {
+    if (!any(class(cbps.fit) == "CBPSContinuous") && !nunique.gt(treat, 2)) {
         if (length(A$s.d.denom > 0) && is.character(A$s.d.denom)) {
             X$s.d.denom <- tryCatch(match.arg(A$s.d.denom, c("treated", "control", "pooled")),
                                     error = function(cond) {
@@ -1091,12 +1077,17 @@ x2base.CBPS <- function(cbps.fit, ...) {
                 sqrt(.Machine$double.eps)) {
                 X$s.d.denom <- "treated"
             }
+            else if (abs(max(weights[treat == 0,], na.rm = TRUE) - 
+                         min(weights[treat == 0,], na.rm = TRUE)) < 
+                     sqrt(.Machine$double.eps)) {
+                X$s.d.denom <- "control"
+            }
             else {
                 X$s.d.denom <- "pooled"
             }
         }
     }
-    else if (nunique(treat) > 2) {
+    else if (nunique.gt(treat, 2)) {
         X$s.d.denom <- "pooled"
     }
     
@@ -1163,6 +1154,10 @@ x2base.CBPS <- function(cbps.fit, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to CBPS()."), call. = FALSE)
     }
     
+    if (any(is.na(c(covs, addl)))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$distance <- distance
     X$addl <- addl
     X$weights <- weights
@@ -1193,13 +1188,10 @@ x2base.ebalance <- function(ebalance, ...) {
     data <- A$data
     t.c <- use.tc.fd(A$formula, data, A$treat, A$covs)
     
-    if (sum(is.na(t.c$covs))>0)
-        stop("Missing values exist in the covariates.", call. = FALSE)
-    
     #Initializing variables
     
-    treat <- t.c$treat
-    covs  <- t.c$covs
+    treat <- t.c[["treat"]]
+    covs  <- t.c[["covs"]]
     
     weights <- data.frame(weights = get.w(ebalance, treat))
     
@@ -1243,6 +1235,10 @@ x2base.ebalance <- function(ebalance, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original call to ebalance()."), call. = FALSE)
     }
     
+    if (any(is.na(c(covs, addl)))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$treat <- treat
     X$weights <- weights
     X$covs <- covs
@@ -1272,9 +1268,6 @@ x2base.optmatch <- function(optmatch, ...) {
     #Get treat and covs
     data <- A$data
     t.c <- use.tc.fd(A$formula, data, A$treat, A$covs)
-    
-    if (sum(is.na(t.c$covs))>0)
-        stop("Missing values exist in the covariates.", call. = FALSE)
     
     #Initializing variables
     treat <- binarize(t.c$treat)
@@ -1330,6 +1323,10 @@ x2base.optmatch <- function(optmatch, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original call to optmatch()."), call. = FALSE)
     }
     
+    if (any(is.na(c(covs, addl)))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$treat <- treat[d.reordered]
     X$distance <- distance[d.reordered, , drop = FALSE]
     X$covs <- covs[d.reordered, , drop = FALSE]
@@ -1358,19 +1355,6 @@ x2base.weightit <- function(weightit, ...) {
     
     #Initializing variables
     estimand <- weightit$estimand
-    if (weightit$treat.type != "continuous") {
-        if (length(A$s.d.denom > 0) && is.character(A$s.d.denom)) {
-            X$s.d.denom <- tryCatch(match.arg(A$s.d.denom, c("treated", "control", "pooled")),
-                                    error = function(cond) {
-                                        new.s.d.denom <- switch(tolower(estimand), att = "treated", ate = "pooled", atc = "control", ato = "pooled")
-                                        message(paste0("Warning: s.d.denom should be one of \"treated\", \"control\", or \"pooled\".\nUsing ", deparse(new.s.d.denom), " instead."))
-                                        return(new.s.d.denom)})
-        }
-        else {
-            X$s.d.denom <- switch(tolower(estimand), att = "treated", ate = "pooled", atc = "control", ato = "pooled")
-        }
-    }
-    
     weights <- data.frame(weights = get.w(weightit))
     treat <- weightit$treat
     covs <- weightit$covs
@@ -1379,6 +1363,34 @@ x2base.weightit <- function(weightit, ...) {
     imp <- A$imp
     
     weightit.data <- weightit$data
+    
+    if (length(attr(treat, "treat.type")) > 0) {
+        treat.type <- attr(treat, "treat.type")
+    }
+    else if (length(weightit$treat.type) > 0) {
+        treat.type <- weightit$treat.type
+    }
+    else {
+        if (!is.factor(treat) && nunique.gt(treat, 2)) {
+            treat.type <- "continuous"
+        }
+        else {
+            treat.type <- "not continuous"
+        }
+    }
+    
+    if (treat.type != "continuous") {
+        if (length(A$s.d.denom > 0) && is.character(A$s.d.denom)) {
+            X$s.d.denom <- tryCatch(match.arg(A$s.d.denom, c("treated", "control", "pooled")),
+                                    error = function(cond) {
+                                        new.s.d.denom <- switch(tolower(estimand), att = "treated", ate = "pooled", atc = "control", "pooled")
+                                        message(paste0("Warning: s.d.denom should be one of \"treated\", \"control\", or \"pooled\".\nUsing ", deparse(new.s.d.denom), " instead."))
+                                        return(new.s.d.denom)})
+        }
+        else {
+            X$s.d.denom <- switch(tolower(estimand), att = "treated", ate = "pooled", atc = "control", "pooled")
+        }
+    }
     
     #Process cluster
     cluster <- A$cluster
@@ -1495,6 +1507,10 @@ x2base.weightit <- function(weightit, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as covs."), call. = FALSE)
     }
     
+    if (any(is.na(c(covs, addl)))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$weights <- weights
     X$treat <- treat
     X$distance <- distance
@@ -1575,7 +1591,6 @@ x2base.iptw <- function(iptw, ...) {
     all.covs <- unique(unlist(lapply(covs.list, names)))
     covs.list <- lapply(covs.list, function(x) x[all.covs[all.covs %in% names(x)]])
     
-    
     #Process cluster
     cluster <- A$cluster
     if (length(cluster) > 0) {
@@ -1653,7 +1668,7 @@ x2base.iptw <- function(iptw, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to iptw()."), call. = FALSE)
     }
     
-    if (any(sapply(covs.list, function(x) any(is.na(x))))) {
+    if (any(sapply(c(covs.list, addl.list), function(x) any(is.na(x))))) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -1669,7 +1684,7 @@ x2base.iptw <- function(iptw, ...) {
     
     return(X)
 }
-X2base.data.frame.list <- function(covs.list, ...) {
+x2base.data.frame.list <- function(covs.list, ...) {
     A <- list(...)
     X <- list(covs.list = NA,
               weights = NA,
@@ -1703,13 +1718,8 @@ X2base.data.frame.list <- function(covs.list, ...) {
     if (!is.list(covs.list)) {
         stop("covs.list must be a list of covariates for which balanced is to be assessed at each time point.", call. = FALSE)
     }
-    for (ti in seq_along(covs.list)) {
-        if (!is.data.frame(covs.list[[ti]])) {
-            stop("Each item in covs.list must be a data frame.", call. = FALSE)
-        }
-        if (sum(is.na(covs.list[[ti]])) > 0) {
-            stop("Missing values exist in the covariates in covs.list.", call. = FALSE)
-        }
+    if (any(!sapply(covs.list, function(x) is.data.frame(x)))) {
+        stop("Each item in covs.list must be a data frame.", call. = FALSE)
     }
     
     if (length(data) > 0 && !is.data.frame(data)) {
@@ -1904,6 +1914,10 @@ X2base.data.frame.list <- function(covs.list, ...) {
     #Get s.d.denom
     X$s.d.denom <- rep("pooled", max(1, ncol(weights)))
     
+    if (any(sapply(c(covs.list, addl.list), function(x) any(is.na(x))))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$covs.list <- covs.list
     X$weights <- weights
     X$treat.list <- treat.list
@@ -1916,35 +1930,20 @@ X2base.data.frame.list <- function(covs.list, ...) {
     
     return(X)
 }
-X2base.formula.list <- function(formula.list, ...) {
+x2base.formula.list <- function(formula.list, ...) {
     A <- list(...)
-    
-    #Checks
-    if (length(A$data) == 0) {
-        stop("Data must be specified.", call. = FALSE)}
-    if (!is.data.frame(A$data)) {
-        stop("Data must be a data.frame.", call. = FALSE)}
-    data <- A$data
+    A[["covs.list"]] <- NULL
+    A[["treat.list"]] <- NULL
     
     treat.list <- covs.list <- vector("list", length(formula.list))
     for (i in seq_along(formula.list)) {
-        #Initializing variables
-        tt <- terms(formula.list[[i]])
-        attr(tt, "intercept") <- 0
-        if (is.na(match(all.vars(tt[[2]]), names(data)))) {
-            stop(paste0("The response variable \"", all.vars(tt[[2]]), "\" is not a variable in data."))
-        }
-        vars.mentioned <- all.vars(tt)
-        tryCatch({mf <- model.frame(tt, data)}, error = function(e) {
-            stop(paste0(c("All variables of formula ", i, " in formula.list must be variables in data.\nVariables not in data: ",
-                          paste(vars.mentioned[is.na(match(vars.mentioned, names(data)))], collapse=", "))), call. = FALSE)})
-        
-        treat.list[[i]] <- model.response(mf)
-        names(treat.list)[i] <- all.vars(tt[[2]])
-        covs.list[[i]] <- data[!is.na(match(names(data), vars.mentioned[vars.mentioned != all.vars(tt[[2]])]))]
+        t.c <- get.covs.and.treat.from.formula(formula.list[[i]], A[["data"]])
+        covs.list[[i]] <- t.c[["covs"]]
+        treat.list[[i]] <- t.c[["treat"]]
+        names(treat.list)[i] <- t.c[["treat.name"]]
     }
     
-    X <- X2base.data.frame.list(covs.list, treat.list = treat.list, ...)
+    X <- do.call("x2base.data.frame.list", c(list(covs.list, treat.list = treat.list), A))
     return(X)
 }
 x2base.CBMSM <- function(cbmsm, ...) {
@@ -2045,6 +2044,10 @@ x2base.CBMSM <- function(cbmsm, ...) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to CBMSM()."), call. = FALSE)
     }
     
+    if (any(sapply(c(covs.list, addl.list), function(x) any(is.na(x))))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
+    }
+    
     X$weights <- weights
     X$treat.list <- treat.list
     X$distance.list <- distance.list
@@ -2073,7 +2076,33 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     
     #Initializing variables
     estimand <- weightitMSM$estimand
-    if (any(weightitMSM$treat.type != "continuous")) {
+    weights <- data.frame(weights = get.w(weightitMSM))
+    treat.list <- weightitMSM$treat.list
+    covs.list <- weightitMSM$covs.list
+    s.weights <- weightitMSM$s.weights
+    data <- A$data
+    ntimes <- length(treat.list)
+    
+    weightitMSM.data <- weightitMSM$data
+    
+    if (all(sapply(treat.list, function(x) length(attr(x, "treat.type")) > 0))) {
+        treat.type <- sapply(treat.list, function(x) attr(x, "treat.type"))
+    }
+    else if (length(weightitMSM$treat.type) == length(treat.list)) {
+        treat.type <- weightitMSM$treat.type
+    }
+    else {
+        treat.type <- sapply(treat.list, function(treat) {
+            if (!is.factor(treat) && nunique.gt(treat, 2)) {
+                return("continuous")
+            }
+            else {
+                return("not continuous")
+            }
+        })
+    } 
+    
+    if (any(treat.type != "continuous")) {
         if (length(A$s.d.denom > 0) && is.character(A$s.d.denom)) {
             X$s.d.denom <- tryCatch(match.arg(A$s.d.denom, c("treated", "control", "pooled")),
                                     error = function(cond) {
@@ -2085,15 +2114,6 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
             X$s.d.denom <- switch(tolower(estimand), att = "treated", ate = "pooled", atc = "control", ato = "pooled")
         }
     }
-    
-    weights <- data.frame(weights = get.w(weightitMSM))
-    treat.list <- weightitMSM$treat.list
-    covs.list <- weightitMSM$covs.list
-    s.weights <- weightitMSM$s.weights
-    data <- A$data
-    ntimes <- length(treat.list)
-    
-    weightitMSM.data <- weightitMSM$data
     
     #Order covs.list
     all.covs <- unique(unlist(lapply(covs.list, names)))
@@ -2157,6 +2177,10 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     }
     if (any(problematic)) {
         stop(paste0(word.list(names(problematic[problematic])), " must have the same number of observations as the original data set in the call to weightitMSM()."), call. = FALSE)
+    }
+    
+    if (any(sapply(c(covs.list, addl.list), function(x) any(is.na(x))))) {
+        warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
     X$weights <- weights

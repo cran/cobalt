@@ -2,7 +2,7 @@
 knitr::opts_chunk$set(message = FALSE)
 
 ## ---- eval = 2-----------------------------------------------------------
-install.packages("cobalt")
+#install.packages("cobalt")
 library("cobalt")
 
 ## ------------------------------------------------------------------------
@@ -19,26 +19,26 @@ bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights,
 
 
 ## ------------------------------------------------------------------------
-bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
         distance = "p.score", method = "weighting")
 
 ## ------------------------------------------------------------------------
-bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
         method = "weighting", binary = "std", continuous = "std")
 
 ## ------------------------------------------------------------------------
 # Balance on all covariates in data set, including interactions and squares
-bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
         method = "weighting", addl = c("nodegree", "married"), int = TRUE)
 
 ## ------------------------------------------------------------------------
 # Balance tables with variance ratios and statistics for the unadjusted sample
-bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
         method = "weighting", disp.v.ratio = TRUE, un = TRUE)
 
 ## ------------------------------------------------------------------------
 # Balance tables with thresholds for mean differences and variance ratios
-bal.tab(f.build("treat", covs0), data = lalonde, weights = "att.weights",
+bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
         method = "weighting", m.threshold = .1, v.threshold = 2)
 
 ## ------------------------------------------------------------------------
@@ -47,7 +47,7 @@ lalonde$p.score2 <- glm(treat ~ age + I(age^2) + race + educ + re74,
                         data = lalonde, family = "binomial")$fitted.values
 lalonde$att.weights2 <- with(lalonde, treat + (1-treat)*p.score2/(1-p.score2))
 
-bal.tab(f.build("treat", covs0), data = lalonde, weights = c("att.weights", "att.weights2"),
+bal.tab(treat ~ covs0, data = lalonde, weights = c("att.weights", "att.weights2"),
         method = "weighting", estimand = "ATT")
 
 ## ------------------------------------------------------------------------
@@ -60,7 +60,7 @@ lalonde$subclass <- findInterval(lalonde$p.score,
                                           seq(0, 1, length.out = nsub + 1)), 
                                  all.inside = T)
 
-bal.tab(f.build("treat", covs0), data = lalonde, subclass = "subclass", 
+bal.tab(treat ~ covs0, data = lalonde, subclass = "subclass", 
         method = "subclassification", disp.subclass = TRUE)
 
 ## ------------------------------------------------------------------------
@@ -117,7 +117,6 @@ love.plot(bal.tab(m.out), stat = "mean.diffs", threshold = .1,
 ## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
 library("WeightIt")
-cov.c <- subset(lalonde, select = -c(treat, re78, re75))
 
 #Generating weights with re75 as the continuous treatment
 W.out.c <- weightit(re75 ~ age + educ + race + married + nodegree + 
@@ -171,21 +170,21 @@ love.plot(bal.tab(W.out.mn), threshold = .1,
           which.treat = NULL)
 
 ## ------------------------------------------------------------------------
-bal.tab(f.build("treat", covs0), data = lalonde, 
+bal.tab(treat ~ covs0, data = lalonde, 
         weights = data.frame(Matched = get.w(m.out),
                              IPW = get.w(W.out)),
         method = c("matching", "weighting"), 
         disp.v.ratio = TRUE)
 
 ## ---- fig.width=7--------------------------------------------------------
-bal.plot(f.build("treat", covs0), data = lalonde, 
+bal.plot(treat ~ covs0, data = lalonde, 
          weights = data.frame(Matched = get.w(m.out),
                               IPW = get.w(W.out)),
          method = c("matching", "weighting"), 
          var.name = "age", which = "both")
 
 ## ---- fig.width=5--------------------------------------------------------
-love.plot(bal.tab(f.build("treat", covs0), data = lalonde, 
+love.plot(bal.tab(treat ~ covs0, data = lalonde, 
                   weights = data.frame(Matched = get.w(m.out),
                                        IPW = get.w(W.out)),
                   method = c("matching", "weighting")), var.order = "unadjusted",
