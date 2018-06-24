@@ -25,13 +25,13 @@ bal.tab(m.out, cluster = "race", which.cluster = NA)
 bal.plot(m.out, cluster = "race", var.name = "age")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(m.out, cluster = "race"), agg.fun = "mean")
+love.plot(bal.tab(m.out, cluster = "race"))
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(m.out, cluster = "race"), agg.fun = "range")
+love.plot(bal.tab(m.out, cluster = "race"), which.cluster = NA, agg.fun = "mean")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(m.out, cluster = "race"), which.cluster = NULL)
+love.plot(bal.tab(m.out, cluster = "race"), which.cluster = NA, agg.fun = "range")
 
 ## ------------------------------------------------------------------------
 library("MatchIt"); library("cobalt"); library("mice")
@@ -45,7 +45,7 @@ imp.data <- imp.data[with(imp.data, order(.imp, .id)),]
 
 #Estimate propensity scores and perform matching within each one
 imp.data$ps <- imp.data$match.weight <- rep(0, nrow(imp.data))
-for (i in levels(imp.data$.imp)) {
+for (i in unique(imp.data$.imp)) {
     in.imp <- imp.data$.imp == i
     imp.data$ps[in.imp] <- glm(treat ~ age + educ + race + 
                                    married + nodegree +
@@ -86,6 +86,16 @@ bal.tab(treat ~ age + educ + race + married + nodegree + re74 + re75,
         method = "matching", imp = ".imp")
 
 ## ------------------------------------------------------------------------
+#Estimating the weights; exact = ".imp" separates by imputation
+library("WeightIt")
+w.out <- weightit(treat ~ age + educ + race + married + 
+                      nodegree + re74 + re75, data = imp.data, 
+                  exact = ".imp", estimand = "ATT")
+
+#Checking balance on the output object
+bal.tab(w.out, imp = ".imp")
+
+## ------------------------------------------------------------------------
 bal.plot(treat ~ age + educ + race + married + nodegree + re74 + re75, 
          data = imp.data, weights = "match.weight", method = "matching", 
          imp = ".imp", which.imp = 1, var.name = "age")
@@ -113,7 +123,7 @@ imp.data <- complete(imp, "long", include = FALSE)
 
 #Estimate propensity scores and perform matching within each one
 imp.data$match.weight <- rep(0, nrow(imp.data))
-for (i in levels(imp.data$.imp)) {
+for (i in unique(imp.data$.imp)) {
     in.imp <- imp.data$.imp == i
     m.out <- matchit(treat ~ race*(age + educ + married + nodegree + re74 + re75), 
                      data = imp.data[in.imp,], method = "nearest", exact = "race", 

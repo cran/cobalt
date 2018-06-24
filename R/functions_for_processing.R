@@ -1,7 +1,20 @@
+#bal.tab
+is.designmatch <- function(x) {
+    dm.b.names <- c("obj_total", "obj_dist_mat", "t_id", 
+                    "c_id", "group_id", "time")
+    dm.n.names <- c("obj_total", "obj_dist_mat", "id_1", 
+                    "id_2", "group_id", "time")
+    if (length(x) >= min(length(dm.b.names), length(dm.n.names)) && 
+        (all(dm.b.names %in% names(x)) || all(dm.n.names %in% names(x)))) {
+        class(x) <- c("designmatch")
+    }
+    return(x)
+}
+
 #x2base
 match.strata2weights <- function(match.strata, treat, covs = NULL) {
     #Process match.strata into weights (similar to weight.subclass from MatchIt)
-    if (length(covs) == 0) names(treat) <- seq_along(treat)
+    if (is_null(covs)) names(treat) <- seq_along(treat)
     else names(treat) <- row.names(covs)
     matched <- !is.na(match.strata); unmatched <- !matched
     treat.matched <- treat[matched]
@@ -20,11 +33,11 @@ match.strata2weights <- function(match.strata, treat, covs = NULL) {
         qn1 <- sum(treat.matched==1 & match.strata.matched==j)
         weights.matched[treat.matched==0 & match.strata.matched==j] <- qn1/qn0
     }
-    if (sum(weights.matched[clabels]) < sqrt(.Machine$double.eps)) #all control weights are 0
+    if (all(check_if_zero(weights.matched[clabels]))) #all control weights are 0
         weights.matched[clabels] <- rep(0, length(weights.matched[clabels]))
     else {
         ## Number of C units that were matched to at least 1 T
-        num.cs <- sum(weights.matched[clabels] > sqrt(.Machine$double.eps))
+        num.cs <- sum(!check_if_zero(weights.matched[clabels]))
         weights.matched[clabels] <- weights.matched[clabels]*num.cs/sum(weights.matched[clabels])
     }
     
@@ -37,11 +50,11 @@ match.strata2weights <- function(match.strata, treat, covs = NULL) {
         weights <- weights.matched
     }
     
-    if (sum(weights) < sqrt(.Machine$double.eps)) 
+    if (all(check_if_zero(weights))) 
         stop("No units were matched", call. = FALSE)
-    else if (sum(weights[tlabels]) < sqrt(.Machine$double.eps))
+    else if (all(check_if_zero(weights[tlabels])))
         stop("No treated units were matched", call. = FALSE)
-    else if (sum(weights[clabels]) < sqrt(.Machine$double.eps))
+    else if (all(check_if_zero(weights[clabels])))
         stop("No control units were matched", call. = FALSE)
     return(weights)
 }
@@ -86,7 +99,7 @@ match.strata2weights <- function(match.strata, treat, covs = NULL) {
         attr(tt, "intercept") <- 0
         mf<- tryCatch(model.frame(tt, d),
                       error = function(cond) stop(paste0(c("All right hand side variables of formula must be variables in data.\nVariables not in data: ",
-                                                           paste(attr(tt, "term.labels")[which(!attr(tt, "term.labels") %in% names(d))], collapse=", "))), call. = FALSE))
+                                                           paste(attr(tt, "term.labels")[which(attr(tt, "term.labels") %nin% names(d))], collapse=", "))), call. = FALSE))
         out.list$treat <- setNames(model.response(mf), rownames(d)) #treat
         out.list$covs <- d[attr(tt, "term.labels")] #covs
         attr(out.list, "which") <- "fd"
@@ -116,17 +129,25 @@ match.strata2weights <- function(match.strata, treat, covs = NULL) {
     }
     return(t.c)
 }
-use.tc.fd <- function(formula, data, treat, covs) {
-    if (length(formula) > 0 && class(formula)=="formula") {
+use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, needs.treat = TRUE, needs.covs = TRUE) {
+    if (is_not_null(formula) && class(formula) == "formula") {
         D <- NULL
-        if (length(data) > 0) D <- data
-        if (length(covs) > 0) if (length(D) > 0) D <- cbind(D, covs) else D <- covs
+        if (is_not_null(data)) D <- data
+        if (is_not_null(covs)) if (is_not_null(D)) D <- cbind(D, covs) else D <- covs
         t.c <- get.covs.and.treat.from.formula(formula, D, treat = treat)
+        t.c <- list(treat = t.c[["treat"]], covs = t.c[["reported.covs"]])
+        attr(t.c, "which") <- "fd"
     }
-    else t.c <- list(treat = treat, covs = covs)
+    else {
+        if (is.matrix(covs)) covs <- as.data.frame(covs)
+        else if (!is.data.frame(covs)) stop("covs must be a data.frame of covariates.", call. = FALSE)
+        if (!is.atomic(treat)) stop("treat must be an atomic vector of treatment statuses.", call. = FALSE)
+        t.c <- list(treat = treat, covs = covs)
+        attr(t.c, "which") <- "tc"
+    }
     
-    if (length(t.c[["covs"]]) == 0) stop("No covariates were specified.", call. = FALSE)
-    if (length(t.c[["treat"]]) == 0) stop("No treatment variable was specified.", call. = FALSE)
+    if (needs.covs && is_null(t.c[["covs"]])) stop("No covariates were specified.", call. = FALSE)
+    if (needs.treat && is_null(t.c[["treat"]])) stop("No treatment variable was specified.", call. = FALSE)
     
     return(t.c)
 }
@@ -136,12 +157,12 @@ process.val <- function(val, i, treat, covs, ...) {
     }
     else if (is.character(val)) {
         data.sets <- list(...)
-        data.sets <- data.sets[sapply(data.sets, function(x) length(x) > 0)]
-        if ((length(data.sets) > 0 && length(val) > max(sapply(data.sets, ncol))) || length(val) == nrow(covs) || length(val) == length(treat)){
+        data.sets <- data.sets[!sapply(data.sets, is_null)]
+        if ((is_not_null(data.sets) && length(val) > max(sapply(data.sets, ncol))) || length(val) == nrow(covs) || length(val) == length(treat)){
             val.df <- setNames(data.frame(val), i)
         }
         else {
-            if (length(data.sets) > 0) {
+            if (is_not_null(data.sets)) {
                 val <- unique(val)
                 val.df <- setNames(as.data.frame(matrix(NA, ncol = length(val), nrow = max(sapply(data.sets, nrow)))),
                                    val)
@@ -181,13 +202,13 @@ process.val <- function(val, i, treat, covs, ...) {
 data.frame.process <- function(i, df, treat, covs, ...) {
     val <- df
     val.df <- NULL
-    if (length(val) > 0) {
+    if (is_not_null(val)) {
         if (is.vector(val, mode = "list")) {
             val.list <- lapply(val, function(x) process.val(x, i, treat, covs, ...))
             val.list <- lapply(seq_along(val.list), function(x) {
                 if (ncol(val.list[[x]]) == 1) names(val.list[[x]]) <- names(val.list)[x]
                 val.list[[x]]})
-            if (length(unique(sapply(val.list, nrow))) > 1) {
+            if (!all_the_same(sapply(val.list, nrow))) {
                 stop(paste("Not all items in", i, "have the same length."), call. = FALSE)
             }
             
@@ -197,7 +218,7 @@ data.frame.process <- function(i, df, treat, covs, ...) {
         else {
             val.df <- process.val(val, i, treat, covs, ...)
         }
-        if (length(val.df) > 0) { if (sum(is.na(val.df)) > 0) {
+        if (is_not_null(val.df)) { if (sum(is.na(val.df)) > 0) {
             stop(paste0("Missing values exist in ", i, "."), call. = FALSE)}
         }
     }
@@ -205,7 +226,7 @@ data.frame.process <- function(i, df, treat, covs, ...) {
 }
 list.process <- function(i, List, ntimes, call.phrase, treat.list, covs.list, ...) {
     val.List <- List
-    if (length(val.List) > 0) {
+    if (is_not_null(val.List)) {
         if (class(val.List)[1] != "list") {
             val.List <- list(val.List)
         }
@@ -221,13 +242,13 @@ list.process <- function(i, List, ntimes, call.phrase, treat.list, covs.list, ..
         for (ti in seq_along(val.List)) {
             val <- val.List[[ti]]
             val.df <- NULL
-            if (length(val) > 0) {
+            if (is_not_null(val)) {
                 if (is.vector(val, mode = "list")) {
                     val.list <- lapply(val, function(x) process.val(x, strsplit(i, ".list")[[1]], treat.list[[ti]], covs.list[[ti]], ...))
                     val.list <- lapply(seq_along(val.list), function(x) {
                         if (ncol(val.list[[x]]) == 1) names(val.list[[x]]) <- names(val.list)[x]
                         val.list[[x]]})
-                    if (length(unique(sapply(val.list, nrow))) > 1) {
+                    if (!all_the_same(sapply(val.list, nrow))) {
                         stop(paste("Not all items in", i, "have the same length."), call. = FALSE)
                     }
                     
@@ -237,7 +258,7 @@ list.process <- function(i, List, ntimes, call.phrase, treat.list, covs.list, ..
                 else {
                     val.df <- process.val(val, strsplit(i, ".list")[[1]], treat.list[[ti]], covs.list[[ti]], ...)
                 }
-                if (length(val.df) > 0) { if (sum(is.na(val.df)) > 0) {
+                if (is_not_null(val.df)) { if (sum(is.na(val.df)) > 0) {
                     stop(paste0("Missing values exist in ", i, "."), call. = FALSE)}
                 }
                 val.List[[ti]] <- val.df
@@ -251,7 +272,7 @@ list.process <- function(i, List, ntimes, call.phrase, treat.list, covs.list, ..
     }
     return(val.List)
 }
-null.or.error <- function(x) {length(x) == 0 || class(x) == "try-error"}
+null.or.error <- function(x) {is_null(x) || class(x) == "try-error"}
 get.covs.and.treat.from.formula <- function(f, data, env = .GlobalEnv, ...) {
     A <- list(...)
     
@@ -259,7 +280,7 @@ get.covs.and.treat.from.formula <- function(f, data, env = .GlobalEnv, ...) {
     attr(tt, "intercept") <- 0
     
     #Check if data exists
-    if (length(data) > 0 && is.data.frame(data)) {
+    if (is_not_null(data) && is.data.frame(data)) {
         data.specified <- TRUE
     }
     else data.specified <- FALSE
@@ -272,7 +293,7 @@ get.covs.and.treat.from.formula <- function(f, data, env = .GlobalEnv, ...) {
         })
         
         if (any(resp.vars.failed)) {
-            if (length(A[["treat"]]) == 0) stop(paste0("The given response variable, \"", as.character(tt)[2], "\", is not a variable in ", word.list(c("data", "the global environment")[c(data.specified, TRUE)], "or"), "."), call. = FALSE)
+            if (is_null(A[["treat"]])) stop(paste0("The given response variable, \"", as.character(tt)[2], "\", is not a variable in ", word.list(c("data", "the global environment")[c(data.specified, TRUE)], "or"), "."), call. = FALSE)
             tt <- delete.response(tt)
         }
     }
@@ -296,9 +317,10 @@ get.covs.and.treat.from.formula <- function(f, data, env = .GlobalEnv, ...) {
     
     #Check if RHS variables exist
     tt.covs <- delete.response(tt)
-    rhs.vars.mentioned <- attr(tt.covs, "term.labels")
-    rhs.vars.failed <- sapply(rhs.vars.mentioned, function(v) {
-        null.or.error(try(eval(parse(text = v), c(data, env)), silent = TRUE))
+    rhs.vars.mentioned.lang <- attr(tt.covs, "variables")[-1]
+    rhs.vars.mentioned <- sapply(rhs.vars.mentioned.lang, deparse)
+    rhs.vars.failed <- sapply(rhs.vars.mentioned.lang, function(v) {
+        null.or.error(try(eval(v, c(data, env)), silent = TRUE))
     })
     
     if (any(rhs.vars.failed)) {
@@ -307,17 +329,31 @@ get.covs.and.treat.from.formula <- function(f, data, env = .GlobalEnv, ...) {
         
     }
     
-    rhs.df <- sapply(rhs.vars.mentioned, function(v) {
-        is.data.frame(try(eval(parse(text = v), c(data, env)), silent = TRUE))
+    rhs.term.labels <- attr(tt.covs, "term.labels")
+    rhs.term.orders <- attr(tt.covs, "order")
+    
+    rhs.df <- sapply(rhs.vars.mentioned.lang, function(v) {
+        is.data.frame(try(eval(v, c(data, env)), silent = TRUE))
     })
     
     if (any(rhs.df)) {
-        addl.dfs <- lapply(rhs.vars.mentioned[rhs.df], function(x) {eval(parse(text = x), env)})
-        new.form <- paste0("~ . - ",
-                           paste(rhs.vars.mentioned[rhs.df], collapse = " - "), " + ",
-                           paste(unlist(sapply(addl.dfs, names)), collapse = " + "))
-        tt.covs <- update(tt.covs, as.formula(new.form))
-        data <- do.call("cbind", c(addl.dfs, data))
+        if (any(rhs.vars.mentioned[rhs.df] %in% unlist(sapply(rhs.term.labels[rhs.term.orders > 1], function(x) strsplit(x, ":", fixed = TRUE))))) {
+            stop("Interactions with data.frames are not allowed in the input formula.", call. = FALSE)
+        }
+        addl.dfs <- setNames(lapply(rhs.vars.mentioned.lang[rhs.df], function(x) {eval(x, env)}),
+                             rhs.vars.mentioned[rhs.df])
+        
+        for (i in rhs.term.labels[rhs.term.labels %in% rhs.vars.mentioned[rhs.df]]) {
+            ind <- which(rhs.term.labels == i)
+            rhs.term.labels <- append(rhs.term.labels[-ind], 
+                                      values = names(addl.dfs[[i]]), 
+                                      after = ind - 1)
+        }
+        new.form <- as.formula(paste("~", paste(rhs.term.labels, collapse = " + ")))
+        
+        tt.covs <- terms(new.form)
+        if (is_not_null(data)) data <- do.call("cbind", unname(c(addl.dfs, list(data))))
+        else data <- do.call("cbind", unname(addl.dfs))
     }
     
     #Get model.frame, report error
@@ -327,11 +363,17 @@ get.covs.and.treat.from.formula <- function(f, data, env = .GlobalEnv, ...) {
     tryCatch({covs <- eval(mf.covs, c(data, env))},
              error = function(e) {stop(conditionMessage(e), call. = FALSE)})
     
-    if (length(rhs.vars.mentioned) == 0) covs <- data.frame(Intercept = rep(1, if (length(treat) == 0 ) 1 else length(treat)))
+    if (is_null(rhs.vars.mentioned)) covs <- data.frame(Intercept = rep(1, if (is_null(treat)) 1 else length(treat)))
+    
+    #Get full model matrix with interactions too
+    covs.matrix <- model.matrix(tt.covs, data = covs,
+                                contrasts.arg = lapply(covs[sapply(covs, is.factor)], 
+                                                       contrasts, contrasts=FALSE))
     
     attr(covs, "terms") <- NULL
     
-    return(list(covs = covs,
+    return(list(reported.covs = covs,
+                model.covs = covs.matrix,
                 treat = treat,
                 treat.name = treat.name))
 }
@@ -353,11 +395,11 @@ int.poly.f <- function(mat, ex=NULL, int=FALSE, poly=1, nunder=1, ncarrot=1) {
     #poly=degree of polynomials to include; will also include all below poly. If 1, no polynomial will be included
     #nunder=number of underscores between variables
     
-    if (length(ex) > 0) d <- mat[, !colnames(mat) %in% colnames(ex), drop = FALSE]
+    if (is_not_null(ex)) d <- mat[, colnames(mat) %nin% colnames(ex), drop = FALSE]
     else d <- mat
     nd <- ncol(d)
     nrd <- nrow(d)
-    no.poly <- apply(d, 2, function(x) !nunique.gt(x, 2))
+    no.poly <- apply(d, 2, is_binary)
     npol <- nd - sum(no.poly)
     new <- matrix(0, ncol = (poly-1)*npol + int*(.5*(nd)*(nd-1)), nrow = nrd)
     nc <- ncol(new)
@@ -365,7 +407,7 @@ int.poly.f <- function(mat, ex=NULL, int=FALSE, poly=1, nunder=1, ncarrot=1) {
     if (poly > 1 && npol != 0) {
         for (i in 2:poly) {
             new[, (1 + npol*(i - 2)):(npol*(i - 1))] <- apply(d[, !no.poly, drop = FALSE], 2, function(x) x^i)
-            new.names[(1 + npol*(i - 2)):(npol*(i - 1))] <- paste0(colnames(d)[!no.poly], paste0(replicate(ncarrot, "_"), collapse = ""), i)
+            new.names[(1 + npol*(i - 2)):(npol*(i - 1))] <- paste0(colnames(d)[!no.poly], num_to_superscript(i))
         }
     }
     if (int && nd > 1) {
@@ -373,16 +415,16 @@ int.poly.f <- function(mat, ex=NULL, int=FALSE, poly=1, nunder=1, ncarrot=1) {
         new.names[(nc - .5*nd*(nd-1) + 1):nc] <- combn(colnames(d), 2, paste, collapse=paste0(replicate(nunder, "_"), collapse = ""))
     }
     
-    single.value <- apply(new, 2, function(x) all(is.na(x)) || abs(max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) < sqrt(.Machine$double.eps))
+    single.value <- apply(new, 2, all_the_same)
     colnames(new) <- new.names
     #new <- setNames(data.frame(new), new.names)[!single.value]
     return(new[, !single.value, drop = FALSE])
 }
 binarize <- function(variable) {
     nas <- is.na(variable)
-    if (nunique.gt(variable[!nas], 2)) stop(paste0("Cannot binarize ", deparse(substitute(variable)), ": more than two levels."))
+    if (!is_binary(variable[!nas])) stop(paste0("Cannot binarize ", deparse(substitute(variable)), ": more than two levels."))
     variable.numeric <- as.numeric(variable)
-    if (!is.na(match(0, unique(variable.numeric)))) zero <- 0
+    if (0 %in% unique(variable.numeric)) zero <- 0
     else zero <- min(unique(variable.numeric), na.rm = TRUE)
     newvar <- setNames(ifelse(!nas & variable.numeric==zero, 0, 1), names(variable))
     newvar[nas] <- NA
@@ -398,7 +440,7 @@ get.C <- function(covs, int = FALSE, addl = NULL, distance = NULL, cluster = NUL
             else stop("The argument to addl must be a data.frame. Wrap data.frame() around the argument if it is a matrix or vector.", call. = FALSE)
         }
         else {
-            repeat.name.indices <- sapply(names(addl), function(x) !is.na(match(x, names(C))))
+            repeat.name.indices <- sapply(names(addl), function(x) x %in% names(C))
             if (any(repeat.name.indices)) {
                 warning(paste("The following variables in addl have the same name as covariates and will be ignored:\n",
                               paste(names(addl)[repeat.name.indices], collapse = " ")), call. = FALSE)
@@ -411,7 +453,7 @@ get.C <- function(covs, int = FALSE, addl = NULL, distance = NULL, cluster = NUL
     covs.with.inf <- unlist(sapply(C, function(x) any(!is.finite(x) & !is.na(x))))
     if (any(covs.with.inf)) {
         s <- if (sum(covs.with.inf) == 1) c("", "s") else c("s", "")
-        stop(paste0("The variable", s[1], " ", word.list(names(covs)[covs.with.inf], quotes = TRUE), 
+        stop(paste0("The variable", s[1], " ", word.list(names(C)[covs.with.inf], quotes = TRUE), 
                     " contain", s[2], " non-finite values, which are not allowed."), call. = FALSE)
     }
     
@@ -422,7 +464,7 @@ get.C <- function(covs, int = FALSE, addl = NULL, distance = NULL, cluster = NUL
                                  stringsAsFactors = FALSE)
     for (i in names(C)) {
         if (is.character(C[[i]])) C[[i]] <- factor(C[[i]])
-        else if (!nunique.gt(C[[i]][!is.na(C[[i]])], 2)) {
+        else if (is_binary(C[[i]][!is.na(C[[i]])])) {
             if (is.logical(C[[i]])) C[[i]] <- as.numeric(C[[i]])
             else if (is.numeric(C[[i]])) C[[i]] <- binarize(C[[i]])
         }
@@ -436,18 +478,18 @@ get.C <- function(covs, int = FALSE, addl = NULL, distance = NULL, cluster = NUL
                 old.C.names <- names(C)
                 C <- splitfactor(C, i, replace = TRUE, sep = "_", drop.first = FALSE, 
                                  drop.singleton = FALSE)
-                newly.added.names <- names(C)[!names(C) %in% old.C.names]
+                newly.added.names <- names(C)[names(C) %nin% old.C.names]
                 vars.w.missing[i, "placed.after"] <- newly.added.names[length(newly.added.names)]
             }
         }
     }
     #Make sure categorical variable have missingness indicators done correctly
     C <- as.matrix(C)
-    single.value <- apply(C, 2, function(x) abs(max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) < sqrt(.Machine$double.eps))
+    single.value <- apply(C, 2, all_the_same)
     C <- C[, !single.value, drop = FALSE]
-
+    
     #Process int
-    if (!is.finite(int)  || length(int) != 1L || !(is.logical(int) || is.numeric(int))) {
+    if (length(int) != 1L || !is.finite(int) || !(is.logical(int) || is.numeric(int))) {
         stop("int must be TRUE, FALSE, or a numeric value of length 1.", call. = FALSE)
     }
     int <- as.integer(round(int))
@@ -459,22 +501,22 @@ get.C <- function(covs, int = FALSE, addl = NULL, distance = NULL, cluster = NUL
         #Prevent duplicate var names with _'s
         nunder <- ncarrot <- 1
         repeat {
-            if (all(sapply(colnames(C), function(x) !x %in% do.call(paste, c(expand.grid(colnames(C), colnames(C)), list(sep = paste0(replicate(nunder, "_"), collapse = ""))))))) break
+            if (all(sapply(colnames(C), function(x) x %nin% do.call(paste, c(expand.grid(colnames(C), colnames(C)), list(sep = paste0(replicate(nunder, "_"), collapse = ""))))))) break
             else nunder <- nunder + 1
         }
         #Variable names don't contain carrots
         # repeat {
-        #     if (all(sapply(names(C), function(x) !x %in% paste0(names(C), paste0(replicate(nunder, "_"), collapse = ""), "2")))) break
+        #     if (all(sapply(names(C), function(x) x %nin% paste0(names(C), paste0(replicate(nunder, "_"), collapse = ""), "2")))) break
         #     else ncarrot <- ncarrot + 1
         # }
         if (as.numeric(int) %in% c(1, 2)) poly <- 2
         else poly <- int
         C <- cbind(C, int.poly.f(C, int = TRUE, poly = poly, nunder = nunder, ncarrot = ncarrot))
-
+        
     }
     #Remove duplicate & redundant variables
     C <- remove.perfect.col(C)    
-
+    
     #Add missingness indicators
     vars.w.missing <- vars.w.missing[vars.w.missing$placed.after %in% colnames(C) & vars.w.missing$has.missing, , drop = FALSE]
     if (nrow(vars.w.missing) > 0) {
@@ -495,7 +537,7 @@ get.C <- function(covs, int = FALSE, addl = NULL, distance = NULL, cluster = NUL
         }
     }
     
-    if (length(distance) > 0) {
+    if (is_not_null(distance)) {
         if (any(names(distance) %in% colnames(C))) stop("distance variable(s) share the same name as a covariate. Please ensure each variable name is unique.", call. = FALSE)
         C <- cbind(distance, C, row.names = NULL)
         attr(C, "distance.names") <- names(distance)
@@ -507,8 +549,8 @@ get.C <- function(covs, int = FALSE, addl = NULL, distance = NULL, cluster = NUL
 get.types <- function(C) {
     sapply(colnames(C), function(x) {
         if (any(attr(C, "distance.names") == x)) "Distance"
-        else if (nunique.gt(C[!is.na(C[,x]),x], 2))  "Contin."
-        else "Binary"
+        else if (is_binary(C[,x]))  "Binary"
+        else "Contin."
     })
 }
 remove.perfect.col <- function(C) {
@@ -516,26 +558,64 @@ remove.perfect.col <- function(C) {
     if (nrow(C) > 1500) {
         repeat {
             mini.C <- C[sample(seq_len(nrow(C)), 1000),,drop=FALSE]
-            single.value <- apply(mini.C, 2, function(x) abs(max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) < sqrt(.Machine$double.eps))
+            single.value <- apply(mini.C, 2, all_the_same)
             if (all(!single.value)) break
         }
         suppressWarnings(C.cor <- cor(mini.C, use = "pairwise.complete.obs"))
     }
     else suppressWarnings(C.cor <- cor(C, use = "pairwise.complete.obs"))
     
-    s <- !lower.tri(C.cor, diag=TRUE) & (1 - abs(C.cor) < sqrt(.Machine$double.eps))
+    s <- !lower.tri(C.cor, diag=TRUE) & check_if_zero(1 - abs(C.cor))
     redundant.vars <- apply(s, 2, any)
     C <- C[, !redundant.vars, drop = FALSE] 
     return(C)
 }
+num_to_superscript <- function(x) {
+    nums <- setNames(c("\u2070",
+                       "\u00B9",
+                       "\u00B2",
+                       "\u00B3",
+                       "\u2074",
+                       "\u2075",
+                       "\u2076",
+                       "\u2077",
+                       "\u2078",
+                       "\u2079"),
+                     as.character(0:9))
+    x <- as.character(x)
+    splitx <- strsplit(x, "")
+    supx <- sapply(splitx, function(y) paste0(nums[y], collapse = ""))
+    return(supx)
+}
 
 #base.bal.tab
+check_if_zero_weights <- function(weights.df, treat, unique.treat = NULL) {
+    if (is_null(unique.treat)) unique.treat <- unique(treat)
+    w.t.mat <- expand.grid(colnames(weights.df), unique.treat)
+    problems <- apply(w.t.mat, 1, function(x) all(check_if_zero(weights.df[treat == x[2], x[1]])))
+    prob.w.t.mat <- droplevels(w.t.mat[problems,])
+    if (any(problems)) {
+        if (ncol(weights.df) == 1) {
+            error <- paste0("All weights are zero when ", word.list(paste("treat =", prob.w.t.mat[, 2]), "or"), ".")
+        }
+        else {
+            errors <- setNames(character(nlevels(prob.w.t.mat[,1])), levels(prob.w.t.mat[,1]))
+            
+            for (i in levels(prob.w.t.mat[,1])) {
+                errors[i] <- paste0("\"", i, "\" weights are zero when ", word.list(paste("treat =", prob.w.t.mat[prob.w.t.mat[,1] == i, 2]), "or"))
+            }
+            errors <- paste(c("All", rep("all", length(errors)-1)), errors)
+            error <- paste0(word.list(errors, "and"), ".")
+        }
+        stop(error, call. = FALSE)
+    }
+}
 w.m <- function(x, w = NULL, na.rm = TRUE) {
-    if (length(w) == 0) w <- as.numeric(!is.na(x))
+    if (is_null(w)) w <- as.numeric(!is.na(x))
     return(sum(x*w, na.rm=na.rm)/sum(w, na.rm=na.rm))
 }
 col.w.m <- function(mat, w = NULL, na.rm = TRUE) {
-    if (length(w) == 0) {
+    if (is_null(w)) {
         w <- 1
         w.sum <- apply(mat, 2, function(x) sum(!is.na(x)))
     }
@@ -552,7 +632,7 @@ w.v <- function(x, w = NULL) {
     return(sum(w*(x-w.m(x, w))^2, na.rm=TRUE) / w.cov.scale(w))
 }
 col.w.v <- function(mat, w = NULL, na.rm = TRUE) {
-    if (length(w) == 0) {
+    if (is_null(w)) {
         w <- rep(1, nrow(mat))
     }
     return(colSums(t((t(mat) - col.w.m(mat, w, na.rm = na.rm))^2) * w, na.rm = na.rm) / w.cov.scale(w))
@@ -567,26 +647,29 @@ w.cov <- function(x, y , w = NULL) {
 col.std.diff <- function(mat, treat, weights, subclass = NULL, which.sub = NULL, x.types, continuous, binary, s.d.denom, no.weights = FALSE, s.weights = rep(1, length(treat)), pooled.sds = NULL) {
     if (no.weights) weights <- rep(1, nrow(mat))
     w <- weights*s.weights
+    sw <- s.weights
     
-    no.sub <- length(which.sub) == 0
-    if (no.sub) ss <- w > 0
-    else ss <- (!is.na(subclass) & subclass == which.sub & w > 0)
-    
-    if (sum(treat==0 & ss) == 0) {
-        warning(paste0("There are no control units in subclass ", which.sub, "."), call. = FALSE)
-        return(rep(NA, ncol(mat)))
-    }
-    if (sum(treat==1 & ss) == 0) {
-        warning(paste0("There are no treated units in subclass ", which.sub, "."), call. = FALSE)
-        return(rep(NA, ncol(mat)))
+    no.sub <- is_null(which.sub)
+    if (no.sub) ss <- sw > 0
+    else {
+        ss <- (!is.na(subclass) & subclass == which.sub & sw > 0)
+        
+        if (sum(treat==0 & ss) == 0) {
+            warning(paste0("There are no control units in subclass ", which.sub, "."), call. = FALSE)
+            return(rep(NA, ncol(mat)))
+        }
+        if (sum(treat==1 & ss) == 0) {
+            warning(paste0("There are no treated units in subclass ", which.sub, "."), call. = FALSE)
+            return(rep(NA, ncol(mat)))
+        }
     }
     
     diffs <- col.w.m(mat[treat == 1 & ss, , drop = FALSE], w[treat == 1 & ss]) - 
         col.w.m(mat[treat == 0 & ss, , drop = FALSE], w[treat == 0 & ss])
-    diffs[abs(diffs) < sqrt(.Machine$double.eps)] <- 0
+    diffs[check_if_zero(diffs)] <- 0
     denoms <- rep(1, ncol(mat))
     denoms.to.std <- ifelse(x.types == "Binary", binary == "std", continuous == "std")
-      
+    
     if (any(denoms.to.std)) {
         if (s.d.denom == "control") {
             denoms[denoms.to.std] <- sqrt(col.w.v(mat[treat == 0 & ss, denoms.to.std, drop = FALSE], s.weights[treat == 0 & ss]))
@@ -595,7 +678,7 @@ col.std.diff <- function(mat, treat, weights, subclass = NULL, which.sub = NULL,
             denoms[denoms.to.std] <- sqrt(col.w.v(mat[treat == 1 & ss, denoms.to.std, drop = FALSE], s.weights[treat == 1 & ss]))
         }
         else if (s.d.denom == "pooled") {
-            if (length(pooled.sds) > 0) {
+            if (is_not_null(pooled.sds)) {
                 denoms[denoms.to.std] <- pooled.sds[denoms.to.std]
             }
             else {
@@ -604,7 +687,7 @@ col.std.diff <- function(mat, treat, weights, subclass = NULL, which.sub = NULL,
             }
         }
     }
-   
+
     std.diffs <- diffs/denoms
     std.diffs[!is.finite(std.diffs)] <- NA
     
@@ -620,7 +703,7 @@ col.ks <- function(mat, treat, weights, x.types, no.weights = FALSE) {
         x <- x_[!is.na(x_)]
         ordered.index <- order(x)
         cumv <- abs(cumsum(weights[ordered.index]))[diff(x[ordered.index]) != 0]
-        return(if (length(cumv) > 0) max(cumv) else 0)
+        return(if (is_null(cumv)) 0 else max(cumv))
     })
     return(ks)
 }
@@ -644,16 +727,16 @@ baltal <- function(threshold) {
 samplesize <- function(treat, weights = NULL, subclass = NULL, s.weights = NULL, method=c("matching", "weighting", "subclassification"), cluster = NULL, which.cluster = NULL, discarded = NULL, treat.names = c("Control", "Treated")) {
     #Computes sample size info. for unadjusted and adjusted samples.
     # method is what method the weights are to be used for. 
-    # method="subclassification is for subclass sample sizes only.
+    # method="subclassification" is for subclass sample sizes only.
     
-    if (nlevels(cluster) > 0 && length(which.cluster) > 0) in.cluster <- cluster == which.cluster
+    if (is_not_null(cluster) && is_not_null(which.cluster)) in.cluster <- cluster == which.cluster
     else in.cluster <- rep(TRUE, length(treat))
-    if (length(s.weights) == 0) s.weights <- rep(1, length(treat))
-    if (length(discarded) == 0) discarded <- rep(0, length(treat))
+    if (is_null(s.weights)) s.weights <- rep(1, length(treat))
+    if (is_null(discarded)) discarded <- rep(0, length(treat))
     
     if (length(method) == 1 && method == "subclassification") {
-        if (length(subclass) == 0) stop("subclass must be a vector of subclasses.")
-        qbins <- length(levels(subclass))
+        if (is_null(subclass)) stop("subclass must be a vector of subclasses.")
+        qbins <- nlevels(subclass)
         
         nn <- as.data.frame(matrix(0, 3, qbins))
         
@@ -676,15 +759,17 @@ samplesize <- function(treat, weights = NULL, subclass = NULL, s.weights = NULL,
         }
         attr(nn, "tag") <- "Sample sizes by subclass"
     }
-    else if (length(weights) == 0) {
+    else if (is_null(weights)) {
+        
+        t <- treat[in.cluster]
         sw <- s.weights[in.cluster]
         
         nn <- as.data.frame(matrix(0, ncol = 2, nrow = 1))
-        nn[1, ] <- c((sum(sw[treat==0])^2)/sum(sw[treat==0]^2),
-                     (sum(sw[treat==1])^2)/sum(sw[treat==1]^2))
+        nn[1, ] <- c((sum(sw[t==0])^2)/sum(sw[t==0]^2),
+                     (sum(sw[t==1])^2)/sum(sw[t==1]^2))
         dimnames(nn) <- list(c("All"), 
                              c(treat.names[1], treat.names[2]))
-        if (length(unique(s.weights)) > 2 || !any(s.weights==1) || !all(s.weights %in% c(0,1))) {
+        if (nunique.gt(s.weights, 2) || !any(s.weights==1) || !all(s.weights %in% c(0,1))) {
             attr(nn, "ss.type") <- c("ess")
             #attr(nn, "tag") <- "Effective sample sizes"
         }
@@ -787,9 +872,9 @@ max.imbal <- function(balance.table, col.name, thresh.col.name) {
     # return(balance.table[which.max(abs(balance.table[balance.table$Type != "Distance", col.name])), match(c(col.name, thresh.col.name), names(balance.table))])
 }
 balance.table <- function(C, weights, treat, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, un = FALSE, disp.means = FALSE, disp.v.ratio = FALSE, disp.ks = FALSE, 
-                          s.weights = rep(1, length(treat)), no.adj = FALSE, types = NULL, pooled.sds = NULL, quick = FALSE) {
+                          s.weights = rep(1, length(treat)), abs = FALSE, no.adj = FALSE, types = NULL, pooled.sds = NULL, quick = FALSE) {
     #C=frame of variables, including distance; distance name (if any) stores in attr(C, "distance.name")
-
+    
     if (no.adj) weight.names <- "Adj"
     else weight.names <- names(weights)
     
@@ -802,7 +887,7 @@ balance.table <- function(C, weights, treat, continuous, binary, s.d.denom, m.th
     rownames(B) <- varnames <- colnames(C)
     
     #Set var type (binary/continuous)
-    if (length(types) > 0) B[,"Type"] <- types
+    if (is_not_null(types)) B[,"Type"] <- types
     else B[,"Type"] <- get.types(C)
     
     if (!((!un || !disp.means) && quick)) {
@@ -814,14 +899,16 @@ balance.table <- function(C, weights, treat, continuous, binary, s.d.denom, m.th
             B[[paste0("M.0.", i)]] <- col.w.m(C[treat == 0, , drop = FALSE], w = weights[[i]][treat==0]*s.weights[treat==0])
             B[[paste0("M.1.", i)]] <- col.w.m(C[treat == 1, , drop = FALSE], w = weights[[i]][treat==1]*s.weights[treat==1])
         }
-        
     }
     
     #Mean differences
-    if (!(!un && quick)) B[["Diff.Un"]] <- col.std.diff(C, treat = treat, weights = NULL, x.types = B[["Type"]], continuous=continuous, binary=binary, s.d.denom=s.d.denom[1], no.weights = TRUE, s.weights = s.weights, pooled.sds = pooled.sds)
+    if (abs) a0 <- base::abs
+    else a0 <- base::identity
+    
+    if (!(!un && quick)) B[["Diff.Un"]] <- a0(col.std.diff(C, treat = treat, weights = NULL, x.types = B[["Type"]], continuous=continuous, binary=binary, s.d.denom=s.d.denom[1], no.weights = TRUE, s.weights = s.weights, pooled.sds = pooled.sds))
     if (!no.adj) {
         for (j in seq_len(ncol(weights))) {
-            B[[paste0("Diff.", weight.names[j])]] <- col.std.diff(C, treat = treat, weights = weights[[j]], x.types = B[["Type"]], continuous=continuous, binary=binary, s.d.denom=s.d.denom[j], s.weights = s.weights, pooled.sds = pooled.sds)
+            B[[paste0("Diff.", weight.names[j])]] <- a0(col.std.diff(C, treat = treat, weights = weights[[j]], x.types = B[["Type"]], continuous=continuous, binary=binary, s.d.denom=s.d.denom[j], no.weights = FALSE, s.weights = s.weights, pooled.sds = pooled.sds))
         }
     }
     
@@ -848,39 +935,39 @@ balance.table <- function(C, weights, treat, continuous, binary, s.d.denom, m.th
     if (!any(sapply(B[startsWith(names(B), "KS.")], is.finite))) {disp.ks <- FALSE; ks.threshold <- NULL}
     
     
-    if (length(m.threshold) > 0) {
+    if (is_not_null(m.threshold)) {
         if (no.adj) {
-            B[["M.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Diff.Un"]]), paste0(ifelse(abs(B[["Diff.Un"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), m.threshold), "")
+            B[["M.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Diff.Un"]]), paste0(ifelse(abs(B[["Diff.Un"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), round(m.threshold, 3)), "")
         }
         else {
             for (i in weight.names) {
-                B[[paste0("M.Threshold.", i)]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[[paste0("Diff.", i)]]), paste0(ifelse(abs(B[[paste0("Diff.", i)]]) < m.threshold, "Balanced, <", "Not Balanced, >"), m.threshold), "")
+                B[[paste0("M.Threshold.", i)]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[[paste0("Diff.", i)]]), paste0(ifelse(abs(B[[paste0("Diff.", i)]]) < m.threshold, "Balanced, <", "Not Balanced, >"), round(m.threshold, 3)), "")
             }
         }
         
     }
     if (no.adj || ncol(weights) <= 1) names(B)[names(B) == "M.Threshold.Adj"] <- "M.Threshold"
-    
-    if (length(v.threshold) > 0) {
+   
+    if (is_not_null(v.threshold)) {
         if (no.adj) {
-            B[["V.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["V.Ratio.Un"]]), paste0(ifelse(B[["V.Ratio.Un"]] < v.threshold, "Balanced, <", "Not Balanced, >"), v.threshold), "")
+            B[["V.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["V.Ratio.Un"]]), paste0(ifelse(B[["V.Ratio.Un"]] < v.threshold, "Balanced, <", "Not Balanced, >"), round(v.threshold, 3)), "")
         }
         else {
             for (i in weight.names) {
-                B[[paste0("V.Threshold.", i)]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[[paste0("V.Ratio.", i)]]), paste0(ifelse(B[[paste0("V.Ratio.", i)]] < v.threshold, "Balanced, <", "Not Balanced, >"), v.threshold), "")
+                B[[paste0("V.Threshold.", i)]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[[paste0("V.Ratio.", i)]]), paste0(ifelse(B[[paste0("V.Ratio.", i)]] < v.threshold, "Balanced, <", "Not Balanced, >"), round(v.threshold, 3)), "")
             }
         }
         
     }
     if (no.adj || ncol(weights) <= 1) names(B)[names(B) == "V.Threshold.Adj"] <- "V.Threshold"
     
-    if (length(ks.threshold) > 0) {
+    if (is_not_null(ks.threshold)) {
         if (no.adj) {
-            B[["KS.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["KS.Un"]]), paste0(ifelse(B[["KS.Un"]] < ks.threshold, "Balanced, <", "Not Balanced, >"), ks.threshold), "")
+            B[["KS.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["KS.Un"]]), paste0(ifelse(B[["KS.Un"]] < ks.threshold, "Balanced, <", "Not Balanced, >"), round(ks.threshold, 3)), "")
         }
         else {
             for (i in weight.names) {
-                B[[paste0("KS.Threshold.", i)]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[[paste0("KS.", i)]]), paste0(ifelse(B[[paste0("KS.", i)]] < ks.threshold, "Balanced, <", "Not Balanced, >"), ks.threshold), "")
+                B[[paste0("KS.Threshold.", i)]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[[paste0("KS.", i)]]), paste0(ifelse(B[[paste0("KS.", i)]] < ks.threshold, "Balanced, <", "Not Balanced, >"), round(ks.threshold, 3)), "")
             }
         }
         
@@ -903,10 +990,10 @@ balance.table.subclass <- function(C, weights = NULL, treat, subclass, continuou
     colnames(B) <- Bnames
     rownames(B) <- varnames <- colnames(C)
     #Set var type (binary/continuous)
-    if (length(types) > 0) B[["Type"]] <- types
+    if (is_not_null(types)) B[["Type"]] <- types
     else B[["Type"]] <- get.types(C)
     
-    SB <- vector("list", length(levels(subclass)))
+    SB <- vector("list", nlevels(subclass))
     names(SB) <- levels(subclass)
     
     #-------------------------------------
@@ -937,29 +1024,29 @@ balance.table.subclass <- function(C, weights = NULL, treat, subclass, continuou
         }
     }
     
-    if (length(m.threshold) > 0) {
+    if (is_not_null(m.threshold)) {
         for (i in levels(subclass)) {
             SB[[i]][["M.Threshold"]] <- ifelse(SB[[i]][["Type"]]=="Distance", "", 
-                                               paste0(ifelse(is.finite(SB[[i]][["Diff.Adj"]]) & abs(SB[[i]][["Diff.Adj"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), m.threshold))
+                                               paste0(ifelse(is.finite(SB[[i]][["Diff.Adj"]]) & abs(SB[[i]][["Diff.Adj"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), round(m.threshold, 3)))
         }
     }
     
     if (all(sapply(SB, function(x) !any(is.finite(x[["V.Ratio.Adj"]]))))) {
         attr(SB, "dont.disp.v.ratio") <- TRUE; v.threshold <- NULL
     }
-    if (length(v.threshold) > 0) {
+    if (is_not_null(v.threshold)) {
         for (i in levels(subclass)) {
             SB[[i]][["V.Threshold"]] <- ifelse(SB[[i]][["Type"]]!="Distance" & is.finite(SB[[i]][["V.Ratio.Adj"]]), 
-                                               paste0(ifelse(SB[[i]][["V.Ratio.Adj"]] < v.threshold, "Balanced, <", "Not Balanced, >"), v.threshold), "")
+                                               paste0(ifelse(SB[[i]][["V.Ratio.Adj"]] < v.threshold, "Balanced, <", "Not Balanced, >"), round(v.threshold, 3)), "")
         }
     }
     if (all(sapply(SB, function(x) !any(is.finite(x[["KS.Adj"]]))))) {
         attr(SB, "dont.disp.ks") <- TRUE
     }
-    if (length(ks.threshold) > 0) {
+    if (is_not_null(ks.threshold)) {
         for (i in levels(subclass)) {
             SB[[i]][["KS.Threshold"]] <- ifelse(SB[[i]][["Type"]]!="Distance" & is.finite(SB[[i]][["KS.Adj"]]), 
-                                                paste0(ifelse(SB[[i]][["KS.Adj"]] < ks.threshold, "Balanced, <", "Not Balanced, >"), ks.threshold), "")
+                                                paste0(ifelse(SB[[i]][["KS.Adj"]] < ks.threshold, "Balanced, <", "Not Balanced, >"), round(ks.threshold, 3)), "")
         }
     }
     
@@ -972,7 +1059,7 @@ balance.table.subclass <- function(C, weights = NULL, treat, subclass, continuou
 balance.table.across.subclass <- function(balance.table, balance.table.subclass.list, subclass.obs, sub.by = NULL, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, s.d.denom = NULL) {
     #Variance ratio, v.threshold, and KS not yet supported
     
-    if (length(s.d.denom) > 0){
+    if (is_not_null(s.d.denom)){
         sub.by <- switch(s.d.denom, treated = "treat",
                          pooled = "all", control = "control")
     }
@@ -994,26 +1081,28 @@ balance.table.across.subclass <- function(balance.table, balance.table.subclass.
     }
     B.A.df <- data.frame(balance.table[c("Type", "M.0.Un", "M.1.Un", "Diff.Un", "V.Ratio.Un", "KS.Un")], 
                          B.A, M.Threshold = NA)
-    if (length(m.threshold) > 0) B.A.df[["M.Threshold"]] <- ifelse(B.A.df[["Type"]]=="Distance", "", paste0(ifelse(is.finite(B.A.df[["Diff.Adj"]]) & abs(B.A.df[["Diff.Adj"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), m.threshold))
+    if (is_not_null(m.threshold)) B.A.df[["M.Threshold"]] <- ifelse(B.A.df[["Type"]]=="Distance", "", paste0(ifelse(is.finite(B.A.df[["Diff.Adj"]]) & abs(B.A.df[["Diff.Adj"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), m.threshold))
     return(B.A.df)
 }
-balance.table.cluster.summary <- function(balance.table.clusters.list, weight.names = NULL, no.adj = FALSE, quick = quick, types = NULL) {
+balance.table.cluster.summary <- function(balance.table.clusters.list, weight.names = NULL, no.adj = FALSE, abs = FALSE, quick = FALSE, types = NULL) {
     
-    cont.treat <- !is.na(match("Corr.Un", unique(do.call("c", lapply(balance.table.clusters.list, names)))))
+    cont.treat <- "Corr.Un" %in% unique(do.call("c", lapply(balance.table.clusters.list, names)))
     if (no.adj) weight.names <- "Adj"
     
     Brownames <- unique(do.call("c", lapply(balance.table.clusters.list, rownames)))
-    cluster.functions <- c("Min", "Mean", "Median", "Max")
+    #cluster.functions <- c("Min", "Mean", "Median", "Max")
+    cluster.functions <- c("Min", "Mean", "Max")
     stats <- if (cont.treat) "Corr" else c("Diff", "V.Ratio", "KS")
     Bcolnames <- c("Type", apply(expand.grid(cluster.functions, stats, c("Un", weight.names)), 1, paste, collapse = "."))
     B <- as.data.frame(matrix(nrow = length(Brownames), ncol = length(Bcolnames)), row.names = Brownames)
     names(B) <- Bcolnames
     
-    if (length(types) > 0) B[["Type"]] <- types
+    if (is_not_null(types)) B[["Type"]] <- types
     else B[["Type"]] <- unlist(sapply(Brownames, function(x) {u <- unique(sapply(balance.table.clusters.list, function(y) y[[x, "Type"]])); return(u[!is.na(u)])}), use.names = FALSE)
     
+    abs0 <- function(x) {if (abs) abs(x) else (x)}
     funs <- structure(vector("list", length(cluster.functions)), names = cluster.functions)
-    for (Fun in cluster.functions[c(!quick, TRUE, TRUE, TRUE)]) {
+    for (Fun in cluster.functions) {
         funs[[Fun]] <- function(x, ...) {
             if (!any(is.finite(x))) NA
             else get(tolower(Fun))(x, ...)
@@ -1021,10 +1110,10 @@ balance.table.cluster.summary <- function(balance.table.clusters.list, weight.na
         for (sample in c("Un", weight.names)) {
             if (sample == "Un" || !no.adj) { #Only fill in "stat".Adj if no.adj = FALSE
                 if (cont.treat) {
-                    B[[paste(Fun, "Corr", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(balance.table.clusters.list, function(y) abs(y[[x, paste0("Corr.", sample)]])), na.rm = TRUE))
+                    B[[paste(Fun, "Corr", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(balance.table.clusters.list, function(y) abs0(y[[x, paste0("Corr.", sample)]])), na.rm = TRUE))
                 }
                 else {
-                    B[[paste(Fun, "Diff", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(balance.table.clusters.list, function(y) abs(y[[x, paste0("Diff.", sample)]])), na.rm = TRUE))
+                    B[[paste(Fun, "Diff", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(balance.table.clusters.list, function(y) abs0(y[[x, paste0("Diff.", sample)]])), na.rm = TRUE))
                     B[[paste(Fun, "V.Ratio", sample, sep = ".")]] <- sapply(Brownames, function(x) if (B[[x, "Type"]]!="Contin.") NA else funs[[Fun]](sapply(balance.table.clusters.list, function(y) y[[x, paste0("V.Ratio.", sample)]]), na.rm = TRUE))
                     B[[paste(Fun, "KS", sample, sep = ".")]] <- sapply(Brownames, function(x) if (B[[x, "Type"]]!="Contin.") NA else funs[[Fun]](sapply(balance.table.clusters.list, function(y) y[[x, paste0("KS.", sample)]]), na.rm = TRUE))
                 }            
@@ -1038,7 +1127,7 @@ balance.table.cluster.summary <- function(balance.table.clusters.list, weight.na
 #base.bal.tab.cont
 w.r <- function(x, y, w = NULL) {
     if (length(x) != length(y)) stop("x and y must the same length")
-    if (length(w) == 0) w <- rep(1, length(x))
+    if (is_null(w)) w <- rep(1, length(x))
     else if (length(w) != length(x)) stop("weights must be same length as x and y")
     
     r <- w.cov(x, y, w) / (sqrt(w.cov(x, x, w) * w.cov(y, y, w)))
@@ -1049,14 +1138,14 @@ samplesize.cont <- function(treat, weights = NULL, subclass = NULL, s.weights = 
     # method is what method the weights are to be used for. 
     # method="subclassification" is for subclass sample sizes only.
     #method <- match.arg(method)
-    if (nlevels(cluster) > 0 && length(which.cluster) > 0) in.cluster <- cluster == which.cluster
+    if (nlevels(cluster) > 0 && is_not_null(which.cluster)) in.cluster <- cluster == which.cluster
     else in.cluster <- rep(TRUE, length(treat))
-    if (length(discarded) == 0) discarded <- rep(0, length(treat))
+    if (is_null(discarded)) discarded <- rep(0, length(treat))
     
     if (length(method) == 1 && method == "subclassification") {
         #stop("Subclassification is not yet surpported with continuous treatments.", call. = FALSE)
-        if (length(subclass) == 0) stop("subclass must be a vector of subclasses.")
-        qbins <- length(levels(subclass))
+        if (is_null(subclass)) stop("subclass must be a vector of subclasses.")
+        qbins <- nlevels(subclass)
         
         nn <- as.data.frame(matrix(0, nrow = 1, ncol = qbins))
         
@@ -1077,9 +1166,9 @@ samplesize.cont <- function(treat, weights = NULL, subclass = NULL, s.weights = 
         }
         attr(nn, "tag") <- "Sample sizes by subclass"
     }
-    else if (length(weights) == 0) {
+    else if (is_null(weights)) {
         nn <- as.data.frame(matrix(0, ncol = 1, nrow = 1))
-        if (length(unique(s.weights)) > 2 || !any(s.weights==1) || !all(s.weights %in% c(0,1))) {
+        if (nunique.gt(s.weights, 2) || !any(s.weights==1) || !all(s.weights %in% c(0,1))) {
             sw <- s.weights[in.cluster]
             
             nn[1, ] <- (sum(sw)^2)/sum(sw^2)
@@ -1147,7 +1236,7 @@ samplesize.cont <- function(treat, weights = NULL, subclass = NULL, s.weights = 
     
     return(nn)
 }
-balance.table.cont <- function(C, weights, treat, r.threshold = NULL, un = FALSE, s.weights = rep(1, length(treat)), no.adj = FALSE, types = NULL, quick = FALSE) {
+balance.table.cont <- function(C, weights, treat, r.threshold = NULL, un = FALSE, s.weights = rep(1, length(treat)), abs = FALSE, no.adj = FALSE, types = NULL, quick = FALSE) {
     #C=frame of variables, including distance; distance name (if any) stores in attr(C, "distance.name")
     
     if (no.adj) weight.names <- "Adj"
@@ -1163,18 +1252,20 @@ balance.table.cont <- function(C, weights, treat, r.threshold = NULL, un = FALSE
     rownames(B) <- varnames <- colnames(C)
     
     #Set var type (binary/continuous)
-    if (length(types) > 0) B[["Type"]] <- types
+    if (is_not_null(types)) B[["Type"]] <- types
     else B[["Type"]] <- get.types(C)
     
     #Correlations
-    if (!(!un && quick)) B[["Corr.Un"]] <- apply(C, 2, w.r, y = treat, w = s.weights)
+    if (abs) a0 <- base::abs
+    else a0 <- base::identity
+    if (!(!un && quick)) B[["Corr.Un"]] <- a0(apply(C, 2, w.r, y = treat, w = s.weights))
     if (!no.adj) {
         for (i in weight.names) {
-            B[[paste0("Corr.", i)]] <- apply(C, 2, w.r, y = treat, w = weights[[i]]*s.weights)
+            B[[paste0("Corr.", i)]] <- a0(apply(C, 2, w.r, y = treat, w = weights[[i]]*s.weights))
         }
     }
     
-    if (length(r.threshold) > 0) {
+    if (is_not_null(r.threshold)) {
         if (no.adj) {
             #Call Adj, but really Un. Needs to be this way.
             B[["R.Threshold.Adj"]] <- ifelse(B[["Type"]]=="Distance" | !is.finite(B[["Corr.Un"]]), "", paste0(ifelse(abs(B[["Corr.Un"]]) < r.threshold, "Balanced, <", "Not Balanced, >"), r.threshold))
@@ -1202,10 +1293,10 @@ balance.table.subclass.cont <- function(C, weights = NULL, treat, subclass, r.th
     colnames(B) <- Bnames
     rownames(B) <- varnames <- colnames(C)
     #Set var type (binary/continuous)
-    if (length(types) > 0) B[["Type"]] <- types
+    if (is_not_null(types)) B[["Type"]] <- types
     else B[["Type"]] <- get.types(C)
     
-    SB <- vector("list", length(levels(subclass)))
+    SB <- vector("list", nlevels(subclass))
     names(SB) <- levels(subclass)
     
     #-------------------------------------
@@ -1219,7 +1310,7 @@ balance.table.subclass.cont <- function(C, weights = NULL, treat, subclass, r.th
         
     }
     
-    if (length(r.threshold) > 0) {
+    if (is_not_null(r.threshold)) {
         for (i in levels(subclass)) {
             SB[[i]][["R.Threshold"]] <- ifelse(SB[[i]][["Type"]]=="Distance", "", 
                                                paste0(ifelse(is.finite(SB[[i]][["Corr.Adj"]]) & abs(SB[[i]][["Corr.Adj"]]) < r.threshold, "Balanced, <", "Not Balanced, >"), r.threshold))
@@ -1235,24 +1326,26 @@ balance.table.across.subclass.cont <- function(balance.table, balance.table.subc
 }
 
 #base.bal.tab.imp
-balance.table.imp.summary <- function(bal.tab.imp.list, weight.names = NULL, no.adj = FALSE, quick = FALSE, types = NULL) {
-    if (!is.na(match("bal.tab", unique(do.call("c", lapply(bal.tab.imp.list, class)))))) {
+balance.table.imp.summary <- function(bal.tab.imp.list, weight.names = NULL, no.adj = FALSE, abs = FALSE, quick = FALSE, types = NULL) {
+    if ("bal.tab" %in% unique(do.call("c", lapply(bal.tab.imp.list, class)))) {
         bal.tab.imp.list <- lapply(bal.tab.imp.list, function(x) x[["Balance"]])}
-    cont.treat <- !is.na(match("Corr.Un", unique(do.call("c", lapply(bal.tab.imp.list, names)))))
+    cont.treat <- "Corr.Un" %in% unique(do.call("c", lapply(bal.tab.imp.list, names)))
     if (length(weight.names) <= 1) weight.names <- "Adj"
     
     Brownames <- unique(do.call("c", lapply(bal.tab.imp.list, rownames)))
-    imp.functions <- c("Min", "Mean", "Median", "Max")
+    #imp.functions <- c("Min", "Mean", "Median", "Max")
+    imp.functions <- c("Min", "Mean", "Max")
     stats <- if (cont.treat) "Corr" else c("Diff", "V.Ratio", "KS")
     Bcolnames <- c("Type", apply(expand.grid(imp.functions, stats, c("Un", weight.names)), 1, paste, collapse = "."))
     B <- as.data.frame(matrix(nrow = length(Brownames), ncol = length(Bcolnames)), row.names = Brownames)
     names(B) <- Bcolnames
     
-    if (length(types) > 0) B[["Type"]] <- types
+    if (is_not_null(types)) B[["Type"]] <- types
     else B[["Type"]] <- unlist(sapply(Brownames, function(x) {u <- unique(sapply(bal.tab.imp.list, function(y) y[[x, "Type"]])); return(u[!is.na(u)])}), use.names = FALSE)
     
+    abs0 <- function(x) {if (abs) abs(x) else (x)}
     funs <- structure(vector("list", length(imp.functions)), names = imp.functions)
-    for (Fun in imp.functions[c(!quick, TRUE, TRUE, TRUE)]) {
+    for (Fun in imp.functions) {
         funs[[Fun]] <- function(x, ...) {
             if (!any(is.finite(x))) NA
             else get(tolower(Fun))(x, ...)
@@ -1260,10 +1353,10 @@ balance.table.imp.summary <- function(bal.tab.imp.list, weight.names = NULL, no.
         for (sample in c("Un", weight.names)) {
             if (sample == "Un" || !no.adj) { #Only fill in "stat".Adj if no.adj = FALSE
                 if (cont.treat) {
-                    B[[paste(Fun, "Corr", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(bal.tab.imp.list, function(y) abs(y[x, paste0("Corr.", sample)])), na.rm = TRUE))
+                    B[[paste(Fun, "Corr", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(bal.tab.imp.list, function(y) abs0(y[x, paste0("Corr.", sample)])), na.rm = TRUE))
                 }
                 else {
-                    B[[paste(Fun, "Diff", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(bal.tab.imp.list, function(y) abs(y[[x, paste0("Diff.", sample)]])), na.rm = TRUE))
+                    B[[paste(Fun, "Diff", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(bal.tab.imp.list, function(y) abs0(y[[x, paste0("Diff.", sample)]])), na.rm = TRUE))
                     B[[paste(Fun, "V.Ratio", sample, sep = ".")]] <- sapply(Brownames, function(x) if (B[[x, "Type"]]!="Contin.") NA else funs[[Fun]](sapply(bal.tab.imp.list, function(y) y[[x, paste0("V.Ratio.", sample)]]), na.rm = TRUE))
                     B[[paste(Fun, "KS", sample, sep = ".")]] <- sapply(Brownames, function(x) if (B[[x, "Type"]]!="Contin.") NA else funs[[Fun]](sapply(bal.tab.imp.list, function(y) y[[x, paste0("KS.", sample)]]), na.rm = TRUE))
                 }
@@ -1272,29 +1365,31 @@ balance.table.imp.summary <- function(bal.tab.imp.list, weight.names = NULL, no.
     }
     return(B)
 }
-balance.table.clust.imp.summary <- function(summary.tables, weight.names = NULL, no.adj = FALSE, quick = FALSE, types = NULL) {
+balance.table.clust.imp.summary <- function(summary.tables, weight.names = NULL, no.adj = FALSE, abs = FALSE, quick = FALSE, types = NULL) {
     #cont.treat <- !is.na(match("bal.tab.cont", unique(do.call("c", lapply(bal.tab.imp.list, class)))))
     #clusters <- unique(do.call("c", lapply(bal.tab.imp.list, function(x) names(x[["Cluster.Balance"]]))))
     #cluster.tables <- lapply(clusters, function(x) lapply(bal.tab.imp.list, function(y) y[["Cluster.Balance"]][[x]]))
     #cluster.balance.across.imps <- lapply(cluster.tables, balance.table.imp.summary, no.adj, quick, types)
     #names(cluster.balance.across.imps) <- clusters
     
-    if (!all(sapply(summary.tables, function(x) length(x) == 0))) {
+    if (!all(sapply(summary.tables, is_null))) {
         Brownames <- unique(do.call("c", lapply(summary.tables, rownames)))
         Bcolnames <- unique(do.call("c", lapply(summary.tables, colnames)))
         cont.treat <- !is.na(charmatch("Mean.Corr.Un", Bcolnames))
         if (length(weight.names) <= 1) weight.names <- "Adj"
-        imp.functions <- c("Min", "Mean", "Median", "Max")
+        #imp.functions <- c("Min", "Mean", "Median", "Max")
+        imp.functions <- c("Min", "Mean", "Max")
         stats <- if (cont.treat) "Corr" else c("Diff", "V.Ratio", "KS")
         
         B <- as.data.frame(matrix(nrow = length(Brownames), ncol = length(Bcolnames)))
         dimnames(B) <- list(Brownames, Bcolnames)
         
-        if (length(types) > 0) B[["Type"]] <- types
+        if (is_not_null(types)) B[["Type"]] <- types
         else B[["Type"]] <- unlist(sapply(Brownames, function(x) {u <- unique(sapply(summary.tables, function(y) y[[x, "Type"]])); return(u[!is.na(u)])}), use.names = FALSE)
         
+        abs0 <- function(x) {if (abs) abs(x) else (x)}
         funs <- structure(vector("list", length(imp.functions)), names = imp.functions)
-        for (Fun in imp.functions[c(!quick, TRUE, TRUE, TRUE)]) {
+        for (Fun in imp.functions) {
             funs[[Fun]] <- function(x, ...) {
                 if (!any(is.finite(x))) NA
                 else get(tolower(Fun))(x, ...)
@@ -1302,10 +1397,10 @@ balance.table.clust.imp.summary <- function(summary.tables, weight.names = NULL,
             for (sample in c("Un", weight.names)) {
                 if (sample == "Un" || !no.adj) { #Only fill in "stat".Adj if no.adj = FALSE
                     if (cont.treat) {
-                        B[[paste(Fun, "Corr", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(summary.tables, function(y) abs(y[[x, paste(Fun, "Corr", sample, sep = ".")]])), na.rm = TRUE))
+                        B[[paste(Fun, "Corr", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(summary.tables, function(y) abs0(y[[x, paste(Fun, "Corr", sample, sep = ".")]])), na.rm = TRUE))
                     }
                     else {
-                        B[[paste(Fun, "Diff", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(summary.tables, function(y) abs(y[[x, paste(Fun, "Diff", sample, sep = ".")]])), na.rm = TRUE))
+                        B[[paste(Fun, "Diff", sample, sep = ".")]] <- sapply(Brownames, function(x) funs[[Fun]](sapply(summary.tables, function(y) abs0(y[[x, paste(Fun, "Diff", sample, sep = ".")]])), na.rm = TRUE))
                         B[[paste(Fun, "V.Ratio", sample, sep = ".")]] <- sapply(Brownames, function(x) if (B[[x, "Type"]]!="Contin.") NA else funs[[Fun]](sapply(summary.tables, function(y) y[[x, paste(Fun, "V.Ratio", sample, sep = ".")]]), na.rm = TRUE))
                         B[[paste(Fun, "KS", sample, sep = ".")]] <- sapply(Brownames, function(x) if (B[[x, "Type"]]!="Contin.") NA else funs[[Fun]](sapply(summary.tables, function(y) y[[x, paste(Fun, "KS", sample, sep = ".")]]), na.rm = TRUE))
                     }
@@ -1314,10 +1409,7 @@ balance.table.clust.imp.summary <- function(summary.tables, weight.names = NULL,
         }
     }
     else B <- NULL
-    # out <- list(cluster.balance.across.imps, B)
-    # names(out) <- c("Cluster.Balance.Across.Imputations",
-    #                 "Cluster.Summary.Across.Imputations")
-    # return(out)
+    
     return(B)
 }
 samplesize.across.imps <- function(obs.list) {
@@ -1330,7 +1422,7 @@ samplesize.across.imps <- function(obs.list) {
 
 #base.bal.tab.multi
 balance.table.multi.summary <- function(bal.tab.multi.list, weight.names = NULL, no.adj = FALSE, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, quick = FALSE, types = NULL) {
-    if (!is.na(match("bal.tab", unique(do.call("c", lapply(bal.tab.multi.list, class)))))) {
+    if ("bal.tab" %in% unique(do.call("c", lapply(bal.tab.multi.list, class)))) {
         bal.tab.multi.list <- lapply(bal.tab.multi.list, function(x) x[["Balance"]])}
     if (length(weight.names) <= 1) weight.names <- "Adj"
     
@@ -1341,7 +1433,7 @@ balance.table.multi.summary <- function(bal.tab.multi.list, weight.names = NULL,
     B <- as.data.frame(matrix(nrow = length(Brownames), ncol = length(Bcolnames)), row.names = Brownames)
     names(B) <- Bcolnames
     
-    if (length(types) > 0) B[["Type"]] <- types
+    if (is_not_null(types)) B[["Type"]] <- types
     else B[["Type"]] <- unlist(sapply(Brownames, function(x) {u <- unique(sapply(bal.tab.multi.list, function(y) y[[x, "Type"]])); return(u[!is.na(u)])}), use.names = FALSE)
     
     max_ <- function(x, na.rm = TRUE) {
@@ -1356,7 +1448,7 @@ balance.table.multi.summary <- function(bal.tab.multi.list, weight.names = NULL,
         }
     }
     
-    if (length(m.threshold) > 0) {
+    if (is_not_null(m.threshold)) {
         if (no.adj) {
             B[["M.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Max.Diff.Un"]]), paste0(ifelse(abs(B[["Max.Diff.Un"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), m.threshold), "")
         }
@@ -1368,7 +1460,7 @@ balance.table.multi.summary <- function(bal.tab.multi.list, weight.names = NULL,
     }
     if (no.adj || length(weight.names) <= 1) names(B)[names(B) == "M.Threshold.Adj"] <- "M.Threshold"
     
-    if (length(v.threshold) > 0) {
+    if (is_not_null(v.threshold)) {
         if (no.adj) {
             B[["V.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Max.V.Ratio.Un"]]), paste0(ifelse(B[, "Max.V.Ratio.Un"] < v.threshold, "Balanced, <", "Not Balanced, >"), v.threshold), "")
         }
@@ -1380,7 +1472,7 @@ balance.table.multi.summary <- function(bal.tab.multi.list, weight.names = NULL,
     }
     if (no.adj || length(weight.names) <= 1) names(B)[names(B) == "V.Threshold.Adj"] <- "V.Threshold"
     
-    if (length(ks.threshold) > 0) {
+    if (is_not_null(ks.threshold)) {
         if (no.adj) {
             B[["KS.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Max.KS.Un"]]), paste0(ifelse(B[["Max.KS.Un"]] < ks.threshold, "Balanced, <", "Not Balanced, >"), ks.threshold), "")
         }
@@ -1395,7 +1487,7 @@ balance.table.multi.summary <- function(bal.tab.multi.list, weight.names = NULL,
     return(B)
 }
 samplesize.multi <- function(bal.tab.multi.list, treat.names, focal) {
-    if (length(focal) > 0) which <- c(treat.names[treat.names != focal], focal)
+    if (is_not_null(focal)) which <- c(treat.names[treat.names != focal], focal)
     else which <- treat.names
     obs <- do.call("cbind", unname(lapply(bal.tab.multi.list, function(x) x[["Observations"]])))[, which]
     attr(obs, "tag") <- attr(bal.tab.multi.list[[1]][["Observations"]], "tag")
@@ -1405,9 +1497,9 @@ samplesize.multi <- function(bal.tab.multi.list, treat.names, focal) {
 
 #base.bal.tab.msm
 balance.table.msm.summary <- function(bal.tab.msm.list, weight.names = NULL, no.adj = FALSE, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, quick = FALSE, types = NULL) {
-    if (!is.na(match("bal.tab", unique(do.call("c", lapply(bal.tab.msm.list, class)))))) {
+    if ("bal.tab" %in% unique(do.call("c", lapply(bal.tab.msm.list, class)))) {
         bal.tab.msm.list <- lapply(bal.tab.msm.list, function(x) x[["Balance"]])}
-    cont.treat <- !is.na(match("Corr.Un", unique(do.call("c", lapply(bal.tab.msm.list, names)))))
+    cont.treat <- "Corr.Un" %in% unique(do.call("c", lapply(bal.tab.msm.list, names)))
     if (length(weight.names) <= 1) weight.names <- "Adj"
     
     Brownames <- unique(do.call("c", lapply(bal.tab.msm.list, rownames)))
@@ -1424,7 +1516,7 @@ balance.table.msm.summary <- function(bal.tab.msm.list, weight.names = NULL, no.
     B <- as.data.frame(matrix(NA, nrow = length(Brownames), ncol = 1 + length(Bcolnames)), row.names = Brownames)
     names(B) <- c("Times", Bcolnames)
     
-    if (length(types) > 0) B[["Type"]] <- types
+    if (is_not_null(types)) B[["Type"]] <- types
     else B[["Type"]] <- unlist(sapply(Brownames, function(x) {u <- unique(sapply(bal.tab.msm.list, function(y) if (x %in% rownames(y)) y[[x, "Type"]] else NA)); return(u[!is.na(u)])}), use.names = FALSE)
     
     B[["Times"]] <- Brownames.appear[Brownames]
@@ -1446,7 +1538,7 @@ balance.table.msm.summary <- function(bal.tab.msm.list, weight.names = NULL, no.
         }
     }
     
-    if (length(m.threshold) > 0) {
+    if (is_not_null(m.threshold)) {
         if (no.adj) {
             B[["M.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Max.Diff.Un"]]), paste0(ifelse(abs(B[["Max.Diff.Un"]]) < m.threshold, "Balanced, <", "Not Balanced, >"), m.threshold), "")
         }
@@ -1458,7 +1550,7 @@ balance.table.msm.summary <- function(bal.tab.msm.list, weight.names = NULL, no.
     }
     if (no.adj || length(weight.names) <= 1) names(B)[names(B) == "M.Threshold.Adj"] <- "M.Threshold"
     
-    if (length(v.threshold) > 0) {
+    if (is_not_null(v.threshold)) {
         if (no.adj) {
             B[["V.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Max.V.Ratio.Un"]]), paste0(ifelse(B[, "Max.V.Ratio.Un"] < v.threshold, "Balanced, <", "Not Balanced, >"), v.threshold), "")
         }
@@ -1470,7 +1562,7 @@ balance.table.msm.summary <- function(bal.tab.msm.list, weight.names = NULL, no.
     }
     if (no.adj || length(weight.names) <= 1) names(B)[names(B) == "V.Threshold.Adj"] <- "V.Threshold"
     
-    if (length(ks.threshold) > 0) {
+    if (is_not_null(ks.threshold)) {
         if (no.adj) {
             B[["KS.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Max.KS.Un"]]), paste0(ifelse(B[["Max.KS.Un"]] < ks.threshold, "Balanced, <", "Not Balanced, >"), ks.threshold), "")
         }
@@ -1482,7 +1574,7 @@ balance.table.msm.summary <- function(bal.tab.msm.list, weight.names = NULL, no.
     }
     if (no.adj || length(weight.names) <= 1) names(B)[names(B) == "KS.Threshold.Adj"] <- "KS.Threshold"
     
-    if (length(r.threshold) > 0) {
+    if (is_not_null(r.threshold)) {
         if (no.adj) {
             B[["R.Threshold.Un"]] <- ifelse(B[["Type"]]!="Distance" & is.finite(B[["Max.Corr.Un"]]), paste0(ifelse(B[["Max.Corr.Un"]] < r.threshold, "Balanced, <", "Not Balanced, >"), r.threshold), "")
         }
@@ -1497,7 +1589,7 @@ balance.table.msm.summary <- function(bal.tab.msm.list, weight.names = NULL, no.
     
     return(B)
 }
-samplesize.msm<- function(bal.tab.msm.list) {
+samplesize.msm <- function(bal.tab.msm.list) {
     obs <- do.call("cbind", lapply(bal.tab.msm.list, function(x) x[["Observations"]]))
     attr(obs, "tag") <- attr(bal.tab.msm.list[[1]][["Observations"]], "tag")
     attr(obs, "ss.type") <- attr(bal.tab.msm.list[[1]][["Observations"]], "ss.type")
@@ -1525,7 +1617,7 @@ seq_int_cycle <- function(begin, end, max) {
     seq(begin, end, by = 1) - max*(seq(begin-1, end-1, by = 1) %/% max)
 }
 assign.shapes <- function(colors, default.shape = 21) {
-    if (length(unique(colors)) < length(colors)) {
+    if (nunique(colors) < length(colors)) {
         shapes <- seq_int_cycle(21, 21 + length(colors), max = 25)
     }
     else shapes <- rep(default.shape, length(colors))
@@ -1541,7 +1633,7 @@ gg_color_hue <- function(n) {
 
 #bal.plot
 get.var.from.list.with.time <- function(var.name, covs.list) {
-    var.name.in.covs <- sapply(covs.list, function(x) !is.na(match(var.name, names(x))))
+    var.name.in.covs <- sapply(covs.list, function(x) var.name %in% names(x))
     n.times.appeared <- sum(var.name.in.covs)
     var <- unlist(lapply(covs.list[var.name.in.covs], function(x) x[[var.name]]))
     times <- rep(var.name.in.covs, each = ncol(covs.list[[1]]))
@@ -1549,18 +1641,9 @@ get.var.from.list.with.time <- function(var.name, covs.list) {
 }
 
 #print.bal.tab
-round_df <- function(df, digits) {
-    nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
-    df[, nums] <- round(df[, nums], digits = digits)
-    return(df)
-}
-replaceNA <- function(x) {
-    x[is.na(x)] <- ""
-    return(x)
-}
-round_df_char <- function(df, digits, pad = "0") {
+round_df_char <- function(df, digits, pad = "0", na_vals = "") {
     nas <- is.na(df)
-    if (!is.data.frame(df)) df <- as.data.frame(df, stringsAsFactors = FALSE)
+    if (!is.data.frame(df)) df <- as.data.frame.matrix(df, stringsAsFactors = FALSE)
     rn <- rownames(df)
     cn <- colnames(df)
     df <- as.data.frame(lapply(df, function(col) {
@@ -1571,10 +1654,11 @@ round_df_char <- function(df, digits, pad = "0") {
         }
     }), stringsAsFactors = FALSE)
     nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
+    o.negs <- sapply(1:ncol(df), function(x) if (nums[x]) df[[x]] < 0 else rep(FALSE, length(df[[x]])))
     df[nums] <- round(df[nums], digits = digits)
     df[nas] <- ""
     
-    df <- as.data.frame(lapply(df, as.character), stringsAsFactors = FALSE)
+    df <- as.data.frame(lapply(df, format, scientific = FALSE, justify = "none"), stringsAsFactors = FALSE)
     
     for (i in which(nums)) {
         if (any(grepl(".", df[[i]], fixed = TRUE))) {
@@ -1594,6 +1678,11 @@ round_df_char <- function(df, digits, pad = "0") {
             })
         }
     }
+    
+    df[o.negs & df == 0] <- paste0("-", df[o.negs & df == 0])
+    
+    # Insert NA placeholders
+    df[nas] <- na_vals
     
     if (length(rn) > 0) rownames(df) <- rn
     if (length(cn) > 0) names(df) <- cn

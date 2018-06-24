@@ -111,3 +111,25 @@ bal.tab(e.out, treat = lalonde$treat, covs = covs0)
 ## ---- include=FALSE------------------------------------------------------
 #knitr::opts_chunk$set(eval = TRUE)
 
+## ---- include=FALSE------------------------------------------------------
+#if (!requireNamespace("designmatch")) knitr::opts_chunk$set(eval = FALSE)
+
+## ------------------------------------------------------------------------
+library("designmatch")
+data("lalonde", package = "cobalt") #If not yet loaded
+covs0 <- subset(lalonde, select = -c(treat, re78, race))
+
+#Matching for balance on covariates
+dmout <- bmatch(lalonde$treat,
+                dist_mat = NULL,
+                subset_weight = NULL,
+                mom = list(covs = covs0,
+                           tols = absstddif(covs0, lalonde$treat, .005)),
+                n_controls = 1,
+                total_groups = 185)
+
+bal.tab(dmout, treat = lalonde$treat, covs = covs0)
+
+## ---- include=FALSE------------------------------------------------------
+#knitr::opts_chunk$set(eval = TRUE)
+
