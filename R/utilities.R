@@ -20,7 +20,7 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
     if (is.data.frame(data)) {
         data <- as.data.frame(data)
         if (check) {
-            factor.names <- names(data)[sapply(data, function(x) is.factor(x) || is.character(x))]
+            factor.names <- names(data)[vapply(data, function(x) is.factor(x) || is.character(x), logical(1L))]
             if (missing(var.name)) {
                 var.name <- factor.names
             }
@@ -111,7 +111,7 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
             if (any(is.na(levels(x)))) {
                 
                 if (drop.na[v]) {
-                    k[k[,is.na(levels(x))] == 1,] <- NA
+                    k[k[,is.na(levels(x))] == 1,] <- NA_real_
                     #k <- k[, !is.na(levels(x)), drop = FALSE]
                 }
             }
@@ -130,7 +130,7 @@ splitfactor <- function(data, var.name, replace = TRUE, sep = "_", drop.level = 
         }
         
         if (!skip) {
-            colnames(k) <- paste(v, sapply(strsplit(colnames(k), v, fixed = TRUE), function(n) paste(n, collapse = "")), sep = sep)
+            colnames(k) <- paste(v, vapply(strsplit(colnames(k), v, fixed = TRUE), function(n) paste(n, collapse = ""), character(1L)), sep = sep)
             
             if (is_not_null(drop.level)) {
                 if (is.character(drop.level) && length(drop.level) == 1 && drop.level %in% levels(x)) {
@@ -212,7 +212,7 @@ unsplitfactor <- function(data, var.name, replace = TRUE, sep = "_", dropped.lev
         if (!isTRUE(dropped.na)) {
             NA.column <- paste0(v, sep, ifelse(dropped.na == FALSE, "NA", dropped.na))
             if (NA.column %in% names(var.to.combine)) {
-                var.to.combine[var.to.combine[[NA.column]] == 1,] <- NA
+                var.to.combine[var.to.combine[[NA.column]] == 1,] <- NA_real_
                 var.to.combine <- var.to.combine[names(var.to.combine) != NA.column]
             }
             else {
@@ -284,7 +284,7 @@ get.w.ps <- function(ps, stop.method = NULL, estimand = NULL, s.weights = FALSE,
     estimand <- tolower(estimand)
     if (is_not_null(stop.method)) {
         if (any(is.character(stop.method))) {
-            rule1 <- names(ps$w)[sapply(names(ps$w), function(x) any(startsWith(tolower(x), tolower(stop.method))))]
+            rule1 <- names(ps$w)[vapply(names(ps$w), function(x) any(startsWith(tolower(x), tolower(stop.method))), logical(1L))]
             if (is_null(rule1)) {
                 message(paste0("Warning: stop.method should be ", word.list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
                 rule1 <- names(ps$w)
@@ -398,7 +398,7 @@ get.w.mnps <- function(mnps, stop.method = NULL, s.weights = FALSE, ...) {
 get.w.ps.cont <- function(ps.cont, stop.method = NULL, s.weights = FALSE, ...) {
     if (is_not_null(stop.method)) {
         if (any(is.character(stop.method))) {
-            rule1 <- names(ps.cont$w)[sapply(names(ps.cont$w), function(x) any(startsWith(tolower(x), tolower(stop.method))))]
+            rule1 <- names(ps.cont$w)[vapply(names(ps.cont$w), function(x) any(startsWith(tolower(x), tolower(stop.method))), logical(1L))]
             if (is_null(rule1)) {
                 message(paste0("Warning: stop.method should be ", word.list(names(ps.cont$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
                 rule1 <- names(ps.cont$w)
@@ -440,7 +440,7 @@ get.w.ps.cont <- function(ps.cont, stop.method = NULL, s.weights = FALSE, ...) {
 get.w.iptw <- function(iptw, stop.method = NULL, s.weights = FALSE, ...) {
     if (is_not_null(stop.method)) {
         if (any(is.character(stop.method))) {
-            rule1 <- names(iptw$psList[[1]]$ps)[sapply(names(iptw$psList[[1]]$ps), function(x) any(startsWith(tolower(x), tolower(stop.method))))]
+            rule1 <- names(iptw$psList[[1]]$ps)[vapply(names(iptw$psList[[1]]$ps), function(x) any(startsWith(tolower(x), tolower(stop.method))), logical(1L))]
             if (is_null(rule1)) {
                 message(paste0("Warning: stop.method should be ", word.list(names(iptw$psList[[1]]$ps), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
                 rule1 <- names(iptw$psList[[1]]$ps)
@@ -580,19 +580,79 @@ get.w.designmatch <- function(dm, treat, ...) {
     return(match.strata2weights(q$group, treat))
 }
 
+var.names <- function(b, type, file = NULL, minimal = FALSE) {
+    if (is_not_null(b[["print.options"]][["co.names"]])) {
+        if (minimal) vars <- unique(unlist(lapply(b[["print.options"]][["co.names"]], function(x) x[["component"]][x[["is.name"]]])))
+        else vars <- vapply(b[["print.options"]][["co.names"]], function(x) paste(x[["component"]], collapse = ""), character(1))
+    }
+    else {
+        vars <- NULL
+        var.containers <- c(quote(b[["Balance"]]),
+                            quote(b[["Cluster.Balance"]][[1]][["Balance"]]),
+                            quote(b[["Subclass.Balance"]][[1]]),
+                            quote(b[["Imputation.Balance"]][[1]][["Balance"]]),
+                            quote(b[["Imputation.Balance"]][[1]][["Cluster.Balance"]][[1]][["Balance"]]),
+                            quote(b[["Pair.Balance"]][[1]]),
+                            quote(b[["Time.Balance"]][[1]][["Balance"]]))
+        for (i in var.containers) {
+            obj <- eval(i)
+            if (is_not_null(obj)) {
+                vars <- rownames(obj)
+                break
+            }
+            else obj <- NULL
+        }
+        if (is_null(vars)) stop("No variable names were found in the object. It is probably not a bal.tab object.", call. = FALSE)
+        if (minimal) warning("minimal is being set to FALSE because the part of the object required for it to be TRUE is missing.", call. = FALSE)
+    }
+    
+    if (is_not_null(file)) {
+        if (!endsWith(file, ".csv")) stop("The filename in file must end in \".csv\".", call. = FALSE)
+    }
+    
+    if (missing(type)) {
+        if (is_not_null(file)) type <- "df"
+        else type <- "vec"
+    }
+    else {
+        possible.types <- c("df", "vec")
+        type <- possible.types[pmatch(type, possible.types)]
+    }
+    
+    if (is.na(type)) stop("type must be \"df\" or \"vec\"")
+    else if (type == "df") {
+        out <- data.frame(old = vars, new = vars, stringsAsFactors = FALSE, row.names = NULL)
+    }
+    else {
+        out <- setNames(vars, vars)
+    }
+    
+    if (is_not_null(file)) {
+        if (type == "df") {
+            write.csv(out, file = file, row.names = FALSE)
+            invisible(out)
+        }
+        else {
+            warning("Only type = \"df\" is compatible with a file name.", call. = FALSE)
+            out
+        }
+    }
+    else out
+}
+
 #For cobalt
 word.list <- function(word.list = NULL, and.or = c("and", "or"), is.are = FALSE, quotes = FALSE) {
     #When given a vector of strings, creates a string of the form "a and b"
     #or "a, b, and c"
     #If is.are, adds "is" or "are" appropriately
     L <- length(word.list)
-    if (quotes) word.list <- sapply(word.list, function(x) paste0("\"", x, "\""))
+    if (quotes) word.list <- vapply(word.list, function(x) paste0("\"", x, "\""), character(1L))
     if (L == 0) {
         out <- ""
         attr(out, "plural") = FALSE
     }
     else {
-        word.list <- word.list[!word.list %in% c(NA, "")]
+        word.list <- word.list[!word.list %in% c(NA_character_, "")]
         L <- length(word.list)
         if (L == 0) {
             out <- ""
@@ -624,7 +684,7 @@ word.list <- function(word.list = NULL, and.or = c("and", "or"), is.are = FALSE,
 expand.grid_string <- function(..., collapse = "") {
     return(apply(expand.grid(...), 1, paste, collapse = collapse))
 }
-nunique <- function(x, nmax = NA, na.rm = TRUE) {
+nunique <- function(x, nmax = NA_real_, na.rm = TRUE) {
     if (is_null(x)) return(0)
     else {
         if (na.rm) x <- x[!is.na(x)]
@@ -649,12 +709,12 @@ all_the_same <- function(x) !nunique.gt(x, 1)
 is.formula <- function(f, sides = NULL) {
     res <- is.name(f[[1]])  && deparse(f[[1]]) %in% c( '~', '!') &&
         length(f) >= 2
-    if (length(sides) > 0 && is.numeric(sides) && sides %in% c(1,2)) {
+    if (is_not_null(sides) && is.numeric(sides) && sides %in% c(1,2)) {
         res <- res && length(f) == sides + 1
     }
     return(res)
 }
-check_if_zero_base <- function(x) {
+check_if_zero <- function(x) {
     # this is the default tolerance used in all.equal
     tolerance <- .Machine$double.eps^0.5
     # If the absolute deviation between the number and zero is less than
@@ -663,7 +723,6 @@ check_if_zero_base <- function(x) {
     # -3.20469e-16 or some such.
     abs(x - 0) < tolerance
 }
-check_if_zero <- Vectorize(check_if_zero_base)
 is_null <- function(x) length(x) == 0L
 is_not_null <- function(x) !is_null(x)
 `%nin%` <- function(x, table) is.na(match(x, table, nomatch = NA_integer_))
@@ -672,3 +731,13 @@ is_not_null <- function(x) !is_null(x)
     if (is.character(a[[1]])) do.call(crayon::`%+%`, a)
     else do.call(ggplot2::`%+%`, a)
 }
+strsplits <- function(x, splits, fixed = TRUE, ...) {
+    #Link strsplit but takes multiple split values.
+    #Only works for one string at a time (in x).
+    for (split in splits) x <- unlist(strsplit(x, split, fixed = TRUE, ...))
+    return(x[x != ""]) # Remove empty values
+}
+# is_ <- function(x, class) {
+#     if (is_not_null(get0(paste0("is.", class)))) get0(paste0("is.", class))(x)
+#     else inherits(x, class)
+# }

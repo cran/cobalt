@@ -9,15 +9,15 @@ head(iptwExWide)
 ## ------------------------------------------------------------------------
 library("WeightIt")
 Wmsm <- weightitMSM(list(tx1 ~ use0 + gender + age,
-                         tx2 ~ use1 + use0 + tx1 + gender + age,
-                         tx3 ~ use2 + use1 + use0 + tx2 + tx1 + gender + age),
+                         tx2 ~ use0 + gender + age + use1 + tx1,
+                         tx3 ~ use0 + gender + age + use1 + tx1 + use2 + tx2),
                     data = iptwExWide,
                     method = "ps")
 
 ## ------------------------------------------------------------------------
 bal.tab(list(iptwExWide[c("use0", "gender", "age")],
-             iptwExWide[c("use0", "gender", "age", "tx1", "use1")],
-             iptwExWide[c("use0", "gender", "age", "tx1", "use1", "tx2", "use2")]),
+             iptwExWide[c("use0", "gender", "age", "use1", "tx1")],
+             iptwExWide[c("use0", "gender", "age", "use1", "tx1", "use2", "tx2")]),
         treat.list = iptwExWide[c("tx1", "tx2", "tx3")])
 
 ## ------------------------------------------------------------------------

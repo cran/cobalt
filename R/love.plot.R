@@ -92,7 +92,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             B <- do.call("rbind", lapply(names(b[["Time.Balance"]])[time.names.good], 
                                          function(x) cbind(b[["Time.Balance"]][[x]][["Balance"]],
                                                            time = x,
-                                                           var.names = rownames(b[["Time.Balance"]][[x]][["Balance"]]))))
+                                                           variable.names = rownames(b[["Time.Balance"]][[x]][["Balance"]]))))
             facet <- "time"
         }
         else if (config == "agg.time") {
@@ -108,7 +108,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
                 subtitle <- paste(ifelse(Agg.Fun == "Mean", "Average", Agg.Fun), which.stat2, "Across Time Points")
             }
             B <- cbind(b[["Balance.Across.Times"]],
-                       var.names = rownames(b[["Balance.Across.Times"]]))
+                       variable.names = rownames(b[["Balance.Across.Times"]]))
         }
     }
     else if (any(class(b) == "bal.tab.imp.cluster")) {
@@ -191,7 +191,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
                                                                              function(y) cbind(b[["Imputation.Balance"]][[x]][["Cluster.Balance"]][[y]][["Balance"]],
                                                                                                cluster = y,
                                                                                                imp = paste("Imputation:", x),
-                                                                                               var.names = rownames(b[["Imputation.Balance"]][[x]][["Cluster.Balance"]][[y]][["Balance"]]))))))
+                                                                                               variable.names = rownames(b[["Imputation.Balance"]][[x]][["Cluster.Balance"]][[y]][["Balance"]]))))))
             if (sum(imp.numbers.good) == 1) {
                 facet <- "cluster"
                 subtitle <- paste("Imputation:", imp.numbers[imp.numbers.good])
@@ -219,7 +219,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             B <- do.call("rbind", lapply(names(b[["Cluster.Balance.Across.Imputations"]])[cluster.names.good], 
                                          function(x) cbind(b[["Cluster.Balance.Across.Imputations"]][[x]][["Cluster.Balance"]], 
                                                            cluster = x, 
-                                                           var.names = rownames(b[["Cluster.Balance.Across.Imputations"]][[x]][["Cluster.Balance"]]))))
+                                                           variable.names = rownames(b[["Cluster.Balance.Across.Imputations"]][[x]][["Cluster.Balance"]]))))
             facet <- "cluster"
         }
         else if (config == "agg.cluster") {
@@ -240,7 +240,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             B <- do.call("rbind", lapply(names(b[["Imputation.Balance"]])[imp.numbers.good], 
                                          function(x) cbind(b[["Imputation.Balance"]][[x]][["Cluster.Summary"]], 
                                                            imp = paste("Imputation:", x), 
-                                                           var.names = rownames(b[["Imputation.Balance"]][[x]][["Cluster.Summary"]]))))
+                                                           variable.names = rownames(b[["Imputation.Balance"]][[x]][["Cluster.Summary"]]))))
             facet <- "imp"
         }
         else if (config == "agg.all") {
@@ -260,7 +260,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
                 subtitle <- paste(ifelse(Agg.Fun == "Mean", "Average", Agg.Fun), which.stat2, "Across Clusters and Imputations", sep = " ")
             }
             B <- cbind(b[["Balance.Across.Imputations"]],
-                       var.names = row.names(b[["Balance.Across.Imputations"]]))
+                       variable.names = row.names(b[["Balance.Across.Imputations"]]))
             facet <- NULL
         }
     }
@@ -291,7 +291,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             B <- do.call("rbind", lapply(names(b[["Imputation.Balance"]])[imp.numbers.good], 
                                          function(x) cbind(b[["Imputation.Balance"]][[x]][["Balance"]],
                                                            imp = paste("Imputation:", x),
-                                                           var.names = rownames(b[["Imputation.Balance"]][[x]][["Balance"]]))))
+                                                           variable.names = rownames(b[["Imputation.Balance"]][[x]][["Balance"]]))))
             facet <- "imp"
         }
         else if (config == "agg.imp") {
@@ -310,7 +310,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
                 subtitle <- paste(ifelse(Agg.Fun == "Mean", "Average", Agg.Fun), which.stat2, "Across Imputations")
             }
             B <- cbind(b[["Balance.Across.Imputations"]],
-                       var.names = rownames(b[["Balance.Across.Imputations"]]))
+                       variable.names = rownames(b[["Balance.Across.Imputations"]]))
         }
     }
     else if (any(class(b) == "bal.tab.cluster")) {
@@ -350,7 +350,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             B <- do.call("rbind", lapply(names(b[["Cluster.Balance"]])[cluster.names.good], 
                                          function(x) cbind(b[["Cluster.Balance"]][[x]][["Balance"]],
                                                            cluster = x,
-                                                           var.names = rownames(b[["Cluster.Balance"]][[x]][["Balance"]]))))
+                                                           variable.names = rownames(b[["Cluster.Balance"]][[x]][["Balance"]]))))
             facet <- "cluster"
         }
         else if (config == "agg.cluster") {
@@ -372,7 +372,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
                 subtitle <- paste(ifelse(Agg.Fun == "Mean", "Average", Agg.Fun), which.stat2, "Across Clusters")
             }
             B <- cbind(b[["Cluster.Summary"]],
-                       var.names = rownames(b[["Cluster.Summary"]]))
+                       variable.names = rownames(b[["Cluster.Summary"]]))
         }
     }
     else if (any(class(b) == "bal.tab.multi")) {
@@ -439,7 +439,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             B <- do.call("rbind", lapply(disp.treat.pairs,
                                          function(x) cbind(b[["Pair.Balance"]][[x]][["Balance"]],
                                                            treat.pair = x,
-                                                           var.names = rownames(b[["Pair.Balance"]][[x]][["Balance"]]))))
+                                                           variable.names = rownames(b[["Pair.Balance"]][[x]][["Balance"]]))))
             facet <- "treat.pair"
         }
         else if (config == "agg.pair") {
@@ -452,7 +452,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
                 subtitle <- paste0(ifelse(Agg.Fun == "Mean", "Average", Agg.Fun), " ", which.stat2, " Across Treatment", ifelse(b$print.options$pairwise, " Pairs", "s"))
             }
             B <- cbind(b[["Balance.Across.Pairs"]],
-                       var.names = rownames(b[["Balance.Across.Pairs"]]))
+                       variable.names = rownames(b[["Balance.Across.Pairs"]]))
         }
     }
     else if (any(class(b) == "bal.tab.subclass")) {
@@ -465,13 +465,13 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             sub.B0 <- setNames(sub[endsWith(names(sub), ".Adj")],
                                gsub(".Adj", paste0(".Subclass ", x), names(sub)[endsWith(names(sub), ".Adj")]))
             return(sub.B0) }))
-        B <- cbind(b[["Balance.Across.Subclass"]], sub.B, var.names = row.names(b[["Balance.Across.Subclass"]]))
+        B <- cbind(b[["Balance.Across.Subclass"]], sub.B, variable.names = row.names(b[["Balance.Across.Subclass"]]))
         if (b$print.options$disp.subclass) b$print.options$weight.names <- c("Adj", paste("Subclass", subclass.names))
         else b$print.options$weight.names <- "Adj"
         subtitle <- "Across Subclasses"
     }
     else {
-        B <- cbind(b[["Balance"]], var.names = row.names(b[["Balance"]]))
+        B <- cbind(b[["Balance"]], variable.names = row.names(b[["Balance"]]))
     }
     
     if (config == "agg.none") {
@@ -522,44 +522,72 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
         if (is.data.frame(var.names)) {
             if (ncol(var.names)==1) {
                 if (is_not_null(row.names(var.names))) {
-                    new.labels <- setNames(as.list(as.character(rownames(var.names))), var.names[,1])
+                    new.labels <- setNames(unlist(as.character(var.names[,1])), rownames(var.names))
                 }
                 else warning("var.names is a data.frame, but its rows are unnamed.", call. = FALSE)
-                
             }
-            else if (ncol(var.names)>1) {
+            else {
                 if (all(c("old", "new") %in% names(var.names))) {
-                    new.labels <- setNames(as.list(as.character(var.names[,"old"])), var.names[,"new"])
+                    new.labels <- setNames(unlist(as.character(var.names[,"new"])), var.names[,"old"])
                 }
                 else {
                     if (ncol(var.names)>2) warning("Only using first 2 columns of var.names", call. = FALSE)
-                    new.labels <- setNames(as.list(as.character(var.names[,1])), var.names[,2])
+                    new.labels <- setNames(unlist(as.character(var.names[,2])), var.names[,1])
                 }
             } 
         }
-        else if (is.character(var.names) || is.factor(var.names)) {
+        else if (is.atomic(var.names) || is.factor(var.names)) {
             if (is_not_null(names(var.names))) {
-                new.labels <- setNames(as.list(names(var.names)), var.names)
+                new.labels <- setNames(as.character(var.names), names(var.names))
             }
             else warning("var.names is a vector, but its values are unnamed.", call. = FALSE)
         }
         else if (is.list(var.names)) {
             if (all(sapply(var.names, function(x) is.character(x) || is.factor(x)))) {
                 if (is_not_null(names(var.names))) {
-                    new.labels <- setNames(names(var.names), var.names) #already a list
+                    new.labels <- unlist(var.names) #already a list
                 }
                 else warning("var.names is a list, but its values are unnamed.", call. = FALSE)
             }
             else warning("var.names is a list, but its values are not the new names of the variables.", call. = FALSE)
         }
         else warning("Argument to var.names is not one of the accepted structures and will be ignored.\n  See help(love.plot) for details.", immediate.=TRUE, call. = FALSE)
-        new.labels <- new.labels[new.labels %in% B[, "var.names"]]
-        B[["var.names"]] <- do.call(f.recode, c(list(B[["var.names"]]), as.list(new.labels)))
+
+        co.names <- b[["print.options"]][["co.names"]]
+        seps <- attr(co.names, "seps")
+        for (i in names(co.names)) {
+            comp <- co.names[[i]][["component"]]
+            is.name <- co.names[[i]][["is.name"]]
+            
+            if (i %in% names(new.labels) && !is.na(new.labels[i])) co.names[[i]][["component"]] <- new.labels[i]
+            else {
+                if (seps["int"] %in% comp[!is.name]) {
+                    named.vars <- character(sum(comp[!is.name] == seps["int"]) + 1)
+                    sep.inds <- c(which(comp == seps["int"] & !is.name), length(comp) + 1)
+                    named.vars <- lapply(seq_along(sep.inds), function(k) {
+                        inds <- (if (k == 1) seq(1, sep.inds[k] - 1) 
+                                 else seq(sep.inds[k-1] + 1, sep.inds[k] - 1))
+                        var <- comp[inds]
+                        var.is.name <- is.name[inds]
+                        pasted.var <- paste(var, collapse = "")
+                        if (pasted.var %in% names(new.labels)) return(new.labels[pasted.var])
+                        else return(paste(ifelse(var.is.name & var %in% names(new.labels) & !is.na(new.labels[var]), new.labels[var], var), collapse = ""))
+                    })
+                    co.names[[i]][["component"]] <- do.call("paste", c(unname(named.vars), list(sep = seps["int"])))
+                }
+                else co.names[[i]][["component"]] <- ifelse(is.name & comp %in% names(new.labels) & !is.na(new.labels[comp]), new.labels[comp], comp)
+            }
+        }
+        
+        recode.labels <- setNames(names(co.names), 
+                                  vapply(co.names, function(x) paste0(x[["component"]], collapse = ""), character(1L)))
+        
+        B[["variable.names"]] <- do.call(f.recode, c(list(B[["variable.names"]]), as.list(recode.labels)))
     }
     
-    distance.names <- as.character(unique(B[["var.names"]][B[["Type"]] == "Distance"]))
+    distance.names <- as.character(unique(B[["variable.names"]][B[["Type"]] == "Distance"], nmax = sum(B[["Type"]] == "Distance")))
     if (drop.distance) {
-        B <- B[is.na(match(B[["var.names"]], distance.names)),]
+        B <- B[B[["variable.names"]] %nin% distance.names, , drop = FALSE]
     }
     
     if (is_not_null(var.order)) {
@@ -592,7 +620,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
     
     if (agg.range) {
         SS <- do.call("rbind", lapply(c("Un", b$print.options$weight.names),
-                                      function(x) data.frame(var = B[["var.names"]],
+                                      function(x) data.frame(var = B[["variable.names"]],
                                                              min.stat = B[[paste("Min", which.stat, x, sep = ".")]],
                                                              max.stat = B[[paste("Max", which.stat, x, sep = ".")]],
                                                              mean.stat = B[[paste("Mean", which.stat, x, sep = ".")]],
@@ -660,13 +688,13 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
         }
         # SS[, "Sample"] <- factor(SS[, "Sample"], levels = c("Adjusted", "Unadjusted"))
         SS[["Sample"]] <- factor(SS[["Sample"]])
-        if (which.stat == "Diff" && any(abs(SS[["max.stat"]]) > 5)) warning("Large mean differences detected; you may not be using standardizied mean differences for continuous variables. To do so, specify continuous=\"std\" in bal.tab().", call.=FALSE, noBreaks.=TRUE)
+        if (which.stat == "Diff" && any(abs(SS[["max.stat"]]) > 5, na.rm = TRUE)) warning("Large mean differences detected; you may not be using standardizied mean differences for continuous variables. To do so, specify continuous=\"std\" in bal.tab().", call.=FALSE, noBreaks.=TRUE)
         if (no.missing) SS <- SS[!is.na(SS[["min.stat"]]),]
         SS[["stat"]] <- SS[["mean.stat"]]
     }
     else {
         SS <- do.call("rbind", lapply(c("Un", b$print.options$weight.names),
-                                      function(x) data.frame(var = B[["var.names"]],
+                                      function(x) data.frame(var = B[["variable.names"]],
                                                              stat = B[[ifelse(is_null(Agg.Fun), paste(which.stat, x, sep = "."),
                                                                                paste(Agg.Fun, which.stat, x, sep = "."))]],
                                                              Sample = ifelse(x == "Un", "Unadjusted", 
@@ -732,7 +760,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             SS[["var"]] <- factor(SS[["var"]], levels = c(rev(covnames[!covnames %in% distance.names]), sort(distance.names, decreasing = TRUE)))
         }
         SS[["Sample"]] <- factor(SS[["Sample"]])
-        if (which.stat == "Diff" && any(abs(SS[["stat"]]) > 5)) warning("Large mean differences detected; you may not be using standardizied mean differences for continuous variables. To do so, specify continuous=\"std\" in bal.tab().", call.=FALSE, noBreaks.=TRUE)
+        if (which.stat == "Diff" && any(abs(SS[["stat"]]) > 5, na.rm = TRUE)) warning("Large mean differences detected; you may not be using standardizied mean differences for continuous variables. To do so, specify continuous=\"std\" in bal.tab().", call.=FALSE, noBreaks.=TRUE)
         if (no.missing) SS <- SS[!is.na(SS[["stat"]]),]
     }
     SS <- SS[order(SS[["var"]]),]
@@ -765,7 +793,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
         if (length(colors) == 1) colors <- rep(colors, ntypes)
         else if (length(colors) > ntypes) {
             colors <- colors[seq_len(ntypes)]
-            warning(paste("Only using first", ntypes, "values in colors."), call. = FALSE)
+            warning(paste("Only using first", ntypes, "value", if (ntypes>1) "s " else " ", "in colors."), call. = FALSE)
         }
         else if (length(colors) < ntypes) {
             warning("Not enough colors were specified. Using default colors instead.", call. = FALSE)
@@ -787,7 +815,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
     else {
         #check shapes
         if (!shapes.ok(shapes, ntypes)) {
-            warning(paste("The argument to shape must be", ntypes, "numbers between 1 and 25. \nUsing default shapes instead."), call. = FALSE)
+            warning(paste("The argument to shape must be", ntypes, "valid shape", if (ntypes>1) "s." else ".", " See ?love.plot for more information.\nUsing default shapes instead."), call. = FALSE)
             shapes <- assign.shapes(colors)
         }
         else if (length(shapes) == 1) shapes <- rep(shapes, ntypes)
@@ -847,7 +875,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             if (limits[2] <= 0) limits[2] <- baseline.xintercept - .05*limits[1]
             
             if (agg.range) {
-                if (any(SS[["min.stat"]] < limits[1]) || any(SS[["max.stat"]] > limits[2])) {
+                if (any(SS[["min.stat"]] < limits[1], na.rm = TRUE) || any(SS[["max.stat"]] > limits[2], na.rm = TRUE)) {
                     for (i in c("min.stat", "stat", "max.stat")) {
                         SS[[i]][SS[[i]] < limits[1]] <- limits[1]
                         SS[[i]][SS[[i]] > limits[2]] <- limits[2]
@@ -856,7 +884,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
                 }
             }
             else {
-                if (any(SS[["stat"]] < limits[1]) || any(SS[["stat"]] > limits[2])) {
+                if (any(SS[["stat"]] < limits[1], na.rm = TRUE) || any(SS[["stat"]] > limits[2], na.rm = TRUE)) {
                     warning("Some points will be removed from the plot by the limits.", call. = FALSE)
                 }
             }

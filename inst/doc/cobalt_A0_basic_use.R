@@ -1,9 +1,12 @@
 ## ---- include = FALSE----------------------------------------------------
 knitr::opts_chunk$set(message = FALSE)
 
-## ---- eval = 2-----------------------------------------------------------
-#install.packages("cobalt")
+## ---- include = F--------------------------------------------------------
 library("cobalt")
+
+## ---- eval = F-----------------------------------------------------------
+#  install.packages("cobalt")
+#  library("cobalt")
 
 ## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt") #If not yet loaded
@@ -58,7 +61,7 @@ nsub <- 5 #number of subclasses
 lalonde$subclass <- findInterval(lalonde$p.score, 
                                  quantile(lalonde$p.score[lalonde$treat == 1], 
                                           seq(0, 1, length.out = nsub + 1)), 
-                                 all.inside = T)
+                                 all.inside = TRUE)
 
 bal.tab(treat ~ covs0, data = lalonde, subclass = "subclass", 
         method = "subclassification", disp.subclass = TRUE)
@@ -80,7 +83,7 @@ data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 #Generating propensity score weights for the ATT
-W.out <- weightit(f.build("treat", covs0), data = lalonde,
+W.out <- weightit(treat ~ covs0, data = lalonde,
                   method = "ps", estimand = "ATT")
 
 bal.tab(W.out)
@@ -91,7 +94,8 @@ bal.plot(W.out, var.name = "race")
 
 ## ---- fig.width = 5------------------------------------------------------
 #Before and after weighting; which = "both"
-bal.plot(W.out, var.name = "prop.score", which = "both")
+bal.plot(W.out, var.name = "prop.score", which = "both",
+         type = "histogram", mirror = TRUE)
 
 ## ---- fig.width = 5------------------------------------------------------
 data("lalonde", package = "cobalt")
@@ -105,7 +109,7 @@ love.plot(bal.tab(m.out), threshold = .1)
 
 ## ---- fig.width = 5------------------------------------------------------
 v <- data.frame(old = c("age", "educ", "race_black", "race_hispan", 
-                        "race_white", "married", "nodegree", "re74", "re75", "distance"),
+                        "race_white", "married_1", "nodegree_1", "re74", "re75", "distance"),
                 new = c("Age", "Years of Education", "Black", 
                         "Hispanic", "White", "Married", "No Degree Earned", 
                         "Earnings 1974", "Earnings 1975", "Propensity Score"))
@@ -145,7 +149,7 @@ cov.mn <- subset(lalonde, select = -c(treat, re78, race))
 
 #Using WeightIt to generate weights with multinomial
 #logistic regression
-W.out.mn <- weightit(f.build("race", cov.mn), data = lalonde,
+W.out.mn <- weightit(race ~ cov.mn, data = lalonde,
                      method = "ps")
 
 ## ------------------------------------------------------------------------
@@ -189,7 +193,7 @@ love.plot(bal.tab(treat ~ covs0, data = lalonde,
                                        IPW = get.w(W.out)),
                   method = c("matching", "weighting")), var.order = "unadjusted",
           abs = TRUE, colors = c("red", "blue", "darkgreen"), 
-          shapes = c(21, 22, 23))
+          shapes = c("circle", "square", "diamond"))
 
 ## ------------------------------------------------------------------------
 ctrl.data <- lalonde[lalonde$treat == 0,]
@@ -200,15 +204,15 @@ lalonde$prog.score <- predict(ctrl.fit, lalonde)
 
 bal.tab(m.out, distance = lalonde["prog.score"])
 
-## ---- echo = FALSE, fig.show = 'hold', fig.width = 5---------------------
+## ---- echo = FALSE, fig.show = 'hold', fig.width = 5, warning=FALSE------
 library("twang")
 data("lalonde", package = "cobalt") ##If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 ps.out <- ps(f.build("treat", covs0), data = lalonde, 
-             stop.method = c("es.mean", "es.max"), 
+             stop.method = "es.max", 
              estimand = "ATT", n.trees = 100, verbose = FALSE)
 plot(ps.out, plots = "es", subset = 1)
-love.plot(bal.tab(ps.out, full.stop.method = "es.mean.att"), threshold = .1,
+love.plot(bal.tab(ps.out, stop.method = "es.max"), threshold = .1,
           abs = TRUE, var.order = "u", color = c("red", "blue"), line = TRUE,
           drop.distance = TRUE)
 
