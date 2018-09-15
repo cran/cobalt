@@ -111,10 +111,15 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
     
     
     if ("bal.tab.cont" %in% class(x)) {
-        keep <- as.logical(c(TRUE, 
+        keep <- setNames(as.logical(c(TRUE, 
+                             p.ops$un && p.ops$disp.means, 
                              p.ops$un, 
-                             rep(c(p.ops$disp.adj, 
-                                   is_not_null(p.ops$r.threshold)), p.ops$nweights + !p.ops$disp.adj)))
+                             p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$r.threshold), 
+                             rep(c(p.ops$disp.adj && p.ops$disp.means,
+                                   p.ops$disp.adj, 
+                                   p.ops$disp.adj && is_not_null(p.ops$r.threshold)), 
+                                 p.ops$nweights + !p.ops$disp.adj))),
+                         names(balance))
         
     }
     else {
@@ -134,7 +139,8 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
                                             p.ops$disp.adj && p.ops$disp.v.ratio, 
                                             p.ops$disp.adj && is_not_null(p.ops$v.threshold), 
                                             p.ops$disp.adj && p.ops$disp.ks, 
-                                            p.ops$disp.adj && is_not_null(p.ops$ks.threshold)), p.ops$nweights + !p.ops$disp.adj))),
+                                            p.ops$disp.adj && is_not_null(p.ops$ks.threshold)), 
+                                          p.ops$nweights + !p.ops$disp.adj))),
                          names(balance))
     }
     
@@ -149,48 +155,48 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
         else keep.row <- rep(TRUE, nrow(balance))
         
         cat(underline("Balance Measures") %+% "\n")
-        print.data.frame(round_df_char(balance[keep.row, keep], digits))
+        print.data.frame_(round_df_char(balance[keep.row, keep], digits))
         cat("\n")
     }
     
     if (is_not_null(baltal.r)) {
         cat(underline("Balance tally for correlations") %+% "\n")
-        print.data.frame(x$Balanced.Corr)
+        print.data.frame_(x$Balanced.Corr)
         cat("\n")
     }
     if (is_not_null(maximbal.r)) {
         cat(underline("Variable with the greatest treatment correlation") %+% "\n")
-        print.data.frame(round_df_char(x$Max.Imbalance.Corr, digits), row.names = FALSE)
+        print.data.frame_(round_df_char(x$Max.Imbalance.Corr, digits), row.names = FALSE)
         cat("\n")
     }
     if (is_not_null(baltal.m)) {
         cat(underline("Balance tally for mean differences") %+% "\n")
-        print.data.frame(x$Balanced.Means)
+        print.data.frame_(x$Balanced.Means)
         cat("\n")
     }
     if (is_not_null(maximbal.m)) {
         cat(underline("Variable with the greatest mean difference") %+% "\n")
-        print.data.frame(round_df_char(x$Max.Imbalance.Means, digits), row.names = FALSE)
+        print.data.frame_(round_df_char(x$Max.Imbalance.Means, digits), row.names = FALSE)
         cat("\n")
     }
     if (is_not_null(baltal.v)) {
         cat(underline("Balance tally for variance ratios") %+% "\n")
-        print.data.frame(x$Balanced.Variances, digits)
+        print.data.frame_(x$Balanced.Variances, digits)
         cat("\n")
     }
     if (is_not_null(maximbal.v)) {
         cat(underline("Variable with the greatest variance ratio") %+% "\n")
-        print.data.frame(round_df_char(x$Max.Imbalance.Variances, digits), row.names = FALSE)
+        print.data.frame_(round_df_char(x$Max.Imbalance.Variances, digits), row.names = FALSE)
         cat("\n")
     }
     if (is_not_null(baltal.ks)) {
         cat(underline("Balance tally for KS statistics") %+% "\n")
-        print.data.frame(x$Balanced.KS, digits)
+        print.data.frame_(x$Balanced.KS, digits)
         cat("\n")
     }
     if (is_not_null(maximbal.ks)) {
         cat(underline("Variable with the greatest KS statistic") %+% "\n")
-        print.data.frame(round_df_char(x$Max.Imbalance.KS, digits), row.names = FALSE)
+        print.data.frame_(round_df_char(x$Max.Imbalance.KS, digits), row.names = FALSE)
         cat("\n")
     }
     if (is_not_null(nn)) {
@@ -205,7 +211,7 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
             x$Observations <- setNames(cbind(x$Observations, ess), c(names(x$Observations), ""))
             print.warning <- TRUE
         }
-        print.data.frame(round_df_char(x$Observations, digits = max(0, digits-1)))
+        print.data.frame_(round_df_char(x$Observations, digits = max(0, digits-1)))
         if (print.warning) cat(italic("* indicates effective sample size"))
     }
     invisible(x)
@@ -335,6 +341,7 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
         if (p.ops$disp.subclass) {
             if ("bal.tab.cont" %in% class(x)) {
                 s.keep <- as.logical(c(TRUE, 
+                                       p.ops$disp.means, 
                                        p.ops$disp.adj, 
                                        is_not_null(p.ops$r.threshold)))
             }
@@ -356,7 +363,7 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
                 }
                 else keep.row <- rep(TRUE, nrow(s.balance[[i]]))
                 cat("\n - - - " %+% italic("Subclass " %+% as.character(i)) %+% " - - - \n")
-                print.data.frame(round_df_char(s.balance[[i]][keep.row, s.keep, drop = FALSE], digits))
+                print.data.frame_(round_df_char(s.balance[[i]][keep.row, s.keep, drop = FALSE], digits))
             }
             cat("\n")
         }
@@ -377,54 +384,54 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
                                      p.ops$disp.adj, 
                                      is_not_null(p.ops$m.threshold)))
             cat(underline("Balance measures across subclasses") %+% "\n")
-            print.data.frame(round_df_char(b.a.subclass[keep.row, a.s.keep, drop = FALSE], digits))
+            print.data.frame_(round_df_char(b.a.subclass[keep.row, a.s.keep, drop = FALSE], digits))
             cat("\n")
         }
     }
     if (is_not_null(baltal.r.subclass)) {
         cat(underline("Balance tally for correlations across subclasses") %+% "\n")
-        print.data.frame(baltal.r.subclass)
+        print.data.frame_(baltal.r.subclass)
         cat("\n")
     }
     if (is_not_null(maximbal.r.subclass)) {
         cat(underline("Variable with the greatest treatment correlation across subclasses") %+% "\n")
-        print.data.frame(round_df_char(maximbal.r.subclass, digits), row.names = TRUE)
+        print.data.frame_(round_df_char(maximbal.r.subclass, digits), row.names = TRUE)
         cat("\n")
     }
     if (is_not_null(baltal.m.subclass)) {
         cat(underline("Balance tally for mean differences across subclasses") %+% "\n")
-        print.data.frame(baltal.m.subclass)
+        print.data.frame_(baltal.m.subclass)
         cat("\n")
     }
     if (is_not_null(maximbal.m.subclass)) {
         cat(underline("Variable with the greatest mean difference across subclasses") %+% "\n")
-        print.data.frame(round_df_char(maximbal.m.subclass, digits), row.names = TRUE)
+        print.data.frame_(round_df_char(maximbal.m.subclass, digits), row.names = TRUE)
         cat("\n")
     }
     if (is_not_null(baltal.v.subclass)) {
         cat(underline("Balance tally for variance ratios across subclasses") %+% "\n")
-        print.data.frame(baltal.v.subclass)
+        print.data.frame_(baltal.v.subclass)
         cat("\n")
     }
     if (is_not_null(maximbal.v.subclass)) {
         cat(underline("Variable with the greatest variance ratios across subclasses") %+% "\n")
-        print.data.frame(round_df_char(maximbal.v.subclass, digits), row.names = TRUE)
+        print.data.frame_(round_df_char(maximbal.v.subclass, digits), row.names = TRUE)
         cat("\n")
     }
     if (is_not_null(baltal.ks.subclass)) {
         cat(underline("Balance tally for KS statistics across subclasses") %+% "\n")
-        print.data.frame(baltal.ks.subclass)
+        print.data.frame_(baltal.ks.subclass)
         cat("\n")
     }
     if (is_not_null(maximbal.ks.subclass)) {
         cat(underline("Variable with the greatest KS statistc across subclasses") %+% "\n")
-        print.data.frame(round_df_char(maximbal.ks.subclass, digits), row.names = TRUE)
+        print.data.frame_(round_df_char(maximbal.ks.subclass, digits), row.names = TRUE)
         cat("\n")
     }
     
     if (is_not_null(s.nn)) {
         cat(underline(attr(x$Subclass.Observations, "tag")) %+% "\n")
-        print.data.frame(round_df_char(x$Subclass.Observations, digits = max(0, digits-1)))
+        print.data.frame_(round_df_char(x$Subclass.Observations, digits = max(0, digits-1)))
     }
     
     invisible(x)
@@ -641,7 +648,7 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
             cat("\n - - - " %+% italic("Cluster: " %+% names(c.balance)[i]) %+% " - - - \n")
             if (p.ops$disp.bal.tab) {
                 cat(underline("Balance measures") %+% "\n")
-                print.data.frame(round_df_char(c.balance[[i]][["Balance"]][keep.row, keep], digits))
+                print.data.frame_(round_df_char(c.balance[[i]][["Balance"]][keep.row, keep], digits))
             }
             
             for (j in rownames(c.balance[[i]][["Observations"]])) {
@@ -655,7 +662,7 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
                 xc.balance[[i]][["Observations"]] <- setNames(cbind(c.balance[[i]][["Observations"]], ess), c(names(c.balance[[i]][["Observations"]]), ""))
                 print.warning <- TRUE
             }
-            print.data.frame(round_df_char(c.balance[[i]][["Observations"]], digits))
+            print.data.frame_(round_df_char(c.balance[[i]][["Observations"]], digits))
             if (print.warning) cat(italic("* indicates effective sample size"))
             
         }
@@ -706,7 +713,7 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
         }
         if (p.ops$disp.bal.tab) {
             cat(underline("Balance summary across all clusters") %+% "\n")
-            print.data.frame(round_df_char(c.balance.summary[, s.keep], digits))
+            print.data.frame_(round_df_char(c.balance.summary[, s.keep], digits))
             cat("\n")
         }
         
@@ -722,7 +729,7 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
                 x$Observations <- setNames(cbind(x$Observations, ess), c(names(x$Observations), ""))
                 print.warning <- TRUE
             }
-            print.data.frame(round_df_char(x$Observations, digits = max(0, digits-1)))
+            print.data.frame_(round_df_char(x$Observations, digits = max(0, digits-1)))
             if (print.warning) cat(italic("* indicates effective sample size"))
         }
     }
@@ -960,7 +967,7 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
         
         if (p.ops$disp.bal.tab) {
             cat(underline("Balance summary across all imputations") %+% "\n")
-            print.data.frame(round_df_char(i.balance.summary[, s.keep], digits))
+            print.data.frame_(round_df_char(i.balance.summary[, s.keep], digits))
             cat("\n")
         }
         
@@ -976,7 +983,7 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
                 x$Observations <- setNames(cbind(x$Observations, ess), c(names(x$Observations), ""))
                 print.warning <- TRUE
             }
-            print.data.frame(round_df_char(x$Observations, digits = max(0, digits-1)))
+            print.data.frame_(round_df_char(x$Observations, digits = max(0, digits-1)))
             if (print.warning) cat(italic("* indicates effective sample size"))
         }
     }
@@ -1286,7 +1293,7 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
                 cat("\n - - - " %+% italic("Cluster: " %+% names(i.balance.c.summary)[c]) %+% " - - - \n")
                 if (p.ops$disp.bal.tab) {
                     cat(underline("Balance summary across imputations") %+% "\n")
-                    print.data.frame(round_df_char(i.balance.c.summary[[c]][["Cluster.Balance"]][, s.keep], digits))
+                    print.data.frame_(round_df_char(i.balance.c.summary[[c]][["Cluster.Balance"]][, s.keep], digits))
                 }
                 for (j in rownames(i.balance.c.summary[[c]][["Cluster.Observations"]])) {
                     if (all(i.balance.c.summary[[c]][["Cluster.Observations"]][j,] == 0)) i.balance.c.summary[[c]][["Cluster.Observations"]] <- i.balance.c.summary[[c]][["Cluster.Observations"]][rownames(i.balance.c.summary[[c]][["Cluster.Observations"]])!=j,]
@@ -1299,7 +1306,7 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
                     i.balance.c.summary[[c]][["Cluster.Observations"]] <- setNames(cbind(i.balance.c.summary[[c]][["Cluster.Observations"]], ess), c(names(i.balance.c.summary[[c]][["Cluster.Observations"]]), ""))
                     print.warning <- TRUE
                 }
-                print.data.frame(round_df_char(i.balance.c.summary[[c]][["Cluster.Observations"]], digits))
+                print.data.frame_(round_df_char(i.balance.c.summary[[c]][["Cluster.Observations"]], digits))
                 if (print.warning) cat(italic("* indicates effective sample size"))
             }
             cat(paste0(paste(rep(" -", round(nchar(paste0("\n - - - Cluster: ", names(i.balance.c.summary)[c], " - - - "))/2)), collapse = ""), " \n"))
@@ -1308,7 +1315,7 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
         
         if (p.ops$disp.bal.tab) {
         cat(underline("Balance summary across all imputations and clusters") %+% "\n")
-        print.data.frame(round_df_char(i.balance.summary[, s.keep], digits))
+        print.data.frame_(round_df_char(i.balance.summary[, s.keep], digits))
         cat("\n")
         }
         
@@ -1324,7 +1331,7 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
                 x$Observations <- setNames(cbind(x$Observations, ess), c(names(x$Observations), ""))
                 print.warning <- TRUE
             }
-            print.data.frame(round_df_char(x$Observations, digits = max(0, digits-1)))
+            print.data.frame_(round_df_char(x$Observations, digits = max(0, digits-1)))
             if (print.warning) cat(italic("* indicates effective sample size"))
         }
     }
@@ -1539,7 +1546,7 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
         
         if (p.ops$disp.bal.tab) {
         cat(underline("Balance summary across all treatment pairs") %+% "\n")
-        print.data.frame(round_df_char(m.balance.summary[keep.row, s.keep], digits))
+        print.data.frame_(round_df_char(m.balance.summary[keep.row, s.keep], digits))
         cat("\n")
         }
         
@@ -1557,7 +1564,7 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
                 x$Observations <- setNames(cbind(x$Observations, ess), c(names(x$Observations), ""))
                 print.warning <- TRUE
             }
-            print.data.frame(round_df_char(x$Observations, digits = max(0, digits-1)))
+            print.data.frame_(round_df_char(x$Observations, digits = max(0, digits-1)))
             if (print.warning) cat(italic("* indicates effective sample size"))
         }
     }
@@ -1716,7 +1723,7 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     }
     
     if (p.ops$msm.summary && is_null(msm.balance.summary)) {
-        warning("No summary across time points was produced. This can occur if msm.summary is FALSE and quick is TRUE.", call. = FALSE)
+        warning("No summary across time points was produced. This can occur if msm.summary is FALSE and quick is TRUE or if the treatments are not all binary or all continuous.", call. = FALSE)
     }
     
     #Printing output
@@ -1735,7 +1742,7 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     }
     
     if (isTRUE(as.logical(p.ops$msm.summary)) && is_not_null(msm.balance.summary)) {
-        if ("bal.tab.cont" %in% class(x)) { #continuous
+        if (all(sapply(msm.balance, function(x) "bal.tab.cont" %in% class(x)))) { #continuous
             s.keep <- as.logical(c(TRUE, 
                                    TRUE,
                                    p.ops$un,
@@ -1763,7 +1770,7 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
         
         if (p.ops$disp.bal.tab) {
             cat(underline("Balance summary across all time points") %+% "\n")
-            print.data.frame(round_df_char(msm.balance.summary[keep.row, s.keep, drop = FALSE], digits))
+            print.data.frame_(round_df_char(msm.balance.summary[keep.row, s.keep, drop = FALSE], digits))
             cat("\n")
         }
         
@@ -1782,7 +1789,7 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
                     x$Observations[[ti]] <- setNames(cbind(x$Observations[[ti]], ess), c(names(x$Observations[[ti]]), ""))
                     print.warning <- TRUE
                 }
-                print.data.frame(round_df_char(x$Observations[[ti]], digits = max(0, digits-1)))
+                print.data.frame_(round_df_char(x$Observations[[ti]], digits = max(0, digits-1)))
             }
             
             if (print.warning) cat(italic("* indicates effective sample size"))

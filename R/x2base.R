@@ -2130,7 +2130,7 @@ x2base.data.frame.list <- function(covs.list, ...) {
     if (!is.list(covs.list)) {
         stop("covs.list must be a list of covariates for which balanced is to be assessed at each time point.", call. = FALSE)
     }
-    if (any(!vapply(covs.list, function(x) is.data.frame(x), logical(1L)))) {
+    if (any(!vapply(covs.list, is.data.frame, logical(1L)))) {
         stop("Each item in covs.list must be a data frame.", call. = FALSE)
     }
     
@@ -2692,6 +2692,8 @@ x2base.default <- function(obj, ...) {
               imp = NA,
               s.weights = NA,
               focal = NA)
+    
+    if (!is.list(obj)) stop("The input object must be an appropriate list, data.frame, formula, or the output of one of the supported packages.", call. = FALSE)
   
     Q <- list(treat = list(name = c("treat", "tr"), 
                            type = c("numeric", "character", "factor", "logical")),
@@ -2751,6 +2753,7 @@ x2base.default <- function(obj, ...) {
     }
     
     msm <- FALSE
+    
     #treat OK
     
     #treat.list
@@ -2816,11 +2819,12 @@ x2base.default <- function(obj, ...) {
     
     #estimand
     if (is_not_null(estimand)) {
-        if (toupper(attr(estimand, "name")) == "ATT") {
+        estimand.name <- attr(estimand, "name")
+        if (is_not_null(estimand.name) && toupper(estimand.name) == "ATT") {
             if (estimand == 0) estimand <- "ATE"
             else estimand <- "ATT"
         }
-        else if (toupper(attr(estimand, "name")) == "ATE") {
+        else if (is_not_null(estimand.name) && toupper(estimand.name) == "ATE") {
             if (estimand == 0) estimand <- "ATT"
             else estimand <- "ATE"
         }
