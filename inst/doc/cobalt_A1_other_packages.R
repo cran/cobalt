@@ -137,19 +137,19 @@ knitr::opts_chunk$set(eval = TRUE)
 if (!"optweight" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
 
 ## ------------------------------------------------------------------------
-#  library("optweight")
-#  data("lalonde", package = "cobalt")
-#  
-#  #Estimate the weights using optimization
-#  ow.out <- optweight(treat ~ age + educ + married + race + re74 + re75,
-#                      data = lalonde, estimand = "ATE", tols = .01)
-#  
-#  #Note the contents of the output object:
-#  str(ow.out)
-#  
-#  #Use bal.tab() directly on the output
-#  bal.tab(ow.out)
+library("optweight")
+data("lalonde", package = "cobalt")
+
+#Estimate the weights using optimization
+ow.out <- optweight(treat ~ age + educ + married + race + re74 + re75,
+                    data = lalonde, estimand = "ATE", tols = .01)
+
+#Note the contents of the output object:
+names(ow.out)
+
+#Use bal.tab() directly on the output
+bal.tab(ow.out)
 
 ## ---- include=FALSE------------------------------------------------------
-#  knitr::opts_chunk$set(eval = TRUE)
+knitr::opts_chunk$set(eval = TRUE)
 

@@ -1,4 +1,4 @@
-print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", digits = max(3, getOption("digits") - 3), ...) {
+print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", digits = max(3, getOption("digits") - 3), ...) {
     call <- x$call
     balance <- x$Balance
     baltal.r <- x$Balanced.Corr
@@ -11,7 +11,7 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
     maximbal.ks <- x$Max.Imbalance.KS
     nn <- x$Observations
     p.ops <- x$print.options
-  
+    
     #Prevent exponential notation printing
     op <- options(scipen=getOption("scipen"))
     options(scipen = 999)
@@ -31,6 +31,13 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
             warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
         }
         else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
     }
     if (!identical(disp.v.ratio, "as.is")) {
         if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
@@ -99,9 +106,9 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
         }
         if (p.ops$imbalanced.only) {
             if (all(sapply(c(p.ops$m.threshold, 
-                              p.ops$v.threshold, 
-                              p.ops$ks.threshold, 
-                              p.ops$r.threshold), is_null))) {
+                             p.ops$v.threshold, 
+                             p.ops$ks.threshold, 
+                             p.ops$r.threshold), is_null))) {
                 warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
                 p.ops$imbalanced.only <- FALSE
             }
@@ -112,20 +119,24 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
     
     if ("bal.tab.cont" %in% class(x)) {
         keep <- setNames(as.logical(c(TRUE, 
-                             p.ops$un && p.ops$disp.means, 
-                             p.ops$un, 
-                             p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$r.threshold), 
-                             rep(c(p.ops$disp.adj && p.ops$disp.means,
-                                   p.ops$disp.adj, 
-                                   p.ops$disp.adj && is_not_null(p.ops$r.threshold)), 
-                                 p.ops$nweights + !p.ops$disp.adj))),
+                                      p.ops$un && p.ops$disp.means,
+                                      p.ops$un && p.ops$disp.sds,
+                                      p.ops$un, 
+                                      p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$r.threshold), 
+                                      rep(c(p.ops$disp.adj && p.ops$disp.means,
+                                            p.ops$disp.adj && p.ops$disp.sds,
+                                            p.ops$disp.adj, 
+                                            p.ops$disp.adj && is_not_null(p.ops$r.threshold)), 
+                                          p.ops$nweights + !p.ops$disp.adj))),
                          names(balance))
         
     }
     else {
         keep <- setNames(as.logical(c(TRUE, 
                                       p.ops$un && p.ops$disp.means, 
+                                      p.ops$un && p.ops$disp.sds, 
                                       p.ops$un && p.ops$disp.means, 
+                                      p.ops$un && p.ops$disp.sds, 
                                       p.ops$un, 
                                       p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$m.threshold),
                                       p.ops$un && p.ops$disp.v.ratio, 
@@ -133,7 +144,9 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
                                       p.ops$un && p.ops$disp.ks, 
                                       p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$ks.threshold),
                                       rep(c(p.ops$disp.adj && p.ops$disp.means, 
+                                            p.ops$disp.adj && p.ops$disp.sds, 
                                             p.ops$disp.adj && p.ops$disp.means, 
+                                            p.ops$disp.adj && p.ops$disp.sds, 
                                             p.ops$disp.adj, 
                                             p.ops$disp.adj && is_not_null(p.ops$m.threshold), 
                                             p.ops$disp.adj && p.ops$disp.v.ratio, 
@@ -201,9 +214,9 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
     }
     if (is_not_null(nn)) {
         for (i in rownames(x$Observations)) {
-            if (all(x$Observations[i,] == 0)) x$Observations <- x$Observations[rownames(x$Observations)!=i,]
+            if (all(x$Observations[i,] == 0)) x$Observations <- x$Observations[rownames(x$Observations)!=i, , drop = FALSE]
         }
-        if (!is.na(x$Observations["Matched (Unweighted)",]) && all(x$Observations["Matched",] == x$Observations["Matched (Unweighted)",])) x$Observations <- x$Observations[rownames(x$Observations)!="Matched (Unweighted)",]
+        if (!is.na(x$Observations["Matched (Unweighted)",]) && all(x$Observations["Matched",] == x$Observations["Matched (Unweighted)",])) x$Observations <- x$Observations[rownames(x$Observations)!="Matched (Unweighted)", , drop = FALSE]
         cat(underline(attr(x$Observations, "tag")) %+% "\n")
         print.warning <- FALSE
         if (length(attr(x$Observations, "ss.type")) > 1 && nunique.gt(attr(x$Observations, "ss.type")[-1], 1)) {
@@ -216,7 +229,7 @@ print.bal.tab <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.
     }
     invisible(x)
 }
-print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", disp.subclass = "as.is", digits = max(3, getOption("digits") - 3), ...) {
+print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", disp.subclass = "as.is", digits = max(3, getOption("digits") - 3), ...) {
     call <- x$call
     s.balance <- x$Subclass.Balance
     b.a.subclass <- x$Balance.Across.Subclass
@@ -231,7 +244,7 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
     s.nn <- x$Subclass.Observations
     p.ops <- x$print.options
     
-    #Prevent expnential notation printing
+    #Prevent exponential notation printing
     op <- options(scipen=getOption("scipen"))
     options(scipen = 999)
     on.exit(options(op))
@@ -250,6 +263,13 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
             warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
         }
         else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
     }
     if (!identical(disp.v.ratio, "as.is")) {
         if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
@@ -318,9 +338,9 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
         }
         if (p.ops$imbalanced.only) {
             if (all(sapply(c(p.ops$m.threshold, 
-                              p.ops$v.threshold, 
-                              p.ops$ks.threshold, 
-                              p.ops$r.threshold), is_null))) {
+                             p.ops$v.threshold, 
+                             p.ops$ks.threshold, 
+                             p.ops$r.threshold), is_null))) {
                 warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
                 p.ops$imbalanced.only <- FALSE
             }
@@ -342,13 +362,16 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
             if ("bal.tab.cont" %in% class(x)) {
                 s.keep <- as.logical(c(TRUE, 
                                        p.ops$disp.means, 
+                                       p.ops$disp.sds, 
                                        p.ops$disp.adj, 
                                        is_not_null(p.ops$r.threshold)))
             }
             else {
                 s.keep <- as.logical(c(TRUE, 
                                        p.ops$disp.means, 
+                                       p.ops$disp.sds, 
                                        p.ops$disp.means, 
+                                       p.ops$disp.sds, 
                                        p.ops$disp.adj, 
                                        is_not_null(p.ops$m.threshold), 
                                        p.ops$disp.adj  &&  p.ops$disp.v.ratio, 
@@ -375,7 +398,9 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
             else keep.row <- rep(TRUE, nrow(b.a.subclass))
             a.s.keep <- as.logical(c(TRUE, 
                                      p.ops$un && p.ops$disp.means, 
+                                     p.ops$un && p.ops$disp.sds, 
                                      p.ops$un && p.ops$disp.means, 
+                                     p.ops$un && p.ops$disp.sds,
                                      p.ops$un, 
                                      p.ops$un && p.ops$disp.v.ratio,
                                      p.ops$un && p.ops$disp.ks,
@@ -436,7 +461,7 @@ print.bal.tab.subclass <- function(x, disp.m.threshold = "as.is", disp.v.thresho
     
     invisible(x)
 }
-print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.cluster, cluster.summary = "as.is", cluster.fun = NULL, digits = max(3, getOption("digits") - 3), ...) {
+print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.cluster, cluster.summary = "as.is", cluster.fun = "as.is", digits = max(3, getOption("digits") - 3), ...) {
     #Figure out how to print bal.tab for clusters with multinomial
     call <- x$call
     c.balance <- x$Cluster.Balance
@@ -444,7 +469,7 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
     nn <- x$Observations
     p.ops <- x$print.options
     
-    #Prevent expnential notation printing
+    #Prevent exponential notation printing
     op <- options(scipen=getOption("scipen"))
     options(scipen = 999)
     on.exit(options(op))
@@ -463,6 +488,13 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
             warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
         }
         else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
     }
     if (!identical(disp.v.ratio, "as.is")) {
         if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
@@ -534,9 +566,9 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
         }
         if (p.ops$imbalanced.only) {
             if (all(sapply(c(p.ops$m.threshold, 
-                              p.ops$v.threshold, 
-                              p.ops$ks.threshold, 
-                              p.ops$r.threshold), is_null))) {
+                             p.ops$v.threshold, 
+                             p.ops$ks.threshold, 
+                             p.ops$r.threshold), is_null))) {
                 warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
                 p.ops$imbalanced.only <- FALSE
             }
@@ -544,35 +576,26 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
     }
     else p.ops$imbalanced.only <- FALSE
     
-    if (!missing(which.cluster)) {
+    if (!missing(which.cluster) && !identical(which.cluster, "as.is")) {
         p.ops$which.cluster <- which.cluster
     }
     
-    cluster.funs <- c("min", "mean", 
-                      #"median", 
-                      "max")
-    if (is_not_null(cluster.fun)) {
-        cluster.fun <- match.arg(tolower(cluster.fun), cluster.funs, several.ok = TRUE)
-        # if (!is.na(match("min", cluster.fun)) && p.ops$quick) {
-        #     cluster.fun <- cluster.fun[is.na(match(cluster.fun, "min"))]
-        #     if (is_null(cluster.fun)) {
-        #         warning("\"min\" was the only valid entry to cluster.fun, but it cannot be used when quick = TRUE in the call to bal.tab(). Using all other cluster.funs instead.", call. = FALSE)
-        #         cluster.fun <- c("mean", "median", "max")
-        #     }
-        #     else warning("\"min\" cannot be requested when quick = TRUE in the call to bal.tab(), so it was ignored.", call. = FALSE)
-        # }
-        # else if VVV
-        if (is_null(cluster.fun)) {
-            warning("There were no valid entries to cluster.fun. Using all other cluster.funs instead.", call. = FALSE)
-            #cluster.fun <- c("mean", "median", "max")
-            if (p.ops$abs) cluster.fun <- c("mean", "max")
-            else cluster.fun <- c("min", "mean", "max")
+    cluster.funs <- c("min", "mean", "max")
+    if (!identical(cluster.fun, "as.is")) {
+        p.ops$cluster.fun <- cluster.fun
+    }
+    if (is_not_null(p.ops$cluster.fun)) {
+        if (!is.character(p.ops$cluster.fun)) stop(paste0("cluster.fun must be ", word.list(c(cluster.funs, "as.is"), and.or = "or", quotes = TRUE)))
+        p.ops$cluster.fun <- match.arg(tolower(p.ops$cluster.fun), cluster.funs, several.ok = TRUE)
+        if (is_null(p.ops$cluster.fun)) {
+            warning("There were no valid entries to cluster.fun. Using the default cluster.funs instead.", call. = FALSE)
+            if (p.ops$abs) p.ops$cluster.fun <- c("mean", "max")
+            else p.ops$cluster.fun <- c("min", "mean", "max")
         }
     }
     else {
-        #cluster.fun <- c("mean", "median", "max")
-        if (p.ops$abs) cluster.fun <- c("mean", "max")
-        else cluster.fun <- c("min", "mean", "max")
+        if (p.ops$abs) p.ops$cluster.fun <- c("mean", "max")
+        else p.ops$cluster.fun <- c("min", "mean", "max")
     }
     
     #Checks and Adjustments
@@ -608,14 +631,20 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
     
     if ("bal.tab.cont.cluster" %in% class(x)) {
         keep <- as.logical(c(TRUE, 
+                             p.ops$un && p.ops$disp.means, 
+                             p.ops$un && p.ops$disp.sds, 
                              p.ops$un, 
                              rep(c(p.ops$disp.adj, 
+                                   p.ops$disp.adj && p.ops$disp.means,
+                                   p.ops$disp.adj && p.ops$disp.sds,
                                    is_not_null(p.ops$r.threshold)), p.ops$nweights)))
     }
     else {
         keep <- as.logical(c(TRUE, 
                              p.ops$un && p.ops$disp.means, 
+                             p.ops$un && p.ops$disp.sds, 
                              p.ops$un && p.ops$disp.means, 
+                             p.ops$un && p.ops$disp.sds, 
                              p.ops$un, 
                              p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$m.threshold),
                              p.ops$un && p.ops$disp.v.ratio, 
@@ -623,7 +652,9 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
                              p.ops$un && p.ops$disp.ks, 
                              p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$ks.threshold), 
                              rep(c(p.ops$disp.adj && p.ops$disp.means, 
+                                   p.ops$disp.adj && p.ops$disp.sds, 
                                    p.ops$disp.adj && p.ops$disp.means, 
+                                   p.ops$disp.adj && p.ops$disp.sds, 
                                    p.ops$disp.adj, 
                                    p.ops$disp.adj && is_not_null(p.ops$m.threshold), 
                                    p.ops$disp.adj && p.ops$disp.v.ratio, 
@@ -659,7 +690,7 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
             print.warning <- FALSE
             if (length(attr(c.balance[[i]][["Observations"]], "ss.type")) > 1 && nunique.gt(attr(c.balance[[i]][["Observations"]], "ss.type")[-1], 1)) {
                 ess <- ifelse(attr(c.balance[[i]][["Observations"]], "ss.type") == "ess", "*", "")
-                xc.balance[[i]][["Observations"]] <- setNames(cbind(c.balance[[i]][["Observations"]], ess), c(names(c.balance[[i]][["Observations"]]), ""))
+                c.balance[[i]][["Observations"]] <- setNames(cbind(c.balance[[i]][["Observations"]], ess), c(names(c.balance[[i]][["Observations"]]), ""))
                 print.warning <- TRUE
             }
             print.data.frame_(round_df_char(c.balance[[i]][["Observations"]], digits))
@@ -671,44 +702,35 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
     }
     
     if (isTRUE(as.logical(p.ops$cluster.summary)) && is_not_null(c.balance.summary)) {
-        CF <- !is.na(match(cluster.funs, cluster.fun))
-        names(CF) <- cluster.funs
+        CF <- setNames(cluster.funs %in% p.ops$cluster.fun, cluster.funs)
         if ("bal.tab.cont.cluster" %in% class(x)) {
             s.keep <- as.logical(c(TRUE, 
                                    p.ops$un && CF["min"],
                                    p.ops$un && CF["mean"],
-                                   #p.ops$un && CF["median"],
                                    p.ops$un && CF["max"],
                                    rep(c(p.ops$disp.adj && CF["min"],
                                          p.ops$disp.adj && CF["mean"],
-                                         #p.ops$disp.adj && CF["median"],
                                          p.ops$disp.adj && CF["max"]), p.ops$nweights + !p.ops$disp.adj)))
         }
         else {
             s.keep <- as.logical(c(TRUE, 
                                    p.ops$un && CF["min"],
                                    p.ops$un && CF["mean"],
-                                   #p.ops$un && CF["median"],
                                    p.ops$un && CF["max"],
                                    p.ops$un && p.ops$disp.v.ratio && CF["min"],
                                    p.ops$un && p.ops$disp.v.ratio && CF["mean"],
-                                   #p.ops$un && p.ops$disp.v.ratio && CF["median"],
                                    p.ops$un && p.ops$disp.v.ratio && CF["max"],
                                    p.ops$un && p.ops$disp.ks && CF["min"],
                                    p.ops$un && p.ops$disp.ks && CF["mean"],
-                                   #p.ops$un && p.ops$disp.ks && CF["median"],
                                    p.ops$un && p.ops$disp.ks && CF["max"],
                                    rep(c(p.ops$disp.adj && CF["min"],
                                          p.ops$disp.adj && CF["mean"],
-                                         #p.ops$disp.adj && CF["median"],
                                          p.ops$disp.adj && CF["max"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && CF["min"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && CF["mean"],
-                                         #p.ops$disp.adj && p.ops$disp.v.ratio && CF["median"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && CF["max"],
                                          p.ops$disp.adj && p.ops$disp.ks && CF["min"],
                                          p.ops$disp.adj && p.ops$disp.ks && CF["mean"],
-                                         #p.ops$disp.adj && p.ops$disp.ks && CF["median"],
                                          p.ops$disp.adj && p.ops$disp.ks && CF["max"]), p.ops$nweights + !p.ops$disp.adj)))
         }
         if (p.ops$disp.bal.tab) {
@@ -736,7 +758,7 @@ print.bal.tab.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshol
     
     invisible(x)
 }
-print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.imp, imp.summary = "as.is", imp.fun = NULL, digits = max(3, getOption("digits") - 3), ...) {
+print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.imp, imp.summary = "as.is", imp.fun = "as.is", digits = max(3, getOption("digits") - 3), ...) {
     args <- c(as.list(environment()), list(...))[-1]
     
     call <- x$call
@@ -745,7 +767,7 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     nn <- x$Observations
     p.ops <- x$print.options
     
-    #Prevent expnential notation printing
+    #Prevent exponential notation printing
     op <- options(scipen=getOption("scipen"))
     options(scipen = 999)
     on.exit(options(op))
@@ -764,6 +786,13 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
             warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
         }
         else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
     }
     if (!identical(disp.v.ratio, "as.is")) {
         if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
@@ -835,9 +864,9 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
         }
         if (p.ops$imbalanced.only) {
             if (all(sapply(c(p.ops$m.threshold, 
-                              p.ops$v.threshold, 
-                              p.ops$ks.threshold, 
-                              p.ops$r.threshold), is_null))) {
+                             p.ops$v.threshold, 
+                             p.ops$ks.threshold, 
+                             p.ops$r.threshold), is_null))) {
                 warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
                 p.ops$imbalanced.only <- FALSE
             }
@@ -845,40 +874,26 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     }
     else p.ops$imbalanced.only <- FALSE
     
-    # if (p.ops$imbalanced.only) {
-    #     keep.row <- rowSums(apply(balance[grepl(".Threshold", names(balance), fixed = TRUE)], 2, function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
-    # }
-    # else keep.row <- rep(TRUE, nrow(balance))
-    
-    if (!missing(which.imp) && which.imp != "as.is") {
+    if (!missing(which.imp) && !identical(which.imp, "as.is")) {
         p.ops$which.imp <- which.imp
     }
     
-    imp.funs <- c("min", "mean", 
-                  #"median", 
-                  "max")
-    if (is_not_null(imp.fun)) {
-        imp.fun <- match.arg(tolower(imp.fun), imp.funs, several.ok = TRUE)
-        # if (!is.na(match("min", imp.fun)) && p.ops$quick) {
-        #     imp.fun <- imp.fun[is.na(match(imp.fun, "min"))]
-        #     if (is_null(imp.fun)) {
-        #         warning("\"min\" was the only valid entry to imp.fun, but it cannot be used when quick = TRUE in the call to bal.tab(). Using all other imp.funs instead.", call. = FALSE)
-        #         imp.fun <- c("mean", "median", "max")
-        #     }
-        #     else warning("\"min\" cannot be requested when quick = TRUE in the call to bal.tab(), so it was ignored.", call. = FALSE)
-        # }
-        # else if VVV
-        if (is_null(imp.fun)) {
-            warning("There were no valid entries to imp.fun Using all other imp.funs instead.", call. = FALSE)
-            #imp.fun <- c("mean", "median", "max")
-            if (p.ops$abs) imp.fun <- c("mean", "max")
-            else imp.fun <- c("min", "mean", "max")
+    imp.funs <- c("min", "mean", "max")
+    if (!identical(imp.fun, "as.is")) {
+        p.ops$imp.fun <- imp.fun
+    }
+    if (is_not_null(p.ops$imp.fun)) {
+        if (!is.character(p.ops$imp.fun)) stop(paste0("imp.fun must be ", word.list(c(imp.funs, "as.is"), and.or = "or", quotes = TRUE)))
+        p.ops$imp.fun <- match.arg(tolower(p.ops$imp.fun), imp.funs, several.ok = TRUE)
+        if (is_null(p.ops$imp.fun)) {
+            warning("There were no valid entries to imp.fun. Using the default imp.funs instead.", call. = FALSE)
+            if (p.ops$abs) p.ops$imp.fun <- c("mean", "max")
+            else p.ops$imp.fun <- c("min", "mean", "max")
         }
     }
     else {
-        #imp.fun <- c("mean", "median", "max")
-        if (p.ops$abs) imp.fun <- c("mean", "max")
-        else imp.fun <- c("min", "mean", "max")
+        if (p.ops$abs) p.ops$imp.fun <- c("mean", "max")
+        else p.ops$imp.fun <- c("min", "mean", "max")
     }
     
     #Checks and Adjustments
@@ -924,50 +939,41 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     }
     
     if (isTRUE(as.logical(p.ops$imp.summary)) && is_not_null(i.balance.summary)) {
-        IF <- !is.na(match(imp.funs, imp.fun))
-        names(IF) <- imp.funs
+        IF <- setNames(imp.funs %in% p.ops$imp.fun, imp.funs)
         if ("bal.tab.cont" %in% class(x)) { #continuous
             s.keep <- as.logical(c(TRUE, 
                                    p.ops$un && IF["min"],
                                    p.ops$un && IF["mean"],
-                                   #p.ops$un && IF["median"],
                                    p.ops$un && IF["max"],
                                    rep(c(p.ops$disp.adj && IF["min"],
                                          p.ops$disp.adj && IF["mean"],
-                                         #p.ops$disp.adj && IF["median"],
                                          p.ops$disp.adj && IF["max"]), p.ops$nweights + !p.ops$disp.adj)))
         }
         else { #binary
             s.keep <- as.logical(c(TRUE, 
                                    p.ops$un && IF["min"],
                                    p.ops$un && IF["mean"],
-                                   #p.ops$un && IF["median"],
                                    p.ops$un && IF["max"],
                                    p.ops$un && p.ops$disp.v.ratio && IF["min"],
                                    p.ops$un && p.ops$disp.v.ratio && IF["mean"],
-                                   #p.ops$un && p.ops$disp.v.ratio && IF["median"],
                                    p.ops$un && p.ops$disp.v.ratio && IF["max"],
                                    p.ops$un && p.ops$disp.ks && IF["min"],
                                    p.ops$un && p.ops$disp.ks && IF["mean"],
-                                   #p.ops$un && p.ops$disp.ks && IF["median"],
                                    p.ops$un && p.ops$disp.ks && IF["max"],
                                    rep(c(p.ops$disp.adj && IF["min"],
                                          p.ops$disp.adj && IF["mean"],
-                                         #p.ops$disp.adj && IF["median"],
                                          p.ops$disp.adj && IF["max"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && IF["min"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && IF["mean"],
-                                         #p.ops$disp.adj && p.ops$disp.v.ratio && IF["median"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && IF["max"],
                                          p.ops$disp.adj && p.ops$disp.ks && IF["min"],
                                          p.ops$disp.adj && p.ops$disp.ks && IF["mean"],
-                                         #p.ops$disp.adj && p.ops$disp.ks && IF["median"],
                                          p.ops$disp.adj && p.ops$disp.ks && IF["max"]), p.ops$nweights + !p.ops$disp.adj)))
         }
         
         if (p.ops$disp.bal.tab) {
             cat(underline("Balance summary across all imputations") %+% "\n")
-            print.data.frame_(round_df_char(i.balance.summary[, s.keep], digits))
+            print.data.frame_(round_df_char(i.balance.summary[, s.keep, drop = FALSE], digits))
             cat("\n")
         }
         
@@ -991,7 +997,7 @@ print.bal.tab.imp <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     invisible(x)
     
 }
-print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.cluster, cluster.summary = "as.is", cluster.fun = NULL, which.imp, imp.summary = "as.is", imp.fun = NULL, digits = max(3, getOption("digits") - 3), ...) {
+print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.cluster, cluster.summary = "as.is", cluster.fun = "as.is", which.imp, imp.summary = "as.is", imp.fun = "as.is", digits = max(3, getOption("digits") - 3), ...) {
     args <- c(as.list(environment()), list(...))[-1]
     
     call <- x$call
@@ -1001,7 +1007,7 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
     nn <- x$Observations
     p.ops <- x$print.options
     
-    #Prevent expnential notation printing
+    #Prevent exponential notation printing
     op <- options(scipen=getOption("scipen"))
     options(scipen = 999)
     on.exit(options(op))
@@ -1020,6 +1026,13 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
             warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
         }
         else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
     }
     if (!identical(disp.v.ratio, "as.is")) {
         if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
@@ -1098,53 +1111,39 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
         }
         if (p.ops$imbalanced.only) {
             if (all(sapply(c(p.ops$m.threshold, 
-                              p.ops$v.threshold, 
-                              p.ops$ks.threshold, 
-                              p.ops$r.threshold), is_null))) {
+                             p.ops$v.threshold, 
+                             p.ops$ks.threshold, 
+                             p.ops$r.threshold), is_null))) {
                 warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
                 p.ops$imbalanced.only <- FALSE
             }
         }
     }
     else p.ops$imbalanced.only <- FALSE
-     
-    # if (p.ops$imbalanced.only) {
-    #     keep.row <- rowSums(apply(balance[grepl(".Threshold", names(balance), fixed = TRUE)], 2, function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
-    # }
-    # else keep.row <- rep(TRUE, nrow(balance))
     
-    if (!missing(which.imp) && which.imp != "as.is") {
+    if (!missing(which.imp) && !identical(which.imp, "as.is")) {
         p.ops$which.imp <- which.imp
     }
-    if (!missing(which.cluster)) {
+    if (!missing(which.cluster) && !identical(which.cluster, "as.is")) {
         p.ops$which.cluster <- which.cluster
     }
     
-    cluster.funs <- c("min", "mean", 
-                      #"median", 
-                      "max")
-    if (is_not_null(cluster.fun)) {
-        cluster.fun <- match.arg(tolower(cluster.fun), cluster.funs, several.ok = TRUE)
-        # if (!is.na(match("min", cluster.fun)) && p.ops$quick) {
-        #     cluster.fun <- cluster.fun[is.na(match(cluster.fun, "min"))]
-        #     if (is_null(cluster.fun)) {
-        #         warning("\"min\" was the only valid entry to cluster.fun, but it cannot be used when quick = TRUE in the call to bal.tab(). Using all other cluster.funs instead.", call. = FALSE)
-        #         cluster.fun <- c("mean", "median", "max")
-        #     }
-        #     else warning("\"min\" cannot be requested when quick = TRUE in the call to bal.tab(), so it was ignored.", call. = FALSE)
-        # }
-        # else if VVV
-        if (is_null(cluster.fun)) {
-            warning("There were no valid entries to cluster.fun. Using all other cluster.funs instead.", call. = FALSE)
-            #cluster.fun <- c("mean", "median", "max")
-            if (p.ops$abs) cluster.fun <- c("mean", "max")
-            else cluster.fun <- c("min", "mean", "max")
+    cluster.funs <- c("min", "mean", "max")
+    if (!identical(cluster.fun, "as.is")) {
+        p.ops$cluster.fun <- cluster.fun
+    }
+    if (is_not_null(p.ops$cluster.fun)) {
+        if (!is.character(p.ops$cluster.fun)) stop(paste0("cluster.fun must be ", word.list(c(cluster.funs, "as.is"), and.or = "or", quotes = TRUE)))
+        p.ops$cluster.fun <- match.arg(tolower(p.ops$cluster.fun), cluster.funs, several.ok = TRUE)
+        if (is_null(p.ops$cluster.fun)) {
+            warning("There were no valid entries to cluster.fun. Using the default cluster.funs instead.", call. = FALSE)
+            if (p.ops$abs) p.ops$cluster.fun <- c("mean", "max")
+            else p.ops$cluster.fun <- c("min", "mean", "max")
         }
     }
     else {
-        #cluster.fun <- c("mean", "median", "max")
-        if (p.ops$abs) cluster.fun <- c("mean", "max")
-        else cluster.fun <- c("min", "mean", "max")
+        if (p.ops$abs) p.ops$cluster.fun <- c("mean", "max")
+        else p.ops$cluster.fun <- c("min", "mean", "max")
     }
     
     if (is_null(p.ops$which.cluster)) 
@@ -1177,31 +1176,22 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
         warning("No summary across clusters was produced. This can occur if cluster.summary is FALSE and quick is TRUE.", call. = FALSE)
     }
     
-    imp.funs <- c("min", "mean", 
-                  #"median", 
-                  "max")
-    if (is_not_null(imp.fun)) {
-        imp.fun <- match.arg(tolower(imp.fun), imp.funs, several.ok = TRUE)
-        # if (!is.na(match("min", imp.fun)) && p.ops$quick) {
-        #     imp.fun <- imp.fun[is.na(match(imp.fun, "min"))]
-        #     if (is_null(imp.fun)) {
-        #         warning("\"min\" was the only valid entry to imp.fun, but it cannot be used when quick = TRUE in the call to bal.tab(). Using all other imp.funs instead.", call. = FALSE)
-        #         imp.fun <- c("mean", "median", "max")
-        #     }
-        #     else warning("\"min\" cannot be requested when quick = TRUE in the call to bal.tab(), so it was ignored.", call. = FALSE)
-        # }
-        # else if VVV
-        if (is_null(imp.fun)) {
-            warning("There were no valid entries to imp.fun Using all other imp.funs instead.", call. = FALSE)
-            # imp.fun <- c("mean", "median", "max")
-            if (p.ops$abs) imp.fun <- c("mean", "max")
-            else imp.fun <- c("min", "mean", "max")
+    imp.funs <- c("min", "mean", "max")
+    if (!identical(imp.fun, "as.is")) {
+        p.ops$imp.fun <- imp.fun
+    }
+    if (is_not_null(p.ops$imp.fun)) {
+        if (!is.character(p.ops$imp.fun)) stop(paste0("imp.fun must be ", word.list(c(imp.funs, "as.is"), and.or = "or", quotes = TRUE)))
+        p.ops$imp.fun <- match.arg(tolower(p.ops$imp.fun), imp.funs, several.ok = TRUE)
+        if (is_null(p.ops$imp.fun)) {
+            warning("There were no valid entries to imp.fun. Using the default imp.funs instead.", call. = FALSE)
+            if (p.ops$abs) p.ops$imp.fun <- c("mean", "max")
+            else p.ops$imp.fun <- c("min", "mean", "max")
         }
     }
     else {
-        # imp.fun <- c("mean", "median", "max")
-        if (p.ops$abs) imp.fun <- c("mean", "max")
-        else imp.fun <- c("min", "mean", "max")
+        if (p.ops$abs) p.ops$imp.fun <- c("mean", "max")
+        else p.ops$imp.fun <- c("min", "mean", "max")
     }
     
     if (is_null(p.ops$which.imp)) 
@@ -1246,44 +1236,35 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
     }
     
     if (isTRUE(as.logical(p.ops$imp.summary)) && is_not_null(i.balance.summary)) {
-        IF <- !is.na(match(imp.funs, imp.fun))
-        names(IF) <- imp.funs
+        IF <- setNames(imp.funs %in% p.ops$imp.fun, imp.funs)
         if ("bal.tab.cont" %in% class(x)) {
             s.keep <- as.logical(c(TRUE, 
                                    p.ops$un && IF["min"],
                                    p.ops$un && IF["mean"],
-                                   #p.ops$un && IF["median"],
                                    p.ops$un && IF["max"],
                                    rep(c(p.ops$disp.adj && IF["min"],
                                          p.ops$disp.adj && IF["mean"],
-                                         #p.ops$disp.adj && IF["median"],
                                          p.ops$disp.adj && IF["max"]), p.ops$nweights + !p.ops$disp.adj)))
         }
         else {
             s.keep <- as.logical(c(TRUE, 
                                    p.ops$un && IF["min"],
                                    p.ops$un && IF["mean"],
-                                   #p.ops$un && IF["median"],
                                    p.ops$un && IF["max"],
                                    p.ops$un && p.ops$disp.v.ratio && IF["min"],
                                    p.ops$un && p.ops$disp.v.ratio && IF["mean"],
-                                   #p.ops$un && p.ops$disp.v.ratio && IF["median"],
                                    p.ops$un && p.ops$disp.v.ratio && IF["max"],
                                    p.ops$un && p.ops$disp.ks && IF["min"],
                                    p.ops$un && p.ops$disp.ks && IF["mean"],
-                                   #p.ops$un && p.ops$disp.ks && IF["median"],
                                    p.ops$un && p.ops$disp.ks && IF["max"],
                                    rep(c(p.ops$disp.adj && IF["min"],
                                          p.ops$disp.adj && IF["mean"],
-                                         #p.ops$disp.adj && IF["median"],
                                          p.ops$disp.adj && IF["max"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && IF["min"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && IF["mean"],
-                                         #p.ops$disp.adj && p.ops$disp.v.ratio && IF["median"],
                                          p.ops$disp.adj && p.ops$disp.v.ratio && IF["max"],
                                          p.ops$disp.adj && p.ops$disp.ks && IF["min"],
                                          p.ops$disp.adj && p.ops$disp.ks && IF["mean"],
-                                         #p.ops$disp.adj && p.ops$disp.ks && IF["median"],
                                          p.ops$disp.adj && p.ops$disp.ks && IF["max"]), p.ops$nweights + !p.ops$disp.adj)))
         }
         
@@ -1314,9 +1295,9 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
         }
         
         if (p.ops$disp.bal.tab) {
-        cat(underline("Balance summary across all imputations and clusters") %+% "\n")
-        print.data.frame_(round_df_char(i.balance.summary[, s.keep], digits))
-        cat("\n")
+            cat(underline("Balance summary across all imputations and clusters") %+% "\n")
+            print.data.frame_(round_df_char(i.balance.summary[, s.keep], digits))
+            cat("\n")
         }
         
         if (is_not_null(nn)) {
@@ -1338,7 +1319,7 @@ print.bal.tab.imp.cluster <- function(x, disp.m.threshold = "as.is", disp.v.thre
     invisible(x)
     
 }
-print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.treat, multi.summary = "as.is", digits = max(3, getOption("digits") - 3), ...) {
+print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.treat, multi.summary = "as.is", digits = max(3, getOption("digits") - 3), ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -1348,7 +1329,7 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
     nn <- x$Observations
     p.ops <- x$print.options
     
-    #Prevent expnential notation printing
+    #Prevent exponential notation printing
     op <- options(scipen=getOption("scipen"))
     options(scipen = 999)
     on.exit(options(op))
@@ -1367,6 +1348,13 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
             warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
         }
         else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
     }
     if (!identical(disp.v.ratio, "as.is")) {
         if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
@@ -1425,27 +1413,29 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
         if (!is.logical(disp.bal.tab)) stop("disp.bal.tab must be TRUE, FALSE, or \"as.is\"")
         p.ops$disp.bal.tab <- disp.bal.tab
     }
-    if (p.ops$disp.bal.tab) {
-        if (!identical(imbalanced.only, "as.is")) {
-            if (!is.logical(imbalanced.only)) stop("imbalanced.only must be TRUE, FALSE, or \"as.is\"")
-            p.ops$imbalanced.only <- imbalanced.only
-        }
-        if (p.ops$imbalanced.only) {
-            if (all(sapply(c(p.ops$m.threshold, 
-                              p.ops$v.threshold, 
-                              p.ops$ks.threshold, 
-                              p.ops$r.threshold), is_null))) {
-                warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
-                p.ops$imbalanced.only <- FALSE
+    if (is_not_null(m.balance.summary)) {
+        if (p.ops$disp.bal.tab) {
+            if (!identical(imbalanced.only, "as.is")) {
+                if (!is.logical(imbalanced.only)) stop("imbalanced.only must be TRUE, FALSE, or \"as.is\"")
+                p.ops$imbalanced.only <- imbalanced.only
+            }
+            if (p.ops$imbalanced.only) {
+                if (all(sapply(c(p.ops$m.threshold, 
+                                 p.ops$v.threshold, 
+                                 p.ops$ks.threshold, 
+                                 p.ops$r.threshold), is_null))) {
+                    warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
+                    p.ops$imbalanced.only <- FALSE
+                }
             }
         }
+        else p.ops$imbalanced.only <- FALSE
+        
+        if (p.ops$imbalanced.only) {
+            keep.row <- rowSums(apply(m.balance.summary[grepl(".Threshold", names(m.balance.summary), fixed = TRUE)], 2, function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
+        }
+        else keep.row <- rep(TRUE, nrow(m.balance.summary))
     }
-    else p.ops$imbalanced.only <- FALSE
-    
-    if (p.ops$imbalanced.only) {
-        keep.row <- rowSums(apply(m.balance.summary[grepl(".Threshold", names(m.balance.summary), fixed = TRUE)], 2, function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
-    }
-    else keep.row <- rep(TRUE, nrow(m.balance.summary))
     
     if (!missing(which.treat)) {
         p.ops$which.treat <- which.treat
@@ -1521,7 +1511,7 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
         else cat(underline("Balance by treatment group") %+% "\n")
         for (i in disp.treat.pairs) {
             headings[i] <- "\n - - - " %+% italic(m.balance[[i]]$print.options$treat.names[1] %+% " (0) vs. " %+%
-                                  m.balance[[i]]$print.options$treat.names[2] %+% " (1)") %+% " - - - \n"
+                                                      m.balance[[i]]$print.options$treat.names[2] %+% " (1)") %+% " - - - \n"
             cat(headings[i])
             do.call(print, c(list(m.balance[[i]]), args))
         }
@@ -1545,9 +1535,9 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
                                      p.ops$disp.adj && is_not_null(p.ops$ks.threshold)), p.ops$nweights + !p.ops$disp.adj)))
         
         if (p.ops$disp.bal.tab) {
-        cat(underline("Balance summary across all treatment pairs") %+% "\n")
-        print.data.frame_(round_df_char(m.balance.summary[keep.row, s.keep], digits))
-        cat("\n")
+            cat(underline("Balance summary across all treatment pairs") %+% "\n")
+            print.data.frame_(round_df_char(m.balance.summary[keep.row, s.keep], digits))
+            cat("\n")
         }
         
         if (is_not_null(nn)) {
@@ -1572,7 +1562,7 @@ print.bal.tab.multi <- function(x, disp.m.threshold = "as.is", disp.v.threshold 
     invisible(x)
     
 }
-print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.cluster, cluster.summary = "as.is", cluster.fun = NULL, which.time, msm.summary = "as.is", digits = max(3, getOption("digits") - 3), ...) {
+print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", disp.r.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.cluster, cluster.summary = "as.is", cluster.fun = "as.is", which.time, msm.summary = "as.is", digits = max(3, getOption("digits") - 3), ...) {
     args <- c(as.list(environment()), list(...))[-1]
     args <- args[!sapply(args, function(x) identical(x, quote(expr =)))]
     
@@ -1582,7 +1572,7 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     nn <- x$Observations
     p.ops <- x$print.options
     
-    #Prevent expnential notation printing
+    #Prevent exponential notation printing
     op <- options(scipen=getOption("scipen"))
     options(scipen = 999)
     on.exit(options(op))
@@ -1601,6 +1591,13 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
             warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
         }
         else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
     }
     if (!identical(disp.v.ratio, "as.is")) {
         if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
@@ -1672,9 +1669,9 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
         }
         if (p.ops$imbalanced.only) {
             if (all(sapply(c(p.ops$m.threshold, 
-                              p.ops$v.threshold, 
-                              p.ops$ks.threshold, 
-                              p.ops$r.threshold), is_null))) {
+                             p.ops$v.threshold, 
+                             p.ops$ks.threshold, 
+                             p.ops$r.threshold), is_null))) {
                 warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
                 p.ops$imbalanced.only <- FALSE
             }
@@ -1749,7 +1746,7 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
                                    p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$r.threshold),
                                    rep(c(p.ops$disp.adj, 
                                          p.ops$disp.adj && is_not_null(p.ops$r.threshold) 
-                                         ), p.ops$nweights + !p.ops$disp.adj)))
+                                   ), p.ops$nweights + !p.ops$disp.adj)))
         }
         else { #binary
             s.keep <- as.logical(c(TRUE, 
@@ -1797,4 +1794,227 @@ print.bal.tab.msm <- function(x, disp.m.threshold = "as.is", disp.v.threshold = 
     }
     
     invisible(x)
+}
+print.bal.tab.target <- function(x, disp.m.threshold = "as.is", disp.v.threshold = "as.is", disp.ks.threshold = "as.is", imbalanced.only = "as.is", un = "as.is", disp.bal.tab = "as.is", disp.means = "as.is", disp.sds = "as.is", disp.v.ratio = "as.is", disp.ks = "as.is", which.treat, target.summary = "as.is", digits = max(3, getOption("digits") - 3), ...) {
+    
+    args <- c(as.list(environment()), list(...))[-1]
+    
+    call <- x$call
+    t.balance <- x[["Target.Balance"]]
+    t.balance.summary <- x[["Balance.Across.Treatments"]]
+    nn <- x$Observations
+    p.ops <- x$print.options
+    
+    #Prevent exponential notation printing
+    op <- options(scipen=getOption("scipen"))
+    options(scipen = 999)
+    on.exit(options(op))
+    
+    #Adjustments to print options
+    if (!identical(un, "as.is") && p.ops$disp.adj) {
+        if (!is.logical(un)) stop("un must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$un == FALSE && un == TRUE) {
+            warning("un cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$un <- un
+    }
+    if (!identical(disp.means, "as.is")) {
+        if (!is.logical(disp.means)) stop("disp.means must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.means == FALSE && disp.means == TRUE) {
+            warning("disp.means cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.means <- disp.means
+    }
+    if (!identical(disp.sds, "as.is")) {
+        if (!is.logical(disp.sds)) stop("disp.sds must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.sds == FALSE && disp.sds == TRUE) {
+            warning("disp.sds cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.sds <- disp.sds
+    }
+    if (!identical(disp.v.ratio, "as.is")) {
+        if (!is.logical(disp.v.ratio)) stop("disp.v.ratio must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.v.ratio == FALSE && disp.v.ratio == TRUE) {
+            warning("disp.v.ratio cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.v.ratio <- disp.v.ratio
+    }
+    if (!identical(disp.ks, "as.is")) {
+        if (!is.logical(disp.ks)) stop("disp.ks must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$disp.ks == FALSE && disp.ks == TRUE) {
+            warning("disp.ks cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$disp.ks <- disp.ks
+    }
+    if (!identical(target.summary, "as.is")) {
+        if (!is.logical(target.summary)) stop("target.summary must be TRUE, FALSE, or \"as.is\"")
+        if (p.ops$quick && p.ops$target.summary == FALSE && target.summary == TRUE) {
+            warning("target.summary cannot be set to TRUE if quick = TRUE in the original object.", call. = FALSE)
+        }
+        else p.ops$target.summary <- target.summary
+    }
+    if (!identical(disp.m.threshold, "as.is")) {
+        if (!is.logical(disp.m.threshold)) stop("disp.m.threshold must be FALSE or \"as.is\"")
+        if (is_not_null(p.ops$m.threshold) && !disp.m.threshold) {
+            p.ops$m.threshold <- NULL
+        }
+    }
+    if (!identical(disp.v.threshold, "as.is")) {
+        if (!is.logical(disp.v.threshold)) stop("disp.v.threshold must be FALSE or \"as.is\"")
+        if (is_not_null(p.ops$v.threshold) && !disp.v.threshold) {
+            p.ops$v.threshold <- NULL
+            baltal.v <- NULL
+            maximbal.v <- NULL
+        }
+    }
+    if (is_null(p.ops$disp.v.ratio) || !p.ops$disp.v.ratio) {
+        p.ops$v.threshold <- NULL
+        baltal.v <- NULL
+        maximbal.v <- NULL
+    }
+    if (!identical(disp.ks.threshold, "as.is")) {
+        if (!is.logical(disp.ks.threshold)) stop("disp.ks.threshold must be FALSE or \"as.is\"")
+        if (is_not_null(p.ops$ks.threshold) && !disp.ks.threshold) {
+            p.ops$ks.threshold <- NULL
+            baltal.ks <- NULL
+            maximbal.ks <- NULL
+        }
+    }
+    if (is_null(p.ops$disp.ks) || !p.ops$disp.ks) {
+        p.ops$ks.threshold <- NULL
+        baltal.ks <- NULL
+        maximbal.ks <- NULL
+    }
+    if (!identical(disp.bal.tab, "as.is")) {
+        if (!is.logical(disp.bal.tab)) stop("disp.bal.tab must be TRUE, FALSE, or \"as.is\"")
+        p.ops$disp.bal.tab <- disp.bal.tab
+    }
+    if (is_not_null(t.balance.summary)) {
+        if (p.ops$disp.bal.tab) {
+            if (!identical(imbalanced.only, "as.is")) {
+                if (!is.logical(imbalanced.only)) stop("imbalanced.only must be TRUE, FALSE, or \"as.is\"")
+                p.ops$imbalanced.only <- imbalanced.only
+            }
+            if (p.ops$imbalanced.only) {
+                if (all(sapply(c(p.ops$m.threshold, 
+                                 p.ops$v.threshold, 
+                                 p.ops$ks.threshold, 
+                                 p.ops$r.threshold), is_null))) {
+                    warning("A threshold must be specified if imbalanced.only = TRUE. Displaying all covariates.", call. = FALSE)
+                    p.ops$imbalanced.only <- FALSE
+                }
+            }
+        }
+        else p.ops$imbalanced.only <- FALSE
+        
+        if (p.ops$imbalanced.only) {
+            keep.row <- rowSums(apply(t.balance.summary[grepl(".Threshold", names(t.balance.summary), fixed = TRUE)], 2, function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
+        }
+        else keep.row <- rep(TRUE, nrow(t.balance.summary))
+    }
+    
+    if (!missing(which.treat)) {
+        p.ops$which.treat <- which.treat
+    }
+    
+    #Checks and Adjustments
+    if (is_null(p.ops$which.treat)) 
+        which.treat <- p.ops$treat.names
+    else if (any(is.na(p.ops$which.treat))) {
+        which.treat <- character(0)
+        if (!p.ops$target.summary) message("No treatments will be displayed; displaying the summary across treatments.")
+        p.ops$target.summary <- TRUE
+    }
+    else if (is.numeric(p.ops$which.treat)) {
+        which.treat <- p.ops$treat.names[seq_along(p.ops$treat.names) %in% p.ops$which.treat]
+        if (is_null(which.treat)) {
+            warning("No numbers in which.treat correspond to treatment values. No treatments will be displayed.", call. = FALSE)
+            which.treat <- character(0)
+        }
+    }
+    else if (is.character(p.ops$which.treat)) {
+        which.treat <- p.ops$treat.names[p.ops$treat.names %in% p.ops$which.treat]
+        if (is_null(which.treat)) {
+            warning("No names in which.treat correspond to treatment values. No treatments will be displayed.", call. = FALSE)
+            which.treat <- character(0)
+        }
+    }
+    else {
+        warning("The argument to which.treat must be NA, NULL, or a vector of treatment names or indices. No treatments will be displayed.", call. = FALSE)
+        which.treat <- character(0)
+        if (!p.ops$target.summary) message("No treatments will be displayed; displaying the summary across treatments.")
+        p.ops$target.summary <- TRUE
+    }
+    
+    if (p.ops$target.summary && is_null(t.balance.summary)) {
+        warning("No summary across treatments was produced. This can occur if target.summary is FALSE and quick is TRUE.", call. = FALSE)
+    }
+    
+    if (is_null(which.treat)) {
+        disp.treat.pairs <- character(0)
+    }
+    else {
+        disp.treat.pairs <- names(t.balance)[sapply(names(t.balance), function(x) any(t.balance[[x]]$print.options$treat.names %in% which.treat))]
+    }
+    
+    #Printing output
+    if (is_not_null(call)) {
+        cat(underline("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
+    }
+    
+    if (is_not_null(disp.treat.pairs)) {
+        headings <- setNames(character(length(disp.treat.pairs)), disp.treat.pairs)
+        cat(underline("Target balance by treatment group") %+% "\n")
+        for (i in disp.treat.pairs) {
+            headings[i] <- "\n - - - " %+% italic(t.balance[[i]]$print.options$treat.names[1] %+% " (0) vs. " %+%
+                                                      p.ops$target.name %+% " (1)") %+% " - - - \n"
+            cat(headings[i])
+            do.call(print, c(list(t.balance[[i]]), args))
+        }
+        cat(paste0(paste(rep(" -", round(max(nchar(headings))/2)), collapse = ""), " \n"))
+        cat("\n")
+    }
+    
+    if (isTRUE(as.logical(p.ops$target.summary)) && is_not_null(t.balance.summary)) {
+        s.keep <- as.logical(c(TRUE, 
+                               p.ops$un,
+                               p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$m.threshold),
+                               p.ops$un && p.ops$disp.v.ratio, 
+                               p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$v.threshold), 
+                               p.ops$un && p.ops$disp.ks, 
+                               p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$ks.threshold),
+                               rep(c(p.ops$disp.adj, 
+                                     p.ops$disp.adj && is_not_null(p.ops$m.threshold), 
+                                     p.ops$disp.adj && p.ops$disp.v.ratio, 
+                                     p.ops$disp.adj && is_not_null(p.ops$v.threshold), 
+                                     p.ops$disp.adj && p.ops$disp.ks, 
+                                     p.ops$disp.adj && is_not_null(p.ops$ks.threshold)), p.ops$nweights + !p.ops$disp.adj)))
+        
+        if (p.ops$disp.bal.tab) {
+            cat(underline("Target balance summary across all treatment groups") %+% "\n")
+            print.data.frame_(round_df_char(t.balance.summary[keep.row, s.keep], digits))
+            cat("\n")
+        }
+        
+        if (is_not_null(nn)) {
+            tag <- attr(x$Observations, "tag")
+            ss.type <- attr(x$Observations, "ss.type")
+            for (i in rownames(x$Observations)) {
+                if (all(x$Observations[i,] == 0)) x$Observations <- x$Observations[rownames(x$Observations)!=i,]
+            }
+            if (!is.na(x$Observations["Matched (Unweighted)",]) && all(x$Observations["Matched",] == x$Observations["Matched (Unweighted)",])) x$Observations <- x$Observations[rownames(x$Observations)!="Matched (Unweighted)",]
+            cat(underline(tag) %+% "\n")
+            print.warning <- FALSE
+            if (length(ss.type) > 1 && nunique.gt(ss.type[-1], 1)) {
+                ess <- ifelse(ss.type == "ess", "*", "")
+                x$Observations <- setNames(cbind(x$Observations, ess), c(names(x$Observations), ""))
+                print.warning <- TRUE
+            }
+            print.data.frame_(round_df_char(x$Observations, digits = max(0, digits-1)))
+            if (print.warning) cat(italic("* indicates effective sample size"))
+        }
+    }
+    
+    invisible(x)
+    
 }

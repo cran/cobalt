@@ -1,10 +1,14 @@
 \name{bal.tab.Match}
 \alias{bal.tab.Match}
+\alias{bal.tab.optmatch}
+\alias{bal.tab.ebalance}
+\alias{bal.tab.designmatch}
+
 \title{
-Balance Statistics for Matching Objects
+Balance Statistics for \code{Matching}, \code{optmatch}, \code{ebal}, and \code{designmatch} Objects
 }
 \description{
-Generates balance statistics for \code{Match} objects from \pkg{Matching}.
+Generates balance statistics for output objects from \pkg{Matching}, \pkg{optmatch}, \pkg{ebal}, and \pkg{designmatch}. Note that several arguments that used to be documented here are now documented in \link[=options-display]{display options}. They are still available.
 }
 \usage{
 \method{bal.tab}{Match}(M, 
@@ -15,33 +19,40 @@ Generates balance statistics for \code{Match} objects from \pkg{Matching}.
     int = FALSE, 
     distance = NULL, 
     addl = NULL, 
-    continuous = c("std","raw"), 
-    binary = c("raw", "std"), 
+    continuous = getOption("cobalt_cont", "std"), 
+    binary = getOption("cobalt_bin", "raw"), 
     s.d.denom, 
     m.threshold = NULL, 
     v.threshold = NULL, 
     ks.threshold = NULL, 
-    imbalanced.only = FALSE, 
-    un = FALSE, 
-    disp.bal.tab = TRUE, 
-    disp.means = FALSE, 
-    disp.v.ratio = FALSE, 
-    disp.ks = FALSE, 
     cluster = NULL, 
-    which.cluster = NULL, 
-    cluster.summary = TRUE, 
     abs = FALSE,
     subset = NULL,
     quick = FALSE, 
     ...)
+    
+\method{bal.tab}{optmatch}(optmatch, ...)
+
+\method{bal.tab}{ebalance}(ebal, ...)
+
+\method{bal.tab}{designmatch}(dm, ...)
 }
 
 \arguments{
   \item{M}{
 a \code{Match} object; the output of a call to \code{Match()} from the \pkg{Matching} package.
 }
+  \item{optmatch}{
+an \code{optmatch} object; the output of a call to \code{pairmatch()} or \code{fullmatch()} from the \pkg{optmatch} package. This should be a factor vector containing the matching stratum membership for each unit.
+}
+  \item{ebal}{
+an \code{ebalance} object; the output of a call to \code{ebalance()} or \code{ebalance.trim()} from the \pkg{ebal} package.
+}
+  \item{dm}{
+the output of a call to \code{bmatch()}, \code{nmatch()}, or related wrapper functions from the \pkg{designmatch} package. This should be a list containing the IDs of the matched treated and control units.
+}
   \item{formula}{
-a \code{formula} with the treatment variable as the response and the covariates for which balanace is to be assessed as the predictors. All named variables must be in \code{data}. See Details.
+a \code{formula} with the treatment variable as the response and the covariates for which balance is to be assessed as the predictors. All named variables must be in \code{data}. See Details.
 }
   \item{data}{
 a data frame containing all the variables named in \code{formula}. See Details.
@@ -56,7 +67,7 @@ a data frame of covariate values for which to check balance. See Details.
 \code{logical} or \code{numeric}; whether or not to include powers and 2-way interactions of covariates included in \code{covs} and in \code{addl}. If \code{numeric} and equal to \code{1} or \code{2}, squares of each covariate will be displayed; greater numbers will display corresponding powers up to the provided input (e.g., \code{3} will display squares and cubes of each covariate). 
 }
   \item{distance}{
-Optional; either a vector or data.frame containing distance values (e.g., propensity scores) for each unit or a string containing the name of the distance variable in \code{data}.
+optional; either a vector or data.frame containing distance values (e.g., propensity scores) for each unit or a string containing the name of the distance variable in \code{data}.
 }
   \item{addl}{
 a data frame of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in \code{formula} or \code{covs}. In general, it makes more sense to include all desired variables in \code{formula} or \code{covs} than in \code{addl}. See note in Details for using \code{addl}.
@@ -68,7 +79,7 @@ whether mean differences for continuous variables should be standardized ("std")
 whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed.
 }
   \item{s.d.denom}{
-whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), or the pooled standard deviation ("pooled"), computed as the square root of the mean of the group variances. Abbreviations allowed. If not specified, \code{bal.tab()} will use "treated" if the estimand of the call to \code{Match()} is the ATT, "pooled" if the estimand is the ATE, and "control" if the estimand is the ATC.
+whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), or the pooled standard deviation ("pooled"), computed as the square root of the mean of the group variances. Abbreviations allowed. If not specified, for \code{Match} objects, \code{bal.tab()} will use "treated" if the estimand of the call to \code{Match()} is the ATT, "pooled" if the estimand is the ATE, and "control" if the estimand is the ATC; for \code{optmatch}, \code{ebal}, and \code{designmatch} objects, \code{bal.tab()} will use "treated".
 }
   \item{m.threshold}{
 a numeric value for the threshold for mean differences. .1 is recommended. 
@@ -79,57 +90,33 @@ a numeric value for the threshold for variance ratios. Will automatically conver
   \item{ks.threshold}{
 a numeric value for the threshold for Kolmogorov-Smirnov statistics. Must be between 0 and 1. 
 }
-  \item{imbalanced.only}{
-\code{logical}; whether to display only the covariates that failed to meet at least one of balance thresholds.
-}
-  \item{un}{
-\code{logical}; whether to print statistics for the unadjusted sample as well as for the adjusted sample.
-}
-  \item{disp.bal.tab}{
-\code{logical}; whether to display the table of balance statistics.
-}
-  \item{disp.means}{
-\code{logical}; whether to print the group means in balance output.
-}
-  \item{disp.v.ratio}{
-\code{logical}; whether to display variance ratios in balance output.
-}
-  \item{disp.ks}{
-\code{logical}; whether to display Kolmogorov-Smirnov statistics in balance output.
-}
   \item{cluster}{
-either a vector containing cluster membserhip for each unit or a string containing the name of the cluster membership variable in \code{data} or the CBPS object. See \code{\link{bal.tab.cluster}} for details.
-}
-  \item{which.cluster}{
-which cluster(s) to display if \code{cluster} is specified. See \code{\link{bal.tab.cluster}} for details.
-}
-  \item{cluster.summary}{
-\code{logical}; whether to display the cluster summary table if \code{cluster} is specified. See \code{\link{bal.tab.cluster}} for details.
+either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in \code{data} or the CBPS object. See \code{\link{bal.tab.cluster}} for details.
 }
   \item{abs}{
 \code{logical}; whether displayed balance statistics should be in absolute value or not. 
 }
   \item{subset}{
-A \code{logical} vector denoting whether each observation should be included. It should be the same length as the variables in the original call to \code{Match()}. \code{NA}s will be treated as \code{FALSE}. This can be used as an alternative to \code{cluster} to examine balance on subsets of the data.
+a \code{logical} vector denoting whether each observation should be included. It should be the same length as the variables in the original call to the conditioning function. \code{NA}s will be treated as \code{FALSE}. This can be used as an alternative to \code{cluster} to examine balance on subsets of the data.
 }
   \item{quick}{
 \code{logical}; if \code{TRUE}, will not compute any values that will not be displayed. Leave \code{FALSE} if computed values not displayed will be used later.
 }
   \item{...}{
-further arguments passed to or from other methods. They are ignored in this function.
+for \code{bal.tab.optmatch()}, \code{bal.tab.ebalance()}, and \code{bal.tab.designmatch()}, the same arguments as those passed to \code{bal.tab.Match()}. Otherwise, further arguments to control display of output. See \link[=options-display]{display options} for details.
 }
 }
 \details{
-\code{bal.tab.Match()} generates a list of balance summaries for the Match object given, and functions similarly to \code{MatchBalance()} in \pkg{Matching}.
+\code{bal.tab()} generates a list of balance summaries for the object given, and function similarly to \code{MatchBalance()} in \pkg{Matching} and \code{meantab()} in \pkg{designmatch}. Note that output objects from \pkg{designmatch} do not have their own class; \code{bal.tab()} first check whether the object meets the criteria to be treated as a \code{designmatch} object before dispatching the correct method. In particular, renaming or removing items from the output object can create unintended consequences.
 
-The input to \code{bal.tab.Match()} must include either both \code{formula} and \code{data} or both \code{treat} and \code{covs}. Using the \code{formula} + \code{data} inputs mirrors how \code{MatchBalance()} is used in \pkg{Matching}. 
+The input to \code{bal.tab.Match()}, \code{bal.tab.optmatch()}, \code{bal.tab.ebalance()}, and \code{bal.tab.designmatch()} must include either both \code{formula} and \code{data} or both \code{covs} and \code{treat}. Using the \code{formula} + \code{data} inputs mirrors how \code{MatchBalance()} is used in \pkg{Matching}, and using the \code{covs} + \code{treat} input mirrors how \code{meantab()} is used in \pkg{designmatch}. (Note that to see identical results to \code{meantb()}, \code{s.d.denom} must be set to \code{"pooled"}, though this is not recommended.)
 
 All balance statistics are calculated whether they are displayed by print or not, unless \code{quick = TRUE}. The threshold values (\code{m.threshold}, \code{v.threshold}, and \code{ks.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
 
 The inputs (if any) to \code{covs} must be a data frame; if more than one variable is included, this is straightforward (i.e., because \code{data[,c("v1", "v2")]} is already a data frame), but if only one variable is used (e.g., \code{data[,"v1"]}), R will coerce it to a vector, thus making it unfit for input. To avoid this, simply wrap the input to \code{covs} in \code{data.frame()} or use \code{subset()} if only one variable is to be added. Again, when more than one variable is included, the input is general already a data frame and nothing needs to be done.
 }
 \value{
-For point treatments, if clusters and imputations are not specified, an object of class \code{"bal.tab"} containing balance summaries for the \code{Match} object. See \code{\link{bal.tab}} for details.
+For point treatments, if clusters and imputations are not specified, an object of class \code{"bal.tab"} containing balance summaries for the given object. See \code{\link{bal.tab}} for details.
 
 If clusters are specified, an object of class \code{"bal.tab.cluster"} containing balance summaries within each cluster and a summary of balance across clusters. See \code{\link{bal.tab.cluster}} for details.
 
@@ -143,6 +130,7 @@ Noah Greifer
 \code{\link{bal.tab}} for details of calculations.
 }
 \examples{
+########## Matching ##########
 library(Matching); data("lalonde", package = "cobalt")
 
 p.score <- glm(treat ~ age + educ + race + 
@@ -154,7 +142,40 @@ Match.out <- Match(Tr = lalonde$treat, X = p.score)
 bal.tab(Match.out, treat ~ age + educ + race + 
         married + nodegree + re74 + re75, data = lalonde)
 
+########## optmatch ##########
+library("optmatch"); data("lalonde", package = "cobalt")
+
+lalonde$prop.score <- glm(treat ~ age + educ + race + 
+            married + nodegree + re74 + re75, 
+            data = lalonde, family = binomial)$fitted.values
+pm <- pairmatch(treat ~ prop.score, data = lalonde)
+
+## Using formula and data
+bal.tab(pm, treat ~ age + educ + race + 
+        married + nodegree + re74 + re75, data = lalonde,
+        distance = "prop.score")
+
+########## ebal ##########
+library("ebal"); data("lalonde", package = "cobalt")
+
+covariates <- subset(lalonde, select = -c(re78, treat, race))
+e.out <- ebalance(lalonde$treat, covariates)
+
 ## Using treat and covs
-covariates <- subset(lalonde, select=-c(treat, re78))
-bal.tab(Match.out, treat = lalonde$treat, covs = covariates)
+bal.tab(e.out, treat = lalonde$treat, covs = covariates)
+
+\dontrun{
+########## designmatch ##########
+library("designmatch"); data("lalonde", package = "cobalt")
+
+covariates <- as.matrix(lalonde[c("age", "educ", "re74", "re75")])
+dmout <- bmatch(lalonde$treat,
+                total_groups = sum(lalonde$treat == 1),
+                mom = list(covs = covariates,
+                           tols = absstddif(covs, treat, .05))
+                )
+
+## Using treat and covs
+bal.tab(dmout, treat = lalonde$treat, covs = covariates)
+}
 }

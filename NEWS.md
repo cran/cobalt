@@ -1,17 +1,39 @@
-cobalt News and Updates
+`cobalt` News and Updates
 ======
+
+Version 3.5.0
+
+* Several changes to `bal.tab()` display options (i.e., `imbalanced.only`, `un`, `disp.means`, `disp.v.ratio`, `disp.ks`, `disp.bal.tab`, `disp.subclass`, and parameters related to the display of balance tables with multinomial treatments, clusters, multiple imputations, and longitudinal treatments). First, the named arguments have been removed from the method-specific functions in order to clean them up and make it easier to add new functions, but they are still available to be specified. Second, a help page devoted just to these functions has been created, which can be accessed with `?options-display`. Third, global options for these arguments can be set with `options()` so they don't need to be typed each time. For example, if you wanted `un = TRUE` all the time, you could set `options(cobalt_un = TRUE)` once and not have to include it in the call to `bal.tab()`.
+
+* Added `disp.sds` option to display standard deviations for each group in `bal.tab()`. This works in all the same places `disp.means` does.
+
+* Added `cluster.fun` and `imp.fun` options to request that only certain functions (e.g., mean or maximum) of the balance statistics are displayed in the summary across clusters/imputations. Previously this option was only available by call `print()`. These parameters are part of the display options described above, so they are documented in `?options-display` and not in the `bal.tab` help files.
+
+* Added `factor_sep` and `int_sep` options to change the seperators between variable names when factor variables and interactions are displayed. This functionality had been available since version 3.4.0 but was not documented. It is now documented in the new `display_options` help page.
+
+* In `bal.tab()`, `continuous` and `binary` can be specified with the global options `"cobalt_cont"` and `"cobalt_bin"`, respectively, so that a global setting (e.g., to set `binary = "std"` to view standardizd mean difference rather than raw differences in proportion for binary variables) can be used instead of specifying the argument each time in the call to `bal.tab()`.
+
+* Minor updates to `f.build()` to process inputs more flexibly. The left hand side can now be empty, and the variables on the right hand side can now contain spaces.
+
+* Fixed a bug when logical treatments were used. Thanks to @victorn1.
+
+* Fixed a bug that would occur when a variable had only one value. Thanks to @victorn1.
+
+* Made it so the names of 0/1 and logical variables are not printed with `"_1"` appended to them. Thanks to @victorn1 for the suggestion.
+
+* Major updates to the organization of the code and help files. Certain functions have simplified syntax, relying more on `...`, and help pages have been shorted and consolidated for some methods. In particular, the code and help documents for the `Matching`, `optmatch`, `ebal`, and `designmatch` methods of `bal.tab()` have been consolidated since they all rely on exactly the same syntax.
 
 Version 3.4.1
 
-* Fixed a bug that would occur when `imabalanced.only = TRUE` in `bal.tab` but all variables were balanced.
+* Fixed a bug that would occur when `imabalanced.only = TRUE` in `bal.tab()` but all variables were balanced.
 
 * Fixed a bug where the mean of a binary variable would be displayed as 1 minus its mean.
 
 * Fixed a bug that would occur when missingness patterns were the same for multiple variables.
 
-* Fixed a bug that would occur when a distance measure was to be assessed with `bal.tab` and there were missing values in the covariates (thanks to Laura Helmkamp).
+* Fixed a bug that would occur when a distance measure was to be assessed with `bal.tab()` and there were missing values in the covariates (thanks to Laura Helmkamp).
 
-* Fixed a bug that would occur when `estimand` was supplied by the user when using the `default` method of `bal.tab`.
+* Fixed a bug that would occur when `estimand` was supplied by the user when using the `default` method of `bal.tab()`.
 
 * Fixed a bug where non-standard variable names (like `"I(age^2)"`) would cause an error.
 
@@ -29,7 +51,7 @@ Version 3.4.0
 
 * Added new options to `bal.plot`, including the ability to display histograms rather than densities and mirrored rather than overlapping plots. This makes it possible to make the popular mirrored histogram plot for propensity scores. In addition, it's now easier to change the colors of the components of the plots.
 
-* Made behavior around binary variables with interactions more like documentation, where interactions with both levels of the variable are present (thanks to @victorn1). Also, replaced `_` with ` * ` as the delimiter between variable names in interactions. For the old behavior, use the "secret" option `int_sep = "_"` in `bal.tab`. This functionality is not documented (mostly because I'm lazy).
+* Made behavior around binary variables with interactions more like documentation, where interactions with both levels of the variable are present (thanks to @victorn1). Also, replaced `_` with ` * ` as the delimiter between variable names in interactions. For the old behavior, use `int_sep = "_"` in `bal.tab`.
 
 * Expanded the flexibility of `var.names` in `love.plot` so that replacing the name of a variable will replace it everywhere it appears, including interactions. Thanks to @victorn1 for the suggestion.
 

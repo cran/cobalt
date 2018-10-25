@@ -103,13 +103,14 @@ covs <- subset(lalonde, select = -c(treat, re78))
 
 # Nearest neighbor 1:1 matching with replacement
 library("MatchIt") #if not yet loaded
-m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest", replace = TRUE)
+m.out <- matchit(f.build("treat", covs), data = lalonde, 
+                 method = "nearest", replace = TRUE)
 
 love.plot(bal.tab(m.out), threshold = .1)
 
 ## ---- fig.width = 5------------------------------------------------------
 v <- data.frame(old = c("age", "educ", "race_black", "race_hispan", 
-                        "race_white", "married_1", "nodegree_1", "re74", "re75", "distance"),
+                        "race_white", "married", "nodegree", "re74", "re75", "distance"),
                 new = c("Age", "Years of Education", "Black", 
                         "Hispanic", "White", "Married", "No Degree Earned", 
                         "Earnings 1974", "Earnings 1975", "Propensity Score"))
@@ -139,7 +140,7 @@ bal.plot(W.out.c, "married", which = "both")
 
 ## ---- fig.width = 5------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(bal.tab(W.out.c), threshold = .1, abs = TRUE, 
+love.plot(bal.tab(W.out.c), threshold = .1, 
           var.order = "unadjusted", line = TRUE)
 
 ## ------------------------------------------------------------------------
@@ -171,7 +172,7 @@ bal.plot(W.out.mn, "married", which = "both",
 ## ---- fig.width = 7------------------------------------------------------
 #Summarizing balance in a Love plot
 love.plot(bal.tab(W.out.mn), threshold = .1,
-          which.treat = NULL)
+          which.treat = NULL, abs = FALSE)
 
 ## ------------------------------------------------------------------------
 bal.tab(treat ~ covs0, data = lalonde, 
@@ -193,7 +194,7 @@ love.plot(bal.tab(treat ~ covs0, data = lalonde,
                                        IPW = get.w(W.out)),
                   method = c("matching", "weighting")), var.order = "unadjusted",
           abs = TRUE, colors = c("red", "blue", "darkgreen"), 
-          shapes = c("circle", "square", "diamond"))
+          shapes = c("circle", "square", "triangle"))
 
 ## ------------------------------------------------------------------------
 ctrl.data <- lalonde[lalonde$treat == 0,]

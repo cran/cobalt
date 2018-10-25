@@ -18,11 +18,11 @@ bal.tab(m.out, cluster = "race")
 bal.tab(m.out, cluster = "race", which.cluster = c("black", "hispan"),
         cluster.summary = FALSE)
 
-#Just the balance summary across clusters
-bal.tab(m.out, cluster = "race", which.cluster = NA)
+#Just the balance summary across clusters with only the mean
+bal.tab(m.out, cluster = "race", which.cluster = NA, cluster.fun = "mean")
 
 ## ------------------------------------------------------------------------
-bal.plot(m.out, cluster = "race", var.name = "age")
+bal.plot(m.out, var.name = "age", cluster = "race")
 
 ## ------------------------------------------------------------------------
 love.plot(bal.tab(m.out, cluster = "race"))

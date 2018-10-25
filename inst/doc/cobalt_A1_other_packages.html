@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2018-09-14" />
+<meta name="date" content="2018-10-25" />
 
 <title>Appendix 1: Using cobalt with Other Preprocessing Packages</title>
 
@@ -280,7 +280,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 
 <h1 class="title toc-ignore">Appendix 1: Using cobalt with Other Preprocessing Packages</h1>
 <h4 class="author"><em>Noah Greifer</em></h4>
-<h4 class="date"><em>2018-09-14</em></h4>
+<h4 class="date"><em>2018-10-25</em></h4>
 
 
 <div id="TOC">
@@ -313,7 +313,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <a class="sourceLine" id="cb1-2" data-line-number="2">covs &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78))</a>
 <a class="sourceLine" id="cb1-3" data-line-number="3"><span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs)</a></code></pre></div>
 <pre><code>## treat ~ age + educ + race + married + nodegree + re74 + re75
-## &lt;environment: 0x7f837e162138&gt;</code></pre>
+## &lt;environment: 0x7faf6d242178&gt;</code></pre>
 <p>The function creates a <code>formula</code> object from two inputs: the first argument is the quoted name of the variable to be the left hand side (response) variable in the formula; the second argument is a vector of right hand side (predictor) variable names or a data frame, the variable names of which are to be the predictor variables. The utility of <code>f.build()</code> is that the user does not have to manually type out the name of every covariate when entering a formula into a function. It can be used simply in place of a formula, as in the following examples, which make use of the objects defined above:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="co"># Generating propensity scores using logistic regression</span></a>
 <a class="sourceLine" id="cb3-2" data-line-number="2">p.score &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)<span class="op">$</span>fitted.values</a>
@@ -673,7 +673,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 ## Matched (Unweighted)     159     185
 ## Unmatched                270       0</code></pre>
 <p>The output looks quite different from <code>Matching</code>’s <code>MatchBalance()</code> output. Rather than being stacked vertically, balance statistics are arranged horizontally in a table format, allowing for quick balance checking. Below the balance table is a summary of the sample size before and after matching, similar to what <code>Matching</code>’s <code>summary()</code> command would display. The sample size can include a “weighted” and “unweighted” count; the “weighted” count is the sum of the matching weights, while the “unweighted” is the count of units with nonzero matching weights.</p>
-<p>The input to <code>bal.tab()</code> is similar to that given to <code>MatchBalance()</code>: the <code>Match</code> object resulting from the call to <code>Match()</code>, a formula relating treatment to the covariates for which balance is to be assessed, and the original data set. This is not the only way to call <code>bal.tab()</code>: instead of a formula and a data set, one can also input a data frame of covariates and a vector of treatment status indicators, just as when using <code>bal.tab()</code> wihout a conditioning package. For example, the code below will yield the same results as the call to <code>bal.tab()</code> above:</p>
+<p>The input to <code>bal.tab()</code> is similar to that given to <code>MatchBalance()</code>: the <code>Match</code> object resulting from the call to <code>Match()</code>, a formula relating treatment to the covariates for which balance is to be assessed, and the original data set. This is not the only way to call <code>bal.tab()</code>: instead of a formula and a data set, one can also input a data frame of covariates and a vector of treatment status indicators, just as when using <code>bal.tab()</code> without a conditioning package. For example, the code below will yield the same results as the call to <code>bal.tab()</code> above:</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="kw">bal.tab</span>(match.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</a></code></pre></div>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>Matching</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the original call to <code>Match()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified; if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>; if the estimand is the ATC, <code>s.d.denom</code> will default to <code>&quot;control&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable. In addition, the use of the <code>addl</code> argument is unnecessary because the covariates are entered manually as arguments, so all covariates for which balance is to be assessed can be entered through the <code>formula</code> or <code>covs</code> argument. If the covariates are stored in two separate data frames, it may be useful to include one in <code>formula</code> or <code>covs</code> and the other in <code>addl</code>.</p>
 </div>
@@ -755,20 +755,20 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <pre><code>## Converged within tolerance</code></pre>
 <div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb20-1" data-line-number="1"><span class="kw">bal.tab</span>(e.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</a></code></pre></div>
 <pre><code>## Balance Measures
-##               Type Diff.Adj
-## age        Contin.       -0
-## educ       Contin.        0
-## married_1   Binary        0
-## nodegree_1  Binary        0
-## re74       Contin.       -0
-## re75       Contin.       -0
+##             Type Diff.Adj
+## age      Contin.       -0
+## educ     Contin.        0
+## married   Binary        0
+## nodegree  Binary        0
+## re74     Contin.       -0
+## re75     Contin.       -0
 ## 
 ## Effective sample sizes
 ##            Control Treated
 ## Unadjusted 429.000     185
 ## Adjusted   247.644     185</code></pre>
 <p>First is the balance table containing mean differences for covariates included in the original call to <code>ebalance</code>. In general, these will all be very close to 0. Next is a table displaying effective sample size information. The “effective” sample size is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation. A common issue when using entropy balancing is small effective sample size, which can yield low precision in effect estimation when using weighted regression, so it is important that users pay attention to this measure. That said, in simulations by Zhao and Percival (2015), entropy balancing reliably had smaller empirical standard errors than did covariate balancing propensity scores.</p>
-<p>The input is similar to that for using <code>bal.tab()</code> with <code>Matching</code> or <code>optmatch</code>. In additon to the <code>ebalance</code> object, one must specify either both a formula and a data set or both a treatment vector and a data frame of covariates.</p>
+<p>The input is similar to that for using <code>bal.tab()</code> with <code>Matching</code> or <code>optmatch</code>. In addition to the <code>ebalance</code> object, one must specify either both a formula and a data set or both a treatment vector and a data frame of covariates.</p>
 </div>
 <div id="using-bal.tab-with-designmatch" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>designmatch</code></h3>
@@ -791,20 +791,20 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 ##   Optimal matches found</code></pre>
 <div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb24-1" data-line-number="1"><span class="kw">bal.tab</span>(dmout, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0)</a></code></pre></div>
 <pre><code>## Balance Measures
-##               Type Diff.Adj
-## age        Contin.   0.0038
-## educ       Contin.   0.0054
-## married_1   Binary   0.0000
-## nodegree_1  Binary   0.0054
-## re74       Contin.  -0.0120
-## re75       Contin.  -0.0076
+##             Type Diff.Adj
+## age      Contin.   0.0038
+## educ     Contin.   0.0054
+## married   Binary   0.0000
+## nodegree  Binary   0.0054
+## re74     Contin.  -0.0120
+## re75     Contin.  -0.0076
 ## 
 ## Sample sizes
 ##           Control Treated
 ## All           429     185
 ## Matched       185     185
 ## Unmatched     244       0</code></pre>
-<p>The input is similar to that for using <code>bal.tab()</code> with <code>Matching</code> or <code>optmatch</code>. In additon to the <code>designmatch()</code> output object, one must specify either both a formula and a data set or both a treatment vector and a data frame of covariates. The output is similar to that of <code>optmatch</code>.</p>
+<p>The input is similar to that for using <code>bal.tab()</code> with <code>Matching</code> or <code>optmatch</code>. In addition to the <code>designmatch()</code> output object, one must specify either both a formula and a data set or both a treatment vector and a data frame of covariates. The output is similar to that of <code>optmatch</code>.</p>
 </div>
 <div id="using-bal.tab-with-other-packages" class="section level3">
 <h3>Using <code>bal.tab()</code> with other packages</h3>
@@ -819,10 +819,30 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <a class="sourceLine" id="cb26-6" data-line-number="6">                    <span class="dt">data =</span> lalonde, <span class="dt">estimand =</span> <span class="st">&quot;ATE&quot;</span>, <span class="dt">tols =</span> <span class="fl">.01</span>)</a>
 <a class="sourceLine" id="cb26-7" data-line-number="7"></a>
 <a class="sourceLine" id="cb26-8" data-line-number="8"><span class="co">#Note the contents of the output object:</span></a>
-<a class="sourceLine" id="cb26-9" data-line-number="9"><span class="kw">str</span>(ow.out)</a>
-<a class="sourceLine" id="cb26-10" data-line-number="10"></a>
-<a class="sourceLine" id="cb26-11" data-line-number="11"><span class="co">#Use bal.tab() directly on the output</span></a>
-<a class="sourceLine" id="cb26-12" data-line-number="12"><span class="kw">bal.tab</span>(ow.out)</a></code></pre></div>
+<a class="sourceLine" id="cb26-9" data-line-number="9"><span class="kw">names</span>(ow.out)</a></code></pre></div>
+<pre><code>##  [1] &quot;weights&quot;   &quot;treat&quot;     &quot;covs&quot;      &quot;s.weights&quot; &quot;estimand&quot; 
+##  [6] &quot;focal&quot;     &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb28-1" data-line-number="1"><span class="co">#Use bal.tab() directly on the output</span></a>
+<a class="sourceLine" id="cb28-2" data-line-number="2"><span class="kw">bal.tab</span>(ow.out)</a></code></pre></div>
+<pre><code>## Call
+##  optweight(formula = treat ~ age + educ + married + race + re74 + 
+##     re75, data = lalonde, tols = 0.01, estimand = &quot;ATE&quot;)
+## 
+## Balance Measures
+##                Type Diff.Adj
+## age         Contin.   0.0000
+## educ        Contin.   0.0100
+## married      Binary  -0.0100
+## race_black   Binary   0.0100
+## race_hispan  Binary   0.0000
+## race_white   Binary  -0.0100
+## re74        Contin.  -0.0100
+## re75        Contin.   0.0085
+## 
+## Effective sample sizes
+##            Control Treated
+## Unadjusted 429.000 185.000
+## Adjusted   349.421  52.041</code></pre>
 <p>The output is treated as output from a specifically supported package. See <code>?bal.tab.default</code> for more details and another example.</p>
 </div>
 </div>

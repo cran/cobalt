@@ -1,6 +1,6 @@
 love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistics"), threshold = NULL, 
                       abs = TRUE, var.order = NULL, no.missing = TRUE, var.names = NULL, 
-                      drop.distance = FALSE, agg.fun = c("mean", "median", "max", "range"), 
+                      drop.distance = FALSE, agg.fun = c("mean", "max", "range"), 
                       colors = NULL, shapes = NULL, line = FALSE, ...) {
     b <- x; rm(x)
     if ("bal.tab" %nin% class(b)) stop("The first argument must be a bal.tab object, the output of a call to bal.tab().")
@@ -17,7 +17,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
     #sample.names
     #limits
     #cluster.fun (deprecated)
-    
+
     p.ops <- c("which.cluster", "which.imp", "which.treat", "which.time", "disp.subclass")
     for (i in p.ops) {
         if (i %in% names(args)) b$print.options[[i]] <- args[[i]]
@@ -99,7 +99,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             if (is_null(b[["Balance.Across.Times"]])) {
                 stop("Cannot aggregate across time periods without a balance summary across time periods.\nThis may be because multinomial treatments were used, multiple treatment types were used,\n or quick was set to TRUE and msm.summary set to FALSE in the original bal.tab() call.", call. = FALSE)
             }
-            #Agg.Fun <- switch(match.arg(agg.fun), mean = "Mean", median = "Median", max = "Max", range = "Range")
+            #Agg.Fun <- switch(match.arg(agg.fun), mean = "Mean", max = "Max", range = "Range")
             Agg.Fun <- "Max"
             if (Agg.Fun == "Range") {
                 subtitle <- paste0(which.stat2, " Range Across Time Points")
@@ -205,11 +205,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             if (is_null(b[["Cluster.Balance.Across.Imputations"]])) {
                 stop("Cannot aggregate across imputations without a balance summary across imputations.\nThis may be because quick was set to TRUE and imp.summary set to FALSE in the original bal.tab() call.", call. = FALSE)
             }
-            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", median = "Median", max = "Max", range = "Range")
-            if (Agg.Fun == "Median") {
-                warning("The median is being deprecated. Using the mean instead.", call. = FALSE)
-                Agg.Fun <- "Mean"
-            }
+            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", max = "Max", range = "Range")
             if (Agg.Fun == "Range") {
                 subtitle <- paste0(which.stat2, " Range Across Imputations")
             }
@@ -226,11 +222,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             if (is_null(b[["Imputation.Balance"]][[1]][["Cluster.Summary"]])) {
                 stop("Cannot aggregate across clusters without a balance summary across clusters.\nThis may be because quick was set to TRUE and cluster.summary set to FALSE in the original bal.tab() call.", call. = FALSE)
             }
-            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", median = "Median", max = "Max", range = "Range")
-            if (Agg.Fun == "Median") {
-                warning("agg.fun = \"median\" is being deprecated. Using \"mean\" instead.", call. = FALSE)
-                Agg.Fun <- "Mean"
-            }
+            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", max = "Max", range = "Range")
             if (Agg.Fun == "Range") {
                 subtitle <- paste0(which.stat2, " Range Across Clusters")
             }
@@ -247,12 +239,8 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             if (is_null(b[["Balance.Across.Imputations"]])) {
                 stop("Cannot aggregate across imputations without a balance summary across imputations.\nThis may be because quick was set to TRUE and cluster.summary or imp.summary were set to FALSE in the original bal.tab() call.", call. = FALSE)
             }
-            #Cluster.Fun <- switch(match.arg(cluster.fun), mean = "Mean", median = "Median", max = "Max", range = "Range")
-            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", median = "Median", max = "Max", range = "Range")
-            if (Agg.Fun == "Median") {
-                warning("The median is being deprecated. Using the mean instead.", call. = FALSE)
-                Agg.Fun <- "Mean"
-            }
+            #Cluster.Fun <- switch(match.arg(cluster.fun), mean = "Mean", max = "Max", range = "Range")
+            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", max = "Max", range = "Range")
             if (Agg.Fun == "Range") {
                 subtitle <- paste0(which.stat2, " Range Across Clusters and Imputations")
             }
@@ -298,11 +286,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             if (is_null(b[["Balance.Across.Imputations"]])) {
                 stop("Cannot aggregate across imputations without a balance summary across imputations.\nThis may be because quick was set to TRUE and imp.summary set to FALSE in the original bal.tab() call.", call. = FALSE)
             }
-            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", median = "Median", max = "Max", range = "Range")
-            if (Agg.Fun == "Median") {
-                warning("The median is being deprecated. Using the mean instead.", call. = FALSE)
-                Agg.Fun <- "Mean"
-            }
+            Agg.Fun <- switch(tolower(match.arg(agg.fun)), mean = "Mean", max = "Max", range = "Range")
             if (Agg.Fun == "Range") {
                 subtitle <- paste0(which.stat2, " Range Across Imputations")
             }
@@ -360,11 +344,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             
             tryCatch({agg.fun <- tolower(match.arg(agg.fun))}, 
                      error = function(e) stop("agg.fun should be one of \"mean\", \"max\", or \"range\".", call. = FALSE))
-            Agg.Fun <- switch(agg.fun, mean = "Mean", median = "Median", max = "Max", range = "Range")
-            if (Agg.Fun == "Median") {
-                warning("The median is deprecated. Using the mean instead.", call. = FALSE)
-                Agg.Fun <- "Mean"
-            }
+            Agg.Fun <- switch(agg.fun, mean = "Mean", max = "Max", range = "Range")
             if (Agg.Fun == "Range") {
                 subtitle <- paste0(which.stat2, " Range Across Clusters")
             }
@@ -443,7 +423,7 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
             facet <- "treat.pair"
         }
         else if (config == "agg.pair") {
-            #Agg.Fun <- switch(match.arg(agg.fun), mean = "Mean", median = "Median", max = "Max", range = "Range")
+            #Agg.Fun <- switch(match.arg(agg.fun), mean = "Mean", max = "Max", range = "Range")
             Agg.Fun <- "Max"
             if (Agg.Fun == "Range") {
                 subtitle <- paste0(which.stat2, " Range Across Treatment", ifelse(b$print.options$pairwise, " Pairs", "s"))
@@ -557,25 +537,28 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
         seps <- attr(co.names, "seps")
         for (i in names(co.names)) {
             comp <- co.names[[i]][["component"]]
-            is.name <- co.names[[i]][["is.name"]]
+            type <- co.names[[i]][["type"]]
             
-            if (i %in% names(new.labels) && !is.na(new.labels[i])) co.names[[i]][["component"]] <- new.labels[i]
+            if (i %in% names(new.labels) && !is.na(new.labels[i])) {
+                co.names[[i]][["component"]] <- new.labels[i]
+                co.names[[i]][["type"]] <- "base"
+            }
             else {
-                if (seps["int"] %in% comp[!is.name]) {
-                    named.vars <- character(sum(comp[!is.name] == seps["int"]) + 1)
-                    sep.inds <- c(which(comp == seps["int"] & !is.name), length(comp) + 1)
+                if ("isep" %in% type) {
+                    named.vars <- character(sum(type == "isep") + 1)
+                    sep.inds <- c(which(type == "isep"), length(comp) + 1)
                     named.vars <- lapply(seq_along(sep.inds), function(k) {
                         inds <- (if (k == 1) seq(1, sep.inds[k] - 1) 
                                  else seq(sep.inds[k-1] + 1, sep.inds[k] - 1))
                         var <- comp[inds]
-                        var.is.name <- is.name[inds]
+                        var.is.base <- type[inds] == "base"
                         pasted.var <- paste(var, collapse = "")
                         if (pasted.var %in% names(new.labels)) return(new.labels[pasted.var])
-                        else return(paste(ifelse(var.is.name & var %in% names(new.labels) & !is.na(new.labels[var]), new.labels[var], var), collapse = ""))
+                        else return(paste(ifelse(var.is.base & var %in% names(new.labels) & !is.na(new.labels[var]), new.labels[var], var), collapse = ""))
                     })
                     co.names[[i]][["component"]] <- do.call("paste", c(unname(named.vars), list(sep = seps["int"])))
                 }
-                else co.names[[i]][["component"]] <- ifelse(is.name & comp %in% names(new.labels) & !is.na(new.labels[comp]), new.labels[comp], comp)
+                else co.names[[i]][["component"]] <- ifelse(type == "base" & comp %in% names(new.labels) & !is.na(new.labels[comp]), new.labels[comp], comp)
             }
         }
         
@@ -621,9 +604,9 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
     if (agg.range) {
         SS <- do.call("rbind", lapply(c("Un", b$print.options$weight.names),
                                       function(x) data.frame(var = B[["variable.names"]],
-                                                             min.stat = B[[paste("Min", which.stat, x, sep = ".")]],
-                                                             max.stat = B[[paste("Max", which.stat, x, sep = ".")]],
-                                                             mean.stat = B[[paste("Mean", which.stat, x, sep = ".")]],
+                                                             min.stat = B[[paste.("Min", which.stat, x)]],
+                                                             max.stat = B[[paste.("Max", which.stat, x)]],
+                                                             mean.stat = B[[paste.("Mean", which.stat, x)]],
                                                              Sample = ifelse(x == "Un", "Unadjusted", 
                                                                              ifelse(x == "Adj", "Adjusted", x)))))
 
@@ -695,8 +678,8 @@ love.plot <- function(x, stat = c("mean.diffs", "variance.ratios", "ks.statistic
     else {
         SS <- do.call("rbind", lapply(c("Un", b$print.options$weight.names),
                                       function(x) data.frame(var = B[["variable.names"]],
-                                                             stat = B[[ifelse(is_null(Agg.Fun), paste(which.stat, x, sep = "."),
-                                                                               paste(Agg.Fun, which.stat, x, sep = "."))]],
+                                                             stat = B[[ifelse(is_null(Agg.Fun), paste.(which.stat, x),
+                                                                               paste.(Agg.Fun, which.stat, x))]],
                                                              Sample = ifelse(x == "Un", "Unadjusted", 
                                                                              ifelse(x == "Adj", "Adjusted", x)))))
         
