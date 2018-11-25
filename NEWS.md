@@ -1,6 +1,22 @@
 `cobalt` News and Updates
 ======
 
+Version 3.6.0
+
+* Added `poly` argument to `bal.tab()` to display polynomials of continuous covariates (e.g., squares, cubes, etc.). This used to only be available with the `int` argument, which also displayed all interactions. Now, the polynomials can be requested seperately. When `int = TRUE`, squares of the covariates will no longer be displayed; to replicate the old behavior, set `int = 2`, which is equivalent to `int = TRUE, poly = 2`.
+
+* Fixed a bug where using `subset` would produce an error.
+
+* Fixed a bug when using multiply imputed data with binary treatments that were factors or characters.
+
+* Updated the `bal.tab` documentation to make it easier to navigate to the right page.
+
+* Small documentation and syntax updates.
+
+* Added the hidden and undocumented argument `center` to `bal.tab`, which, when set to `TRUE`, centers the covariates at the mean of the entire unadjusted sample prior to computing interactions and polynomials.
+
+* Added `set.cobalt.options` function to more easily set the global options that can be used as defaults to some arguments. For example, `set.global.options(binary = "std")` makes it so that standardized mean difference are always displayed for binary covariates (in the present R session). The options can be retrieved with `get.cobalt.options`.
+
 Version 3.5.0
 
 * Several changes to `bal.tab()` display options (i.e., `imbalanced.only`, `un`, `disp.means`, `disp.v.ratio`, `disp.ks`, `disp.bal.tab`, `disp.subclass`, and parameters related to the display of balance tables with multinomial treatments, clusters, multiple imputations, and longitudinal treatments). First, the named arguments have been removed from the method-specific functions in order to clean them up and make it easier to add new functions, but they are still available to be specified. Second, a help page devoted just to these functions has been created, which can be accessed with `?options-display`. Third, global options for these arguments can be set with `options()` so they don't need to be typed each time. For example, if you wanted `un = TRUE` all the time, you could set `options(cobalt_un = TRUE)` once and not have to include it in the call to `bal.tab()`.
@@ -11,7 +27,7 @@ Version 3.5.0
 
 * Added `factor_sep` and `int_sep` options to change the seperators between variable names when factor variables and interactions are displayed. This functionality had been available since version 3.4.0 but was not documented. It is now documented in the new `display_options` help page.
 
-* In `bal.tab()`, `continuous` and `binary` can be specified with the global options `"cobalt_cont"` and `"cobalt_bin"`, respectively, so that a global setting (e.g., to set `binary = "std"` to view standardizd mean difference rather than raw differences in proportion for binary variables) can be used instead of specifying the argument each time in the call to `bal.tab()`.
+* In `bal.tab()`, `continuous` and `binary` can be specified with the global options `"cobalt_continuous"` and `"cobalt_binary"`, respectively, so that a global setting (e.g., to set `binary = "std"` to view standardizd mean difference rather than raw differences in proportion for binary variables) can be used instead of specifying the argument each time in the call to `bal.tab()`.
 
 * Minor updates to `f.build()` to process inputs more flexibly. The left hand side can now be empty, and the variables on the right hand side can now contain spaces.
 

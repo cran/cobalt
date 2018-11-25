@@ -17,10 +17,11 @@ Generates balance statistics for output objects from \pkg{Matching}, \pkg{optmat
     treat = NULL, 
     covs = NULL, 
     int = FALSE, 
+    poly = 1, 
     distance = NULL, 
     addl = NULL, 
-    continuous = getOption("cobalt_cont", "std"), 
-    binary = getOption("cobalt_bin", "raw"), 
+    continuous,  
+    binary,
     s.d.denom, 
     m.threshold = NULL, 
     v.threshold = NULL, 
@@ -64,7 +65,10 @@ a vector of treatment statuses. See Details.
 a data frame of covariate values for which to check balance. See Details.
 }
   \item{int}{
-\code{logical} or \code{numeric}; whether or not to include powers and 2-way interactions of covariates included in \code{covs} and in \code{addl}. If \code{numeric} and equal to \code{1} or \code{2}, squares of each covariate will be displayed; greater numbers will display corresponding powers up to the provided input (e.g., \code{3} will display squares and cubes of each covariate). 
+\code{logical} or \code{numeric}; whether or not to include 2-way interactions of covariates included in \code{covs} and in \code{addl}. If \code{numeric}, will be passed to \code{poly} as well. In older versions of \pkg{cobalt}, setting \code{int = TRUE} displayed squares of covariates; to replicate this behavior, set \code{int = 2}.
+}
+  \item{poly}{
+\code{numeric}; the highest polynomial of each continuous covariate to display. For example, if 2, squares of each continuous covariate will be displayed (in addition to the covariate itself); if 3, squares and cubes of each continuous covariate will be displayed, etc. If 1, the default, only the base covariate will be displayed. If \code{int} is numeric, \code{poly} will take on the value of \code{int}.
 }
   \item{distance}{
 optional; either a vector or data.frame containing distance values (e.g., propensity scores) for each unit or a string containing the name of the distance variable in \code{data}.
@@ -73,10 +77,10 @@ optional; either a vector or data.frame containing distance values (e.g., propen
 a data frame of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in \code{formula} or \code{covs}. In general, it makes more sense to include all desired variables in \code{formula} or \code{covs} than in \code{addl}. See note in Details for using \code{addl}.
 }
   \item{continuous}{
-whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed.
+whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
 }
   \item{binary}{
-whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed.
+whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
 }
   \item{s.d.denom}{
 whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), or the pooled standard deviation ("pooled"), computed as the square root of the mean of the group variances. Abbreviations allowed. If not specified, for \code{Match} objects, \code{bal.tab()} will use "treated" if the estimand of the call to \code{Match()} is the ATT, "pooled" if the estimand is the ATE, and "control" if the estimand is the ATC; for \code{optmatch}, \code{ebal}, and \code{designmatch} objects, \code{bal.tab()} will use "treated".
@@ -107,7 +111,7 @@ for \code{bal.tab.optmatch()}, \code{bal.tab.ebalance()}, and \code{bal.tab.desi
 }
 }
 \details{
-\code{bal.tab()} generates a list of balance summaries for the object given, and function similarly to \code{MatchBalance()} in \pkg{Matching} and \code{meantab()} in \pkg{designmatch}. Note that output objects from \pkg{designmatch} do not have their own class; \code{bal.tab()} first check whether the object meets the criteria to be treated as a \code{designmatch} object before dispatching the correct method. In particular, renaming or removing items from the output object can create unintended consequences.
+\code{bal.tab()} generates a list of balance summaries for the object given, and function similarly to \code{MatchBalance()} in \pkg{Matching} and \code{meantab()} in \pkg{designmatch}. Note that output objects from \pkg{designmatch} do not have their own class; \code{bal.tab()} first checks whether the object meets the criteria to be treated as a \code{designmatch} object before dispatching the correct method. In particular, renaming or removing items from the output object can create unintended consequences.
 
 The input to \code{bal.tab.Match()}, \code{bal.tab.optmatch()}, \code{bal.tab.ebalance()}, and \code{bal.tab.designmatch()} must include either both \code{formula} and \code{data} or both \code{covs} and \code{treat}. Using the \code{formula} + \code{data} inputs mirrors how \code{MatchBalance()} is used in \pkg{Matching}, and using the \code{covs} + \code{treat} input mirrors how \code{meantab()} is used in \pkg{designmatch}. (Note that to see identical results to \code{meantb()}, \code{s.d.denom} must be set to \code{"pooled"}, though this is not recommended.)
 

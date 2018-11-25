@@ -86,11 +86,11 @@ bal.tab(treat ~ age + educ + race + married + nodegree + re74 + re75,
         method = "matching", imp = ".imp")
 
 ## ------------------------------------------------------------------------
-#Estimating the weights; exact = ".imp" separates by imputation
+#Estimating the weights; by = ".imp" separates by imputation
 library("WeightIt")
 w.out <- weightit(treat ~ age + educ + race + married + 
                       nodegree + re74 + re75, data = imp.data, 
-                  exact = ".imp", estimand = "ATT")
+                  by = ".imp", estimand = "ATT")
 
 #Checking balance on the output object
 bal.tab(w.out, imp = ".imp")

@@ -32,7 +32,8 @@ bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
 ## ------------------------------------------------------------------------
 # Balance on all covariates in data set, including interactions and squares
 bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
-        method = "weighting", addl = c("nodegree", "married"), int = TRUE)
+        method = "weighting", addl = c("nodegree", "married"), 
+        int = TRUE, poly = 2)
 
 ## ------------------------------------------------------------------------
 # Balance tables with variance ratios and statistics for the unadjusted sample
@@ -131,7 +132,7 @@ W.out.c <- weightit(re75 ~ age + educ + race + married + nodegree +
 ## ------------------------------------------------------------------------
 #Assessing balance numerically
 bal.tab(W.out.c, un = TRUE, r.threshold = .1, int = TRUE,
-        imbalanced.only = TRUE)
+        poly = 2, imbalanced.only = TRUE)
 
 ## ---- fig.width = 5------------------------------------------------------
 #Assessing balance graphically
