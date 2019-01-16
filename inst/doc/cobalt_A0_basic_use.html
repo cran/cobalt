@@ -12,14 +12,14 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2018-11-25" />
+<meta name="date" content="2019-01-15" />
 
 <title>Covariate Balance Tables and Plots: A Guide to the cobalt Package</title>
 
 
 
 <style type="text/css">code{white-space: pre;}</style>
-<style type="text/css">
+<style type="text/css" data-origin="pandoc">
 a.sourceLine { display: inline-block; line-height: 1.25; }
 a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
 a.sourceLine:empty { height: 1.2em; position: absolute; }
@@ -83,7 +83,29 @@ code span.st { color: #4070a0; } /* String */
 code span.va { color: #19177c; } /* Variable */
 code span.vs { color: #4070a0; } /* VerbatimString */
 code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
 </style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 
 
 
@@ -280,7 +302,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 
 <h1 class="title toc-ignore">Covariate Balance Tables and Plots: A Guide to the cobalt Package</h1>
 <h4 class="author"><em>Noah Greifer</em></h4>
-<h4 class="date"><em>2018-11-25</em></h4>
+<h4 class="date"><em>2019-01-15</em></h4>
 
 
 
@@ -304,7 +326,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <div id="citing-cobalt" class="section level4">
 <h4>Citing <code>cobalt</code></h4>
 <p>When using <code>cobalt</code>, please cite your use of it along with the conditioning package used. The full APA reference for <code>cobalt</code> is the following:</p>
-<p>Greifer, N. (2018). cobalt: Covariate Balance Tables and Plots. R package version 3.5.0.</p>
+<p>Greifer, N. (2018). cobalt: Covariate Balance Tables and Plots. R package version 3.6.1.</p>
 <p>For example, if you use <code>Matching</code> for propensity score estimation and matching and <code>cobalt</code> for balance assessment and/or reporting, a possible citation might go as follows:</p>
 <blockquote>
 <p>Matching was performed using the Matching package (Sekhon, 2011), and covariate balance was assessed using cobalt (Greifer, 2018), both in R (R Core Team, 2018).</p>
@@ -694,8 +716,8 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 ## Sample sizes
 ##           Control Treated
 ## All           429     185
-## Matched        84     185
-## Unmatched     345       0</code></pre>
+## Matched        83     185
+## Unmatched     346       0</code></pre>
 <p>The output looks very similar to <code>MatchIt</code>’s <code>summary()</code> function: at the top is the original <code>matchit()</code> call; next is the balance table, and finally is a summary of the sample size before and after adjustment.</p>
 <p>Setting <code>binary = &quot;std&quot;</code> in <code>bal.tab()</code> will produce identical calculations to those in <code>MatchIt</code>’s <code>summary(m.out, standardize = TRUE)</code>, which produces standardized differences for binary variables as well as continuous variables. The other arguments to <code>bal.tab()</code> when using it with <code>MatchIt</code> have the same form and function as those given when using it without a conditioning package. The output when using <code>MatchIt</code> for subclassification is the same as that displayed previously.</p>
 </div>
@@ -985,18 +1007,18 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <a class="sourceLine" id="cb41-5" data-line-number="5">        <span class="dt">disp.v.ratio =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
 <pre><code>## Balance Measures
 ##                Type Diff.Matched V.Ratio.Matched Diff.IPW V.Ratio.IPW
-## age         Contin.       0.2395          1.7962   0.1112      1.9663
-## educ        Contin.      -0.0161          1.7314  -0.0641      1.6616
+## age         Contin.       0.2395          1.7963   0.1112      1.9663
+## educ        Contin.      -0.0161          1.7315  -0.0641      1.6616
 ## race_black   Binary       0.0054                  -0.0044            
 ## race_hispan  Binary      -0.0054                   0.0016            
 ## race_white   Binary       0.0000                   0.0028            
-## re74        Contin.      -0.0493          1.0368  -0.0039      1.4821
-## re75        Contin.       0.0087          2.1303  -0.0428      1.1712
+## re74        Contin.      -0.0493          1.0367  -0.0039      1.4821
+## re75        Contin.       0.0087          2.1302  -0.0428      1.1712
 ## 
 ## Sample sizes
 ##         Control Treated  
 ## All       429.0     185  
-## Matched    84.0     185  
+## Matched    83.0     185  
 ## IPW       108.2     185 *
 ## * indicates effective sample size</code></pre>
 <p>To use <code>bal.plot()</code>, the same syntax can be used:</p>
@@ -1053,8 +1075,8 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 ## Sample sizes
 ##           Control Treated
 ## All           429     185
-## Matched        84     185
-## Unmatched     345       0</code></pre>
+## Matched        83     185
+## Unmatched     346       0</code></pre>
 <p>Although the prognostic score is sensitive to the outcome estimation model used, a defensible prognostic score model can yield valid prognostic scores, which can then be used in balance assessment. In the above example, balance on the estimated prognostic score was good, so we can have some confidence that the effect estimate will be relatively unbiased, even though the “age” variable remains imbalanced. The logic is that that age is not a highly prognostic variable, which could be demonstrated by examining the standardized regression output of prognostic score model, so even though imbalance remains, such imbalance is unlikely to affect the effect estimate. The variables “re74” and “re75”, though, which are highly prognostic of the outcome, are quite balanced, thereby supporting an unbiased treatment effect estimate.</p>
 </div>
 </div>
@@ -1066,10 +1088,11 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <p>When computing a standardized mean difference, the raw mean difference is divided by a standard deviation, yielding a d-type effect size statistic. In <code>bal.tab()</code>, the user can control whether the standard deviation is that of the treated group or control group or a pooled estimate, calculated as the square root of the average of the group variances. In most applications, the standard deviation corresponding to the default for the method is the most appropriate.</p>
 <p>A key detail is that the standard deviation, no matter how it is computed, is always computed using the <em>unadjusted</em> sample<a href="#fn4" class="footnote-ref" id="fnref4"><sup>4</sup></a>. This is line with how <code>MatchIt</code> computes standardized mean differences, and is recommended by Stuart (2008; 2010)<a href="#fn5" class="footnote-ref" id="fnref5"><sup>5</sup></a>. One reason to favor the use of the standard deviation of the unadjusted sample is that it prevents the paradoxical situation that occurs when adjustment decreases both the mean difference and the spread of the sample, yielding a larger standardized mean difference than that prior to adjustment, even though the adjusted groups are now more similar. By using the same standard deviation before and after adjusting, the change in balance is isolated to the change in mean difference, rather than being conflated with an accompanying change in spread.</p>
 <p>The same logic applies to computing the standard deviations that appear in the denominator of the treatment-covariate correlations that are used to assess balance with continuous treatments. Given that the covariance is the relevant quality to be assessed and the correlation is just a standardization used to simplify interpretation, the standardization factor should remain the same before and after adjustment. Thus, the standard deviations of the <em>unadjusted</em> sample are used in the denominator of the treatment-covariate correlation, even when the correlation in question is for the adjusted sample.</p>
+<p>Note that when sampling weights are used, values for the unadjusted sample will be computed incorporating the sampling weights; in that sense, they are “adjusted” by the sampling weights.</p>
 </div>
 <div id="weighted-variance" class="section level3">
 <h3>Weighted Variance</h3>
-<p>When using weighting or matching, summary values after adjustment are calculated by using weights generated from the matching or weighting process. For example, group means are computed using the standard formula for a weighted mean, incorporating the weighting or matching weights into the calculation. To estimate a weighted sample variance for use in variance ratios<a href="#fn6" class="footnote-ref" id="fnref6"><sup>6</sup></a> or sample standard deviations, there are two formulas that have been proposed:</p>
+<p>When using weighting or matching, summary values after adjustment are calculated by using weights generated from the matching or weighting process. For example, group means are computed using the standard formula for a weighted mean, incorporating the weighting or matching weights into the calculation. To estimate a weighted sample variance for use in variance ratios<a href="#fn6" class="footnote-ref" id="fnref6"><sup>6</sup></a>, sample standard deviations, or other stantistics in the presence of sampling weights, there are two formulas that have been proposed:</p>
 <ol style="list-style-type: decimal">
 <li><p><span class="math inline">\(\frac{\sum_{i=1}^{n} w_{i}(x_{i} - \bar{x}_{w})^2}{(\sum_{i=1}^{n} w_{i}) - 1}\)</span></p></li>
 <li><p><span class="math inline">\(\frac{\sum_{i=1}^{n} w_{i}}{(\sum_{i=1}^{n} w_{i})^2 - \sum_{i=1}^{n} w^2_{i}} \sum_{i=1}^{n} w_{i}(x_{i} - \bar{x}_{w})^2\)</span></p></li>
@@ -1105,10 +1128,8 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 </div>
 <div id="variance-ratios" class="section level3">
 <h3>Variance Ratios</h3>
-<p>Although mean differences (including t-tests and chi-square tests) are the most reported balance statistic (Thoemmes &amp; Kim, 2011), variance ratios have been recommended in the literature as a means to further examine balance between groups (Austin, 2009, Imai et al., 2008; Ho et al., 2007). When group variances are similar, the variance ratio will be close to 1. Common thresholds for the variance ratio for balanced groups are 1/2 and 2 (Rubin, 2001; Stuart, 2010), though ratios closer to 1 are preferred. The <code>Matching</code> package is the only one of the conditioning packages that presents variance ratios for covariates. Although <code>bal.tab()</code> in <code>cobalt</code> does not display variance ratios by default, they can be easily requested and have thresholds set.</p>
-</div>
-<div id="distinguishing-continuous-and-binary-covariates" class="section level3">
-<h3>Distinguishing Continuous and Binary Covariates</h3>
+<p>Although mean differences (including t-tests and chi-square tests) are the most reported balance statistic (Thoemmes &amp; Kim, 2011), variance ratios have been recommended in the literature as a means to further examine balance between groups (Austin, 2009, Imai et al., 2008; Ho et al., 2007). When group variances are similar, the variance ratio will be close to 1. Common thresholds for the variance ratio for balanced groups are 1/2 and 2 (Rubin, 2001; Stuart, 2010), though ratios closer to 1 are preferred.</p>
+<p>The <code>Matching</code> package is the only one of the conditioning packages that presents variance ratios for covariates. Although <code>bal.tab()</code> in <code>cobalt</code> does not display variance ratios by default, they can be easily requested and have thresholds set. ### Distinguishing Continuous and Binary Covariates</p>
 <p>Continuous and binary covariates are treated differently by default in <code>bal.tab()</code> and <code>bal.plot()</code>. For continuous covariates, the standard manipulations apply: standardized mean differences, variance ratios, and density plots. For binary covariates, raw differences in proportion and bar charts are preferable, and variance ratios are useless.</p>
 <p>The value of standardized mean differences for continuous variables is that they are on the same scale so that they can be compared across variables, and they allow for a simple interpretation even when the details of the variable’s original scale are unclear to the analyst. None of these advantages are passed to binary variables because binary variables are already on the same scale (i.e., a proportion), and the scale is easily interpretable. In addition, the details of standardizing the proportion difference of a binary variable involve dividing the proportion difference by a variance, but the variance of a binary variable is a function of its proportion (Austin, 2009). Standardizing the proportion difference of a binary variable can yield the following counterintuitive result: if <span class="math inline">\(X_{T} = .2\)</span> and <span class="math inline">\(X_{C} = .3\)</span>, the standardized difference in proportion would be different from that if <span class="math inline">\(X_{T} = .5\)</span> and <span class="math inline">\(X_{C} = .6\)</span>, even though the expectation is that the balance statistic should be the same for both scenarios because both would yield the same degree of bias in the effect estimate. In addition, Ali et al. (2014) found that the raw difference in proportion was a better predictor of bias than the standardized mean difference for binary variables<a href="#fn8" class="footnote-ref" id="fnref8"><sup>8</sup></a>.</p>
 <p><code>MatchIt</code> allows users to view either standardized mean differences for all covariates or raw differences for all covariates, and <code>twang</code> and <code>Matching</code> display standardized differences for all variables but calculate test statistics depending on whether the covariate is continuous or binary (<code>CBPS</code> does not calculate mean differences, but presents both standardized and unstandardized means for all covariates). <code>cobalt</code> allows the user to select how the differences are to be calculated separately for continuous and binary variables, and uses the intuitive default that mean differences for continuous variables should be standardized while proportion differences for binary variables should not be.</p>
@@ -1181,7 +1202,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <p>Stuart, E. A., Lee, B. K., &amp; Leacy, F. P. (2013). Prognostic score-based balance measures can be a useful diagnostic for propensity score methods in comparative effectiveness research. Journal of Clinical Epidemiology, 66(8), S84. <a href="http://dx.doi.org/10.1016/j.jclinepi.2013.01.013" class="uri">http://dx.doi.org/10.1016/j.jclinepi.2013.01.013</a></p>
 <p>Thoemmes, F. J., &amp; Kim, E. S. (2011). A Systematic Review of Propensity Score Methods in the Social Sciences. Multivariate Behavioral Research, 46(1), 90–118. <a href="http://doi.org/10.1080/00273171.2011.540475" class="uri">http://doi.org/10.1080/00273171.2011.540475</a></p>
 <p>Zhao, Q., &amp; Percival, D. (2015). Primal-dual Covariate Balance and Minimal Double Robustness via Entropy Balancing. arXiv preprint arXiv:1501.03571.</p>
-<p>Zhu, Y., Coffman, D. L., &amp; Ghosh, D. (2015). A Boosting Algorithm for Estimating Generalized Propensity Scores with Continuous Treatments. Journal of Causal Inference, 3(1). <a href="https://doi.org/10.1515/jci-2014-0022" class="uri">https://doi.org/10.1515/jci-2014-0022</a></p>
+<p>Zhu, Y., Coffman, D. L., &amp; Ghosh, D. (2015). A Boosting Algorithm for Estimating Generalized Propensity Scores with Continuous Treatments. Journal of Causal Inference, 3(1).</p>
 <p>Zubizarreta, J. R., Kilcioglu, C., and Vielma, J. P. (2017). designmatch: Matched Samples that are Balanced and Representative by Design. R package version 0.3.0.</p>
 </div>
 <div class="footnotes">
