@@ -55,12 +55,40 @@ x2base.matchit <- function(m, ...) {
     if (any(vapply(weights, function(x) anyNA(x), logical(1L)))) stop("NAs are not allowed in the weights.", call. = FALSE)
     
     if (is_not_null(m$model$model)) {
-        o.data <- m$model$model #data used in the PS formula, including treatment and covs
-        covs <- data.frame(o.data[, names(o.data) %in% attributes(terms(m$model))$term.labels])
-        #if (identical(o.data, data)) o.data <- NULL
+        if (nrow(m$model$model) == length(treat)) {
+            covs <- data.frame(m$model$model[, names(m$model$model) %in% attributes(terms(m$model))$term.labels])
+        }
+        else {
+            #Recreating covs from model object and m$X. Have to do this because when 
+            #drop != NULL and reestimate = TRUE, cases are lost. This recovers them.
+            
+            order <- setNames(attr(m$model$terms, "order"),
+                              attr(m$model$terms, "term.labels"))
+            assign <- setNames(attr(m$X, "assign"), colnames(m$X))
+            assign1 <- assign[assign %in% which(order == 1)] #Just main effects
+            
+            dataClasses <- attr(m$model$terms, "dataClasses")
+            factors.to.unsplit <- names(dataClasses)[dataClasses %in% c("factor", "character", "logical")]
+            f0 <- setNames(lapply(factors.to.unsplit, 
+                                  function(x) {
+                                      if (dataClasses[x] == "factor")
+                                          list(levels = levels(m$model$model[[x]]),
+                                               faclev = paste0(x, levels(m$model$model[[x]])))
+                                      else 
+                                          list(levels = unique(m$model$model[[x]]),
+                                               faclev = paste0(x, unique(m$model$model[[x]])))
+                                  }),
+                           factors.to.unsplit)
+            covs <- as.data.frame(m$X[, names(assign1)])
+            for (i in factors.to.unsplit) {
+                covs <- unsplitfactor(covs, i, sep = "",
+                                      dropped.level = f0[[i]]$levels[f0[[i]]$faclev %nin% colnames(m$X)])
+                if (dataClasses[i] == "logical") covs[[i]] <- as.logical(covs[[i]])
+            }
+        }
+        
     }
     else {
-        #o.data <- NULL
         covs <- data.frame(m$X)
     }
     m.data <- m$model$data
@@ -197,16 +225,16 @@ x2base.ps <- function(ps, ...) {
     }
     
     s <- names(ps$w)[match(tolower(rule1), tolower(names(ps$w)))]
-    estimand <- substr(tolower(s), nchar(s)-2, nchar(s))
-    
+    estimand <- substr(toupper(s[1]), nchar(s[1])-2, nchar(s[1]))
+
     if (is_not_null(A$s.d.denom) && is.character(A$s.d.denom)) {
-        X$s.d.denom <- tryCatch(match_arg(A$s.d.denom, c("treated", "control", "pooled")),
+        s.d.denom <- tryCatch(match_arg(A$s.d.denom, c("treated", "control", "pooled")),
                                 error = function(cond) {
-                                    new.s.d.denom <- switch(substr(tolower(s), nchar(s)-2, nchar(s)), att = "treated", ate = "pooled")
+                                    new.s.d.denom <- switch(estimand, ATT = "treated", ATE = "pooled")
                                     message(paste0("Warning: s.d.denom should be one of \"treated\", \"control\", or \"pooled\".\nUsing ", deparse(new.s.d.denom), " instead."))
                                     return(new.s.d.denom)})
     }
-    else X$s.d.denom <- vapply(tolower(estimand), switch, character(1L), att = "treated", ate = "pooled")
+    else s.d.denom <- vapply(estimand, switch, character(1L), ATT = "treated", ATE = "pooled")
     
     weights <- data.frame(get.w(ps, s, estimand))
     treat <- ps$treat
@@ -296,6 +324,7 @@ x2base.ps <- function(ps, ...) {
     
     if (is_null(subset)) subset <- rep(TRUE, length(treat))
     
+    X$s.d.denom <- rep(s.d.denom, ncol(weights))
     X$weights <- weights
     X$treat <- treat
     X$distance <- distance
@@ -365,16 +394,16 @@ x2base.mnps <- function(mnps, ...) {
     
     s <- mnps$stopMethods[match(tolower(rule1), tolower(mnps$stopMethods))]
     
-    estimand <- setNames(mnps$estimand, s)
+    estimand <- mnps$estimand
     
     if (is_not_null(A$s.d.denom) && is.character(A$s.d.denom)) {
-        X$s.d.denom <- tryCatch(match_arg(A$s.d.denom, c("treated", "control", "pooled")),
+        s.d.denom <- tryCatch(match_arg(A$s.d.denom, c("treated", "control", "pooled")),
                                 error = function(cond) {
-                                    new.s.d.denom <- switch(substr(tolower(s), nchar(s)-2, nchar(s)), att = "treated", ate = "pooled")
+                                    new.s.d.denom <- switch(substr(tolower(s[1]), nchar(s[1])-2, nchar(s[1])), att = "treated", ate = "pooled")
                                     message(paste0("Warning: s.d.denom should be one of \"treated\", \"control\", or \"pooled\".\nUsing ", deparse(new.s.d.denom), " instead."))
                                     return(new.s.d.denom)})
     }
-    else X$s.d.denom <- vapply(tolower(estimand), switch, character(1L), att = "treated", ate = "pooled")
+    else s.d.denom <- vapply(tolower(estimand), switch, character(1L), att = "treated", ate = "pooled")
     
     weights <- data.frame(get.w(mnps, s))
     treat <- mnps$treatVar
@@ -455,6 +484,7 @@ x2base.mnps <- function(mnps, ...) {
     
     if (is_null(subset)) subset <- rep(TRUE, length(treat))
     
+    X$s.d.denom <- rep(s.d.denom, ncol(weights))
     X$weights <- weights
     X$treat <- treat
     X$distance <- distance
@@ -646,13 +676,13 @@ x2base.Match <- function(Match, ...) {
     m <- Match
     s <- m$estimand
     if (is_not_null(A$s.d.denom) && is.character(A$s.d.denom)) {
-        X$s.d.denom <- tryCatch(match_arg(A$s.d.denom, c("treated", "control", "pooled")),
+        s.d.denom <- tryCatch(match_arg(A$s.d.denom, c("treated", "control", "pooled")),
                                 error = function(cond) {
                                     new.s.d.denom <- switch(toupper(s), ATT = "treated", ATE = "treated", ATC = "control")
                                     message(paste0("Warning: s.d.denom should be one of \"treated\", \"control\", or \"pooled\".\nUsing ", deparse(new.s.d.denom), " instead."))
                                     return(new.s.d.denom)})
     }
-    else X$s.d.denom <- switch(toupper(s), ATT = "treated", ATE = "pooled", ATC = "control")
+    else s.d.denom <- switch(toupper(s), ATT = "treated", ATE = "pooled", ATC = "control")
     
     treat0 <- t.c[["treat"]]
     covs0  <- t.c[["covs"]]
@@ -746,6 +776,7 @@ x2base.Match <- function(Match, ...) {
     
     if (is_null(subset)) subset <- rep(TRUE, length(treat))
     
+    X$s.d.denom <- rep(s.d.denom, ncol(weights))
     X$treat <- treat
     X$weights <- weights
     X$discarded <- dropped
@@ -1532,7 +1563,7 @@ x2base.ebalance <- function(ebalance, ...) {
     
     if (any(vapply(weights, function(x) anyNA(x), logical(1L)))) stop("NAs are not allowed in the weights.", call. = FALSE)
     if (any(vapply(weights, function(x) any(x < 0), logical(1L)))) stop("Negative weights are not allowed.", call. = FALSE)
-
+    
     s <- "ATT"
     if (is_not_null(A$s.d.denom) && is.character(A$s.d.denom)) {
         X$s.d.denom <- tryCatch(match_arg(A$s.d.denom, c("treated", "control", "pooled")),
@@ -2558,7 +2589,7 @@ x2base.data.frame.list <- function(covs.list, ...) {
     X$call <- NULL
     X$imp <- factor(imp)
     X$s.weights <- s.weights
-   
+    
     X <- subset_X(X, subset)
     X <- setNames(X[X.names], X.names)
     
@@ -2611,7 +2642,7 @@ x2base.CBMSM <- function(cbmsm, ...) {
     
     if (any(vapply(weights, function(x) anyNA(x), logical(1L)))) stop("NAs are not allowed in the weights.", call. = FALSE)
     if (any(vapply(weights, function(x) any(x < 0), logical(1L)))) stop("Negative weights are not allowed.", call. = FALSE)
-
+    
     covs.list <- vector("list", ntimes)
     for (ti in times) {
         if (ti == 1) {
@@ -3587,7 +3618,7 @@ x2base.default <- function(obj, ...) {
                 }
             }
         }
-
+        
         if (any(c(is.na(covs), is.na(addl)))) {
             warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
         }

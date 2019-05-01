@@ -33,8 +33,8 @@ bal.plot(Wmsm, var.name = "age", which = "both")
 bal.plot(Wmsm, var.name = "tx1", which = "both")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(Wmsm), abs = TRUE)
+love.plot(Wmsm, abs = TRUE)
 
 ## ---- fig.width=4--------------------------------------------------------
-love.plot(bal.tab(Wmsm), which.time = NA)
+love.plot(Wmsm, which.time = .none)
 

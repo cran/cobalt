@@ -107,7 +107,7 @@ library("MatchIt") #if not yet loaded
 m.out <- matchit(f.build("treat", covs), data = lalonde, 
                  method = "nearest", replace = TRUE)
 
-love.plot(bal.tab(m.out), threshold = .1)
+love.plot(m.out, threshold = .1)
 
 ## ---- fig.width = 5------------------------------------------------------
 v <- data.frame(old = c("age", "educ", "race_black", "race_hispan", 
@@ -116,7 +116,7 @@ v <- data.frame(old = c("age", "educ", "race_black", "race_hispan",
                         "Hispanic", "White", "Married", "No Degree Earned", 
                         "Earnings 1974", "Earnings 1975", "Propensity Score"))
 
-love.plot(bal.tab(m.out), stat = "mean.diffs", threshold = .1, 
+love.plot(m.out, stat = "mean.diffs", threshold = .1, 
           var.order = "unadjusted", var.names = v, abs = TRUE,
           line = TRUE, limits = c(0, 1))
 
@@ -141,7 +141,7 @@ bal.plot(W.out.c, "married", which = "both")
 
 ## ---- fig.width = 5------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(bal.tab(W.out.c), threshold = .1, 
+love.plot(W.out.c, threshold = .1, 
           var.order = "unadjusted", line = TRUE)
 
 ## ------------------------------------------------------------------------
@@ -156,7 +156,7 @@ W.out.mn <- weightit(race ~ cov.mn, data = lalonde,
 
 ## ------------------------------------------------------------------------
 #Assessing balance numerically
-bal.tab(W.out.mn, un = TRUE, which.treat = NULL)
+bal.tab(W.out.mn, un = TRUE, which.treat = .all)
 
 #Just black vs. white
 bal.tab(W.out.mn, un = TRUE, disp.means = TRUE,
@@ -172,8 +172,8 @@ bal.plot(W.out.mn, "married", which = "both",
 
 ## ---- fig.width = 7------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(bal.tab(W.out.mn), threshold = .1,
-          which.treat = NULL, abs = FALSE)
+love.plot(W.out.mn, threshold = .1,
+          which.treat = .all, abs = FALSE)
 
 ## ------------------------------------------------------------------------
 bal.tab(treat ~ covs0, data = lalonde, 
@@ -190,10 +190,11 @@ bal.plot(treat ~ covs0, data = lalonde,
          var.name = "age", which = "both")
 
 ## ---- fig.width=5--------------------------------------------------------
-love.plot(bal.tab(treat ~ covs0, data = lalonde, 
-                  weights = data.frame(Matched = get.w(m.out),
-                                       IPW = get.w(W.out)),
-                  method = c("matching", "weighting")), var.order = "unadjusted",
+love.plot(treat ~ covs0, data = lalonde, 
+          weights = data.frame(Matched = get.w(m.out),
+                               IPW = get.w(W.out)),
+          method = c("matching", "weighting"), 
+          var.order = "unadjusted",
           abs = TRUE, colors = c("red", "blue", "darkgreen"), 
           shapes = c("circle", "square", "triangle"))
 
@@ -214,7 +215,8 @@ ps.out <- ps(f.build("treat", covs0), data = lalonde,
              stop.method = "es.max", 
              estimand = "ATT", n.trees = 100, verbose = FALSE)
 plot(ps.out, plots = "es", subset = 1)
-love.plot(bal.tab(ps.out, stop.method = "es.max"), threshold = .1,
-          abs = TRUE, var.order = "u", color = c("red", "blue"), line = TRUE,
+love.plot(ps.out, stop.method = "es.max", 
+          threshold = .1, abs = TRUE, var.order = "u", 
+          color = c("red", "blue"), line = TRUE,
           drop.distance = TRUE)
 

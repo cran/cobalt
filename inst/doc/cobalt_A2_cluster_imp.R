@@ -19,19 +19,19 @@ bal.tab(m.out, cluster = "race", which.cluster = c("black", "hispan"),
         cluster.summary = FALSE)
 
 #Just the balance summary across clusters with only the mean
-bal.tab(m.out, cluster = "race", which.cluster = NA, cluster.fun = "mean")
+bal.tab(m.out, cluster = "race", which.cluster = .none, cluster.fun = "mean")
 
 ## ------------------------------------------------------------------------
 bal.plot(m.out, var.name = "age", cluster = "race")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(m.out, cluster = "race"))
+love.plot(m.out, cluster = "race")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(m.out, cluster = "race"), which.cluster = NA, agg.fun = "mean")
+love.plot(m.out, cluster = "race", which.cluster = .none, agg.fun = "mean")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(m.out, cluster = "race"), which.cluster = NA, agg.fun = "range")
+love.plot(m.out, cluster = "race", which.cluster = .none, agg.fun = "range")
 
 ## ------------------------------------------------------------------------
 library("MatchIt"); library("cobalt"); library("mice")
@@ -101,16 +101,15 @@ bal.plot(treat ~ age + educ + race + married + nodegree + re74 + re75,
          imp = ".imp", which.imp = 1, var.name = "age")
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(treat ~ age + educ + race + married + nodegree + re74 + re75, 
-                  data = imp.data, weights = "match.weight", method = "matching", 
-                  imp = ".imp"), which.imp = 1, 
+love.plot(treat ~ age + educ + race + married + nodegree + re74 + re75, 
+          data = imp.data, weights = "match.weight", method = "matching", 
+          imp = ".imp", which.imp = 1, 
           var.order = "unadjusted", threshold = .2)
 
 ## ------------------------------------------------------------------------
-love.plot(bal.tab(treat ~ age + educ + race + married + nodegree + re74 + re75, 
-                  data = imp.data, weights = "match.weight", method = "matching", 
-                  imp = ".imp"), 
-          agg.fun = "range", threshold = .2)
+love.plot(treat ~ age + educ + race + married + nodegree + re74 + re75, 
+          data = imp.data, weights = "match.weight", method = "matching", 
+          imp = ".imp", agg.fun = "range", threshold = .2)
 
 ## ------------------------------------------------------------------------
 library("MatchIt"); library("cobalt"); library("mice")
@@ -140,19 +139,19 @@ bal.tab(treat ~ age + educ + married + nodegree + re74 + re75,
 bal.plot(treat ~ age + educ + married + nodegree + re74 + re75, 
          data = imp.data, weights = "match.weight", method = "matching", 
          imp = ".imp", cluster = "race", which.imp = 1, 
-         which.cluster = NULL, var.name = "age")
+         which.cluster = .all, var.name = "age")
 
 ## ------------------------------------------------------------------------
 #4)
-love.plot(bal.tab(treat ~ age + educ + married + nodegree + re74 + re75, 
-                  data = imp.data, weights = "match.weight", 
-                  method = "matching", imp = ".imp", cluster = "race"), 
-          which.imp = NA, which.cluster = NULL, 
+love.plot(treat ~ age + educ + married + nodegree + re74 + re75, 
+          data = imp.data, weights = "match.weight", 
+          method = "matching", imp = ".imp", cluster = "race", 
+          which.imp = .none, which.cluster = .all, 
           agg.fun = "range")
 
 #7)
-love.plot(bal.tab(treat ~ age + educ + married + nodegree + re74 + re75, 
-                  data = imp.data, weights = "match.weight", 
-                  method = "matching", imp = ".imp", cluster = "race"), 
-          which.imp = 1, which.cluster = NULL)
+love.plot(treat ~ age + educ + married + nodegree + re74 + re75, 
+          data = imp.data, weights = "match.weight", 
+          method = "matching", imp = ".imp", cluster = "race", 
+          which.imp = 1, which.cluster = .all)
 

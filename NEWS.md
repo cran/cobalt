@@ -1,6 +1,26 @@
 `cobalt` News and Updates
 ======
 
+Version 3.7.0
+
+* Changes to some `bal.tab` defaults: `quick` is now set to `TRUE` by default. Adjusted and unadjusted means, standard deviations, and mean differences will always be computed, regardless of `quick`. Variance ratios and KS statistics will only be computed if `quick = FALSE` or `disp.v.ratio` or `disp.ks`, respectively, are `TRUE`.
+
+* Variance ratios now respond to `abs`. When `abs = FALSE`, the default in `bal.tab`, the variance is ratio is the variance of the treated (1) divided by the variance of the control (0). When `abs = TRUE`, the numerator of the variance ratio is the larger variance and the denominator is the smaller variance, which was the old behavior. `v.threshold` still responds as if `abs` was set to `TRUE`, just like with mean differences. Any time variance ratios are aggregated (e.g., across imputations or clusters), the "mean" variance ratio is the geometric mean to account for the asymmetry in the ratios.
+
+* `love.plot` has several changes that make it much more user-friendly. First, rather than supplying a `bal.tab` object to `love.plot`, you can simply supply the arguments that would have gone into the `bal.tab()` call straight into `love.plot()`. Second, if `quick = TRUE` (the new default) and the first argument to `love.plot()` is a call to `bal.tab()` (or arguments provided to `bal.tab()`) and `stat` is set to `"variance.ratios"` or `"ks.statistics"`, `bal.tab()` will be re-called with the corresponding `disp` argument set to `TRUE` so that `love.plot()` will display those statistics regardless of `quick`. This will not work if the argument supplied to `love.plot()` is a `bal.tab` object. Third, because unadjusted mean differences are computed regardless of `quick`, there will never be a circumstance in which only adjusted values will be displayed. If `quick = TRUE`, `un = FALSE`, and `stat` is `"variance.ratios"` or `"ks.statistics"`, `un` will automatically be set to `TRUE` in the `bal.tab()` re-call.
+
+* When using `which.` arguments (e.g., `which.cluster`, `which.imp`, etc.), insted of supplying `NULL` and `NA`, you can supply `.all` and `.none` (not in quotes). This should make them easier to use. Note that these new inputs are not variables; they are keywords and are evaluated using nonstandard evaluation. If you actually have objects with those names, they will be ignored.
+
+* Bugs in scoping related to the formula interface have been solved, in particularly making `bal.tab()` more usable within other functions.
+
+* Fixed bug occurring when using `matchit` objects having set `discard` to something other than `NULL` and `reestimate = TRUE` in the call to `matchit()`. Thank you to Weiyi Xie for finding this bug.
+
+* Fixed bug occurring when using balance thresholds with subclassification.
+
+* Fixed bug occurring when printing `bal.tab` output for continuous treatments with clusters.
+
+* Fixed bug occurring when using `bal.tab()` on `mnps` objects with multiple stop methods.
+
 Version 3.6.1
 
 * Fixed bug when installed version of R was earlier than 3.5.0.
@@ -281,9 +301,9 @@ Version 1.1.0
 
 * Added a vignette.
 
-* Fixed error in bal.tab.Match that caused wrong values and and warning messages when used.
+* Fixed error in `bal.tab.Match()` that caused wrong values and and warning messages when used.
 
-* Added new capabilities to bal.plot, including the ability to view unadjusted sample distributions, categorical variables as such, and the distance measure. Also updated documentation to reflect these changes and make which.sub more focal.
+* Added new capabilities to `bal.plot()`, including the ability to view unadjusted sample distributions, categorical variables as such, and the distance measure. Also updated documentation to reflect these changes and make `which.sub` more focal.
 
 * Allowed subclasses to be different from simply 1:S by treating them like factors once input is numerical
 
