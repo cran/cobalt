@@ -2,15 +2,17 @@ bal.tab <- function(...) {
     
     if (...length() == 0L) stop("No arguments were supplied.", call. = FALSE)
     .obj <- ...elt(1)
-    
+
     .obj <- is.designmatch(.obj)
     .obj <- is.time.list(.obj)
     
     #Replace .all and .none with NULL and NA respectively
     .call <- match.call(expand.dots = TRUE)
-    if (any(sapply(seq_along(.call), function(x) identical(as.character(.call[[x]]), ".all") || identical(as.character(.call[[x]]), ".none")))) {
-        .call[sapply(seq_along(.call), function(x) identical(as.character(.call[[x]]), ".all"))] <- expression(NULL)
-        .call[sapply(seq_along(.call), function(x) identical(as.character(.call[[x]]), ".none"))] <- expression(NA)
+    .alls <- vapply(seq_along(.call), function(x) identical(.call[[x]], quote(.all)), logical(1L))
+    .nones <- vapply(seq_along(.call), function(x) identical(.call[[x]], quote(.none)), logical(1L))
+    if (any(c(.alls, .nones))) {
+        .call[.alls] <- expression(NULL)
+        .call[.nones] <- expression(NA)
         return(eval(.call))
     }
     
@@ -202,6 +204,10 @@ bal.tab.data.frame <- function(covs, treat, data = NULL, weights = NULL, distanc
     
     return(out)
 }
+bal.tab.numeric <- function(treat, covs, ...) {
+    bal.tab(covs, treat = treat, ...)
+}
+bal.tab.factor <- bal.tab.character <- bal.tab.logical <- bal.tab.numeric
 bal.tab.CBPS <- function(cbps, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, cluster = NULL, pairwise = TRUE, focal = NULL, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
@@ -265,6 +271,33 @@ bal.tab.designmatch <- function(dm, ...) {
     class(dm) <- "designmatch"
     bal.tab.Match(dm, ...)
 }
+bal.tab.mimids <- function(mimids, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+    
+    args <- c(as.list(environment()), list(...))[-1]
+    
+    #Adjustments to arguments
+    args.with.choices <- names(formals()[-1])[vapply(formals()[-c(1, length(formals()))], function(x) length(x)>1, logical(1L))]
+    for (i in args.with.choices) args[[i]] <- eval(parse(text=paste0("match_arg(", i, ")")))
+    
+    blank.args <- vapply(formals()[-c(1, length(formals()))], function(x) identical(x, quote(expr =)), logical(1L))
+    if (any(blank.args)) {
+        for (arg.name in names(blank.args)[blank.args]) {
+            if (identical(args[[arg.name]], quote(expr = ))) {
+                args[[arg.name]] <- NULL
+            }
+        }
+    }
+    
+    #Initializing variables
+    X <- do.call("x2base.mimids", c(list(mimids), args), quote = TRUE)
+    
+    args <- args[names(args) %nin% names(X)]
+    
+    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+                   quote = TRUE)
+    return(out)
+}
+bal.tab.wimids <- bal.tab.mimids
 
 #MSMs wth multiple time points
 bal.tab.formula.list <- function(formula.list, data = NULL, ...) {

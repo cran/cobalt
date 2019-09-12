@@ -64,7 +64,7 @@ a numeric value for the threshold for variance ratios. Will automatically conver
 a numeric value for the threshold for Kolmogorov-Smirnov statistics. Must be between 0 and 1. 
 }
   \item{cluster}{
-either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in \code{data} or the CBPS object. See \code{\link{bal.tab.cluster}} for details.
+either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in \code{data} or the \code{matchit} object. See \code{\link{bal.tab.cluster}} for details.
 }
   \item{abs}{
 \code{logical}; whether displayed balance statistics should be in absolute value or not. 
@@ -82,7 +82,7 @@ further arguments to control display of output. See \link[=options-display]{disp
 \details{
 \code{bal.tab.matchit()} generates a list of balance summaries for the \code{matchit} object given, and functions similarly to \code{summary.matchit()} in \pkg{MatchIt}. \code{bal.tab()} behaves differently depending on whether subclasses are used in conditioning or not. If they are used, \code{bal.tab()} creates balance statistics for each subclass and for the sample in aggregate; see \code{\link{bal.tab.subclass}} for more information. 
 
-All balance statistics are calculated whether they are displayed by \code{print} or not, unless \code{quick = TRUE}. The threshold values (\code{m.threshold}, \code{v.threshold}, and \code{ks.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure. When subclassification is used, the extra threshold columns are placed within the balance tables for each subclass as well as in the aggregate balance table, and the summary tables display balance for each subclass.
+The threshold values (\code{m.threshold}, \code{v.threshold}, and \code{ks.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure. When subclassification is used, the extra threshold columns are placed within the balance tables for each subclass as well as in the aggregate balance table, and the summary tables display balance for each subclass.
 
 }
 \value{
@@ -91,6 +91,10 @@ If subclassification is used, an object of class \code{"bal.tab.subclass"} conta
 If matching is used and clusters are not specified, an object of class \code{"bal.tab"} containing balance summaries for the \code{matchit} object. See \code{\link{bal.tab}} for details.
 
 If clusters are specified, an object of class \code{"bal.tab.cluster"} containing balance summaries within each cluster and a summary of balance across clusters. See \code{\link{bal.tab.cluster}} for details.
+}
+
+\note{
+When a user-suppled distance measure or Mahalanobis distance matching (\code{method = "mahalanobis"}) are used with \code{matchit()}, full covariate information is not stored in the \code{matchit} output object. In particular, categorical variables are not retained as such, and so the dummies are treated as their own variables. The consequence of this is that for all but the first factor variable supplied to \code{matchit()}, the first category will be absent. In addition, full compatibility with functions that rely on variable names (like \code{\link{love.plot}}) will be hampered. To get around this issue, users can supply the original data frame to \code{bal.tab()} through the \code{data} argument, and the variables will be processed correctly.
 }
 
 \author{
@@ -115,3 +119,4 @@ m.out2 <- matchit(treat ~ age + educ + race +
                   data = lalonde, method = "subclass")
 bal.tab(m.out2, disp.subclass = TRUE)
 }
+\keyword{tables}

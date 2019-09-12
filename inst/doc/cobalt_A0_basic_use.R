@@ -107,7 +107,7 @@ library("MatchIt") #if not yet loaded
 m.out <- matchit(f.build("treat", covs), data = lalonde, 
                  method = "nearest", replace = TRUE)
 
-love.plot(m.out, threshold = .1)
+love.plot(m.out, binary = "std", threshold = .1)
 
 ## ---- fig.width = 5------------------------------------------------------
 v <- data.frame(old = c("age", "educ", "race_black", "race_hispan", 
@@ -116,9 +116,14 @@ v <- data.frame(old = c("age", "educ", "race_black", "race_hispan",
                         "Hispanic", "White", "Married", "No Degree Earned", 
                         "Earnings 1974", "Earnings 1975", "Propensity Score"))
 
-love.plot(m.out, stat = "mean.diffs", threshold = .1, 
-          var.order = "unadjusted", var.names = v, abs = TRUE,
-          line = TRUE, limits = c(0, 1))
+love.plot(m.out, stats = c("mean.diffs", "ks.statistics"), 
+          threshold = c(mean.diffs = .1, ks.statistics = .05), 
+          binary = "std", abs = TRUE,
+          var.order = "unadjusted", var.names = v,
+          limits = c(0, 1), grid = FALSE, wrap = 20,
+          sample.names = c("Unmatched", "Matched"),
+          position = "top", shapes = c("circle", "triangle"),
+          colors = c("red", "blue"))
 
 ## ------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
@@ -172,7 +177,7 @@ bal.plot(W.out.mn, "married", which = "both",
 
 ## ---- fig.width = 7------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(W.out.mn, threshold = .1,
+love.plot(W.out.mn, threshold = .1, binary = "std",
           which.treat = .all, abs = FALSE)
 
 ## ------------------------------------------------------------------------
@@ -194,7 +199,7 @@ love.plot(treat ~ covs0, data = lalonde,
           weights = data.frame(Matched = get.w(m.out),
                                IPW = get.w(W.out)),
           method = c("matching", "weighting"), 
-          var.order = "unadjusted",
+          var.order = "unadjusted", binary = "std",
           abs = TRUE, colors = c("red", "blue", "darkgreen"), 
           shapes = c("circle", "square", "triangle"))
 
@@ -218,5 +223,6 @@ plot(ps.out, plots = "es", subset = 1)
 love.plot(ps.out, stop.method = "es.max", 
           threshold = .1, abs = TRUE, var.order = "u", 
           color = c("red", "blue"), line = TRUE,
+          binary = "std",
           drop.distance = TRUE)
 

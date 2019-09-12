@@ -47,7 +47,7 @@ optional; either a vector or data.frame containing distance values (e.g., propen
 an optional data frame or the quoted names of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in the call to \code{weightit()}. If variable names are specified, \code{bal.tab()} will look first in the argument to \code{data}, if specified, and next in the \code{weightit} object. For \code{weightitMSM} objects, must be a list of additional covariate values described above, with one list entry per time period.
 }
   \item{data}{
-an optional data frame containing variables that might be named in arguments to \code{distance}, \code{addl}, and \code{cluster}.
+an optional data frame containing variables that might be named in arguments to \code{distance}, \code{addl}, and \code{cluster}. Can also be  \code{mids} object, the output of a call to \code{mice} from the \pkg{mice} package, containing multiply imputed data sets. In this case, \code{imp} is automatically supplied using the imputation variable created from processing the \code{mids} object.
 }
   \item{continuous}{
 whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
@@ -71,10 +71,10 @@ a numeric value for the threshold for Kolmogorov-Smirnov statistics. Must be bet
 a numeric value for the threshold for correlations between covariates and treatment when treatment is continuous.
 }
   \item{cluster}{
-either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in \code{data} or the CBPS object. See \code{\link{bal.tab.cluster}} for details.
+either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in \code{data} or the \code{weightit} object. See \code{\link{bal.tab.cluster}} for details.
 }
   \item{imp}{
-either a vector containing imputation indices for each unit or a string containing the name of the imputation index variable in \code{data} or the original data set used in the call to \code{weightit()}. See \code{\link{bal.tab.imp}} for details.
+either a vector containing imputation indices for each unit or a string containing the name of the imputation index variable in \code{data} or the original data set used in the call to \code{weightit()}. See \code{\link{bal.tab.imp}} for details. Not necessary if \code{data} is a \code{mids} object.
 }
   \item{pairwise}{
 whether balance should be computed for pairs of treatments or for each treatment against all others combined. See \code{\link{bal.tab.multi}} for details. 
@@ -98,7 +98,7 @@ further arguments to control display of output. See \link[=options-display]{disp
 \details{
 \code{bal.tab.weightit()} generates a list of balance summaries for the \code{weightit} object given.
 
-All balance statistics are calculated whether they are displayed by \code{print} or not, unless \code{quick = TRUE}. The threshold values (\code{m.threshold}, \code{v.threshold}, \code{ks.threshold}, and \code{r.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
+The threshold values (\code{m.threshold}, \code{v.threshold}, \code{ks.threshold}, and \code{r.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
 
 }
 \value{
@@ -141,3 +141,4 @@ w.out2 <- weightit(treat ~ age + educ + race +
                   estimand = "ATE")
 bal.tab(w.out2)
 }
+\keyword{tables}
