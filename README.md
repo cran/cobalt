@@ -16,12 +16,13 @@ the balance assessment tools found in the R packages `twang`, `MatchIt`,
 `CBPS`, and `Matching`. To examine how `bal.tab()` integrates with these
 packages and others, see the help file for `bal.tab()` with `?bal.tab`,
 which links to the methods used for each package. Each page has examples
-of how `bal.tab()` is used with the package. There are also four
-vignette detailing the use of `cobalt`, which can be accessed with
+of how `bal.tab()` is used with the package. There are also five
+vignettes detailing the use of `cobalt`, which can be accessed with
 `browseVignettes("cobalt")`: one for basic uses of `cobalt`, one for the
 use of `cobalt` with additional packages, one for the use of `cobalt`
 with multiply imputed and/or clustered data, one for the use of `cobalt`
-with longitudinal treatments. Currently, `cobalt` is compatible with
+with longitudinal treatments, and one for the use of `cobalt` to
+generate publication-ready plots. Currently, `cobalt` is compatible with
 output from `MatchIt`, `twang`, `Matching`, `optmatch`, `CBPS`, `ebal`,
 `WeightIt`, and `designmatch`, as well as data not processed through
 these packages.
@@ -106,10 +107,10 @@ bal.tab(m.out, m.threshold = 0.1, un = TRUE)
     #>  race_black    0.373 Not Balanced, >0.1
     #> 
     #> Sample sizes
-    #>           Control Treated
-    #> All           429     185
-    #> Matched       185     185
-    #> Unmatched     244       0
+    #>               Control Treated
+    #> All               429     185
+    #> Matched (ESS)     185     185
+    #> Unmatched         244       0
 
 ``` r
 # Examining distributional balance with plots:
@@ -122,13 +123,24 @@ bal.plot(m.out, var.name = "distance", mirror = TRUE, type = "histogram")
 
 ``` r
 # Generating a Love plot to report balance:
-love.plot(bal.tab(m.out), threshold = 0.1, abs = TRUE, var.order = "unadjusted")
+love.plot(m.out, stats = c("mean.diffs", "variance.ratios"), threshold = c(m = 0.1, 
+    v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
 ```
 
 <img src="inst/figures/README-unnamed-chunk-4-1.png" style="display: block; margin: auto;" />
 
 Please remember to cite this package when using it to analyze data. For
-example, in a manuscript, write: “Matching was performed using Matching
-(Sekhon, 2011), and covariate balance was assessed using cobalt
-(Greifer, 2018) in R (R Core team, 2018).” Use `citation("cobalt")` to
-generate a bibliographic reference for the `cobalt` package.
+example, in a manuscript, write: “Matching was performed using the
+Matching package (Sekhon, 2011), and covariate balance was assessed
+using cobalt (Greifer, 2019), both in R (R Core Team, 2019).” Use
+`citation("cobalt")` to generate a bibliographic reference for the
+`cobalt` package.
+
+Bugs appear in `cobalt` occasionally, often found by users. Please
+report any bugs at <https://github.com/ngreifer/cobalt/issues>. To
+install the latest development version of `cobalt`, which may have
+removed a bug you’re experiencing, use the following code:
+
+``` r
+devtools::install_github("ngreifer/cobalt")
+```
