@@ -47,19 +47,19 @@ optional; either a vector or data.frame containing distance values (e.g., propen
 an optional data frame or the quoted names of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in the call to \code{weightit()}. If variable names are specified, \code{bal.tab()} will look first in the argument to \code{data}, if specified, and next in the \code{weightit} object. For \code{weightitMSM} objects, must be a list of additional covariate values described above, with one list entry per time period.
 }
   \item{data}{
-an optional data frame containing variables that might be named in arguments to \code{distance}, \code{addl}, and \code{cluster}. Can also be  \code{mids} object, the output of a call to \code{mice} from the \pkg{mice} package, containing multiply imputed data sets. In this case, \code{imp} is automatically supplied using the imputation variable created from processing the \code{mids} object.
+an optional data frame containing variables that might be named in arguments to \code{distance}, \code{addl}, \code{cluster}, and \code{imp}. Can also be \code{mids} object, the output of a call to \code{mice} from the \pkg{mice} package, containing multiply imputed data sets. In this case, \code{imp} is automatically supplied using the imputation variable created from processing the \code{mids} object.
 }
   \item{continuous}{
-whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
+whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}. This argument is used to set \code{std} in \code{\link{col_w_smd}} and \code{\link{col_w_corr}}.
 }
   \item{binary}{
-whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
+whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}. This argument is used to set \code{std} in \code{\link{col_w_smd}} and \code{\link{col_w_corr}}.
 }
   \item{s.d.denom}{
-whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), the pooled standard deviation ("pooled", computed as the square root of the mean of the group variances) or the standard deviation in the full sample ("all"). Abbreviations allowed. If not specified, \code{bal.tab()} will figure out which one is best based on the estimand of the \code{weightit} object: if ATT, "treated"; if ATC, "control", otherwise "pooled".
+whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), the pooled standard deviation ("pooled", computed as the square root of the mean of the group variances) or the standard deviation in the full sample ("all"). Can also be the name of the treatment group or "focal" if \code{focal} is specified in the original call to \code{weightit}. Abbreviations allowed. If not specified, \code{bal.tab()} will figure out which one is best based on the estimand of the \code{weightit} object: if ATT, "treated"; if ATC, "control", otherwise "pooled".
 }
   \item{m.threshold}{
-a numeric value for the threshold for mean differences. .1 is recommended. 
+a numeric value for the threshold for mean differences.
 }
   \item{v.threshold}{
 a numeric value for the threshold for variance ratios. Will automatically convert to the inverse if less than 1.
@@ -80,7 +80,7 @@ either a vector containing imputation indices for each unit or a string containi
 whether balance should be computed for pairs of treatments or for each treatment against all others combined. See \code{\link{bal.tab.multi}} for details. 
 }
   \item{focal}{
-Currently ignored.
+Currently ignored (because the value is set in the original to \code{weightit()}).
 }
   \item{abs}{
 \code{logical}; whether displayed balance statistics should be in absolute value or not. 
@@ -104,15 +104,13 @@ The threshold values (\code{m.threshold}, \code{v.threshold}, \code{ks.threshold
 \value{
 For point treatments, if clusters and imputations are not specified, an object of class \code{"bal.tab"} containing balance summaries for the \code{weightit} object. See \code{\link{bal.tab}} for details.
 
+If imputations are specified, an object of class \code{"bal.tab.imp"} containing balance summaries for each imputation and a summary of balance across imputations. See \code{\link{bal.tab.imp}} for details.
+
+If \code{weightit()} is used with multi-category treatments, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison. See \code{\link{bal.tab.multi}} for details.
+
+If \code{weightitMSM()} is used for longitudinal treatments, an object of class \code{"bal.tab.msm"} containing balance summaries for each time period. See \code{\link{bal.tab.msm}} for details.
+
 If clusters are specified, an object of class \code{"bal.tab.cluster"} containing balance summaries within each cluster and a summary of balance across clusters. See \code{\link{bal.tab.cluster}} for details.
-
-If imputations are specified, an object of class \code{"bal.tab.imp"} containing balance summaries for each imputation and a summary of balance across imputations, just as with clusters. See \code{\link{bal.tab.imp}} for details.
-
-If both clusters and imputations are specified, an object of class \code{"bal.tab.imp.cluster"} containing summaries between and across all clusters and imputations.
-
-If \code{weightit()} is used with multiple categorical treatments, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
-
-If \code{weightitMSM()} is used for longitudinal treatments, an object of class \code{"bal.tab.msm"} containing balance summaries for each time period and a summary of balance across time periods. See \code{\link{bal.tab.msm}} for details.
 }
 
 \author{
@@ -121,8 +119,6 @@ Noah Greifer
 
 \seealso{
 \code{\link{bal.tab}} for details of calculations.
-\code{\link{bal.tab.cluster}} for more information on clustered data.
-\code{\link{bal.tab.msm}} for more information on longitudinal treatments.
 }
 \examples{
 library(WeightIt); data("lalonde", package = "cobalt")

@@ -105,7 +105,7 @@ The other arguments to `bal.tab()` when using it with `twang` have the same form
 
 If sampling weights are used in the call to `ps()`, they will be automatically incorporated into the `bal.tab()` calculations for both the adjusted and unadjusted samples, just as `twang` does.
 
-`mnps` objects resulting from fitting models in `twang` with multinomial treatments are also compatible with `cobalt`. See the section "Using `cobalt` with multinomial treatments" in the main vignette. `iptw` objects resulting from fitting models in `twang` with longitudinal treatments are also compatible with `cobalt`. See the Appendix 3 vignette. `ps.cont` objects resulting from using `ps.cont()` in `WeightIt`, which implements GBM for continuous treatments, are also compatible. See the section "Using `cobalt` with continuous treatments" in the main vignette.
+`mnps` objects resulting from fitting models in `twang` with multi-category treatments are also compatible with `cobalt`. See the section "Using `cobalt` with multi-category treatments" in the main vignette. `iptw` objects resulting from fitting models in `twang` with longitudinal treatments are also compatible with `cobalt`. See the Appendix 3 vignette. `ps.cont` objects resulting from using `ps.cont()` in `WeightIt`, which implements GBM for continuous treatments, are also compatible. See the section "Using `cobalt` with continuous treatments" in the main vignette.
 ```{r, include=FALSE, eval=TRUE}
 knitr::opts_chunk$set(eval = TRUE)
 ```
@@ -166,7 +166,7 @@ knitr::opts_chunk$set(eval = TRUE)
 ```{r, include=FALSE}
 if (!"CBPS" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
 ```
-The `CBPS` (Covariate Balancing Propensity Score) package is a great tool for generating covariate balancing propensity scores, a class of propensity scores that are quite effective at balancing covariates among groups. `CBPS` includes functions for estimating propensity scores for binary, multinomial, and continuous treatments. `bal.tab()` functions similarly to `CBPS`'s `balance()` command. Below is a simple example of its use with a binary treatment:
+The `CBPS` (Covariate Balancing Propensity Score) package is a great tool for generating covariate balancing propensity scores, a class of propensity scores that are quite effective at balancing covariates among groups. `CBPS` includes functions for estimating propensity scores for binary, multi-category, and continuous treatments. `bal.tab()` functions similarly to `CBPS`'s `balance()` command. Below is a simple example of its use with a binary treatment:
 
 ```{r}
 library("CBPS")
@@ -185,7 +185,7 @@ The other arguments to `bal.tab()` when using it with `CBPS` have the same form 
 
 When using `CBPS` and `bal.tab()` with continuous treatments, the same guidelines apply as when using `bal.tab()` with continuous treatments without a conditioning package. See the section "Using cobalt with continuous treatments" in the main vignette for more details.
 
-`CBPSContinuous` objects resulting from fitting models in `CBPS` with continuous treatments are also compatible with `cobalt`. See the section "Using `cobalt` with continuous treatments" in the main vignette. `CBPS` objects resulting from fitting models in `CBPS` with multinomial treatments are also compatible with `cobalt`. See the section "Using `cobalt` with multinomial treatments" in the main vignette. `CBMSM` objects resulting from fitting models in `CBPS` with longitudinal treatments are also compatible with `cobalt`. See the Appendix 3 vignette.
+`CBPSContinuous` objects resulting from fitting models in `CBPS` with continuous treatments are also compatible with `cobalt`. See the section "Using `cobalt` with continuous treatments" in the main vignette. `CBPS` objects resulting from fitting models in `CBPS` with multi-category treatments are also compatible with `cobalt`. See the section "Using `cobalt` with multi-category treatments" in the main vignette. `CBMSM` objects resulting from fitting models in `CBPS` with longitudinal treatments are also compatible with `cobalt`. See the Appendix 3 vignette.
 ```{r, include=FALSE, eval=TRUE}
 knitr::opts_chunk$set(eval = TRUE)
 ```
@@ -241,6 +241,37 @@ The input is similar to that for using `bal.tab()` with `Matching` or `optmatch`
 ```{r, include=FALSE}
 knitr::opts_chunk$set(eval = TRUE)
 ```
+
+### Using `bal.tab()` with `MatchThem`
+```{r, include=FALSE}
+if (!"MatchThem" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+```
+The `MatchThem` package is essentially a wrapper for `matchit()` from `MatchIt` and `weightit()` from `WeightIt` but for use with multiply imputed data. Using `bal.tab()` on `mimids` or `wimids` objects from `MatchThem` activates the features that accompany multiply imputed data; balance is assessed within each imputed dataset and aggregated across imputations. See `?bal.tab.imp` or the accompanying Appendix 2 for more information about using `cobalt` with multiply imputed data. Below is a simple example of using `bal.tab()` with `MatchThem`:
+```{r}
+library("MatchThem"); library("mice")
+data("lalonde_mis", package = "cobalt")
+
+#Generate imputed data sets
+m <- 10 #number of imputed data sets
+imp.out <- mice(lalonde_mis, m = m, print = FALSE) 
+
+#Matching for balance on covariates
+wt.out <- weightthem(treat ~ age + educ + married +
+                       race + re74 + re75, 
+                     datasets = imp.out,
+                     approach = "within", 
+                     method = "ps",
+                     estimand = "ATE")
+
+bal.tab(wt.out)
+```
+
+The input is similar to that for using `bal.tab()` with `MatchIt` or `WeightIt`.
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(eval = TRUE)
+```
+
 ### Using `bal.tab()` with other packages
 
 It is possible to use `bal.tab` with objects that don't come from these packages using the `default` method. If an object that doesn't correspond to the output from one of the specifically supported packages is passed as the first argument to `bal.tab`, `bal.tab` will do its best to process that object as if it did come from a supported package. It will search through the components of the object for items with names like `"treat"`, `"covs"`, `"data"`, `"weights"`, etc., that have the correct object types. Any additional arguments can be specified by the user. 

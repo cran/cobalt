@@ -1,7 +1,4 @@
-#This document is shared across cobalt, WeightIt, and optweight as a symbolic link.
-#Any edits will be automatically synced across all folders. Make sure functions work
-#in all packages!
-#The original file is in cobalt/R/.
+#This document is shared across cobalt, WeightIt, and optweight
 
 #Strings
 word_list <- function(word.list = NULL, and.or = c("and", "or"), is.are = FALSE, quotes = FALSE) {
@@ -116,10 +113,10 @@ round_df_char <- function(df, digits, pad = "0", na_vals = "") {
             df[[i]] <- sapply(seq_along(df[[i]]), function(x) {
                 if (df[[i]][x] == "") ""
                 else if (lengths[x] <= 1) {
-                    paste0(c(df[[i]][x], rep(".", pad == 0), rep(pad, max(digits.r.of..) - digits.r.of..[x] + as.numeric(pad != 0))),
+                    paste0(c(df[[i]][x], rep(".", pad == 0), rep(pad, max_(digits.r.of..) - digits.r.of..[x] + as.numeric(pad != 0))),
                            collapse = "")
                 }
-                else paste0(c(df[[i]][x], rep(pad, max(digits.r.of..) - digits.r.of..[x])),
+                else paste0(c(df[[i]][x], rep(pad, max_(digits.r.of..) - digits.r.of..[x])),
                             collapse = "")
             })
         }
@@ -149,9 +146,9 @@ text_box_plot <- function(range.list, width = 12) {
     for (i in seq_len(nrow(d))) {
         spaces1 <- rescaled.range.list[[i]][1] - rescaled.full.range[1]
         #|
-        dashes <- max(0, diff(rescaled.range.list[[i]]) - 2)
+        dashes <- max_(0, diff(rescaled.range.list[[i]]) - 2)
         #|
-        spaces2 <- max(0, diff(rescaled.full.range) - (spaces1 + 1 + dashes + 1))
+        spaces2 <- max_(0, diff(rescaled.full.range) - (spaces1 + 1 + dashes + 1))
         
         d[i, 2] <- paste0(paste(rep(" ", spaces1), collapse = ""), "|", paste(rep("-", dashes), collapse = ""), "|", paste(rep(" ", spaces2), collapse = ""))
     }
@@ -173,22 +170,40 @@ wrap <- function(s, nchar, ...) {
         paste(x, collapse = "\n")
     }, character(1L))
 }
+strsplits <- function(x, splits, fixed = TRUE, ...) {
+    #Link strsplit but takes multiple split values.
+    #Only works for one string at a time (in x).
+    for (split in splits) x <- unlist(strsplit(x, split, fixed = TRUE, ...))
+    return(x[x != ""]) # Remove empty values
+}
+c.factor <- function(..., recursive=TRUE) {
+    #c() for factors
+    unlist(list(...), recursive=recursive)
+}
+can_str2num <- function(x) {
+    nas <- is.na(x)
+    suppressWarnings(x_num <- as.numeric(as.character(x[!nas])))
+    return(!anyNA(x_num))
+}
+str2num <- function(x) {
+    nas <- is.na(x)
+    suppressWarnings(x_num <- as.numeric(as.character(x)))
+    x_num[nas] <- NA
+    return(x_num)
+}
 
 #Numbers
 check_if_zero <- function(x) {
     # this is the default tolerance used in all.equal
     tolerance <- .Machine$double.eps^0.5
-    # If the absolute deviation between the number and zero is less than
-    # the tolerance of the floating point arithmetic, then return TRUE.
-    # This means, to me, that I can treat the number as 0 rather than
-    # -3.20469e-16 or some such.
     abs(x - 0) < tolerance
 }
 between <- function(x, range, inclusive = TRUE, na.action = FALSE) {
     if (!all(is.numeric(x))) stop("x must be a numeric vector.", call. = FALSE)
     if (length(range) != 2) stop("range must be of length 2.", call. = FALSE)
     if (anyNA(range) || !is.numeric(range)) stop("range must contain numeric entries only.", call. = FALSE)
-    range <- sort(range)
+    
+    if (range[2] < range[1]) range <- c(range[2], range[1])
     
     if (anyNA(x)) {
         if (length(na.action) != 1 || !is.atomic(na.action)) stop("na.action must be an atomic vector of length 1.", call. = FALSE)
@@ -198,26 +213,36 @@ between <- function(x, range, inclusive = TRUE, na.action = FALSE) {
     
     return(out)
 }
+max_ <- function(x, na.rm = TRUE) {
+    if (!any(is.finite(x))) NA_real_
+    else max(x, na.rm = na.rm)
+}
+min_ <- function(x, na.rm = TRUE) {
+    if (!any(is.finite(x))) NA_real_
+    else min(x, na.rm = na.rm)
+}
 
 #Statistics
 binarize <- function(variable, zero = NULL, one = NULL) {
     nas <- is.na(variable)
     if (!is_binary(variable[!nas])) stop(paste0("Cannot binarize ", deparse(substitute(variable)), ": more than two levels."))
     if (is.character(variable)) variable <- factor(variable)
+    
     variable.numeric <- as.numeric(variable)
+    unique.vals <- unique(variable, nmax = 2)
+    
     if (is_null(zero)) {
         if (is_null(one)) {
             if (0 %in% variable.numeric) zero <- 0
-            else zero <- min(variable.numeric, na.rm = TRUE)
+            else zero <- min_(variable.numeric)
         }
         else {
-            if (one %in% levels(variable)) zero <- levels(variable)[levels(variable) != one]
+            if (one %in% unique.vals) zero <- unique.vals[unique.vals != one]
             else stop("The argument to \"one\" is not the name of a level of variable.", call. = FALSE)
         }
     }
     else {
-        if (zero %in% levels(variable)) zero <- zero
-        else stop("The argument to \"zero\" is not the name of a level of variable.", call. = FALSE)
+        if (zero %nin% unique.vals) stop("The argument to \"zero\" is not the name of a level of variable.", call. = FALSE)
     }
     
     newvar <- setNames(ifelse(!nas & variable.numeric == zero, 0L, 1L), names(variable))
@@ -271,7 +296,7 @@ col.w.v <- function(mat, w = NULL, bin.vars = NULL, na.rm = TRUE) {
     }
     
     if (is_null(bin.vars)) bin.vars <- rep(FALSE, ncol(mat))
-    else if (length(bin.vars) != ncol(mat) || any(is.na(as.logical(bin.vars)))) {
+    else if (length(bin.vars) != ncol(mat) || anyNA(as.logical(bin.vars))) {
         stop("bin.vars must be a logical vector with length equal to the number of columns of mat.", call. = FALSE)
     }
     bin.var.present <- any(bin.vars)
@@ -288,14 +313,14 @@ col.w.v <- function(mat, w = NULL, bin.vars = NULL, na.rm = TRUE) {
             var[bin.vars] <- means * (1 - means)
         }
     }
-    else if (na.rm && any(is.na(mat))) {
-        n <- nrow(mat)
+    else if (na.rm && anyNA(mat)) {
+        # n <- nrow(mat)
         w <- array(w, dim = dim(mat))
         w[is.na(mat)] <- NA_real_
         s <- colSums(w, na.rm = na.rm)
         w <- mat_div(w, s)
         if (non.bin.vars.present) {
-            x <- sqrt(w[, !bin.vars, drop = FALSE]) * center(mat[, !bin.vars, drop = FALSE], 
+            x <- sqrt(w[, !bin.vars, drop = FALSE]) * center(mat[, !bin.vars, drop = FALSE],
                                                              at = colSums(w[, !bin.vars, drop = FALSE] * mat[, !bin.vars, drop = FALSE], na.rm = na.rm))
             var[!bin.vars] <- colSums(x*x, na.rm = na.rm)/(1 - colSums(w[, !bin.vars, drop = FALSE]^2, na.rm = na.rm))
         }
@@ -308,7 +333,7 @@ col.w.v <- function(mat, w = NULL, bin.vars = NULL, na.rm = TRUE) {
         if (is_null(w)) w <- rep(1, nrow(mat))
         w <- w/sum(w)
         if (non.bin.vars.present) {
-            x <- sqrt(w) * center(mat[, !bin.vars, drop = FALSE], 
+            x <- sqrt(w) * center(mat[, !bin.vars, drop = FALSE],
                                   at = colSums(w * mat[, !bin.vars, drop = FALSE], na.rm = na.rm))
             var[!bin.vars] <- colSums(x*x, na.rm = na.rm)/(1 - sum(w^2))
         }
@@ -331,7 +356,7 @@ col.w.cov <- function(mat, y, w = NULL, na.rm = TRUE) {
         den <- colSums(!is.na(mat*y)) - 1
         cov <- colSums(center(mat, na.rm = na.rm)*center(y, na.rm = na.rm), na.rm = na.rm)/den
     }
-    else if (na.rm && any(is.na(mat))) {
+    else if (na.rm && anyNA(mat)) {
         n <- nrow(mat)
         w <- array(w, dim = dim(mat))
         w[is.na(mat)] <- NA_real_
@@ -352,22 +377,20 @@ col.w.r <- function(mat, y, w = NULL, s.weights = NULL, bin.vars = NULL, na.rm =
     if (is_null(w) && is_null(s.weights)) return(cor(mat, y, w, use = if (na.rm) "pair" else "everything"))
     else {
         cov <- col.w.cov(mat, y = y, w = w, na.rm = na.rm)
-        den <- sqrt(col.w.v(mat, w = s.weights, bin.vars = bin.vars, na.rm = na.rm)) * 
+        den <- sqrt(col.w.v(mat, w = s.weights, bin.vars = bin.vars, na.rm = na.rm)) *
             sqrt(col.w.v(y, w = s.weights, na.rm = na.rm))
         return(cov/den)
     }
 }
-coef.of.var <- function(x, pop = TRUE, na.rm = TRUE) {
-    if (na.rm) x <- x[!is.na(x)]
-    if (pop) sqrt(mean((x-mean(x))^2))/mean(x)
-    else sd(x)/mean(x)
+coef.of.var <- function(x, pop = TRUE) {
+    if (pop) sqrt(mean_fast((x-mean_fast(x, TRUE))^2, TRUE))/mean_fast(x, TRUE)
+    else sd(x)/mean_fast(x, TRUE)
 }
-mean.abs.dev <- function(x, na.rm = TRUE) {
-    if (na.rm) x <- x[!is.na(x)]
-    mean(abs(x - mean(x)))
+mean.abs.dev <- function(x) {
+    mean_fast(abs(x - mean_fast(x, TRUE)), TRUE)
 }
-geom.mean <- function(y, na.rm = TRUE) {
-    exp(mean(log(y[is.finite(log(y))]), na.rm = na.rm))
+geom.mean <- function(y) {
+    exp(mean_fast(log(y[is.finite(log(y))]), TRUE))
 }
 mat_div <- function(mat, vec) {
     mat/vec[col(mat)]
@@ -376,15 +399,41 @@ abs_ <- function(x, ratio = FALSE) {
     if (ratio) pmax(x, 1/x)
     else (abs(x))
 }
+mean_fast <- function(x, nas.possible = FALSE) {
+    #Equal to mean(x, na.rm = TRUE) but faster
+    #Set no.nas = FALSE if it's possible there are NAs
+    if (nas.possible && anyNA(x)) {
+        s <- sum(x, na.rm = TRUE)
+        n <- sum(!is.na(x))
+        return(s/n)
+    }
+    s <- sum(x)
+    n <- length(x)
+    return(s/n)
+}
 
 #Formulas
 is.formula <- function(f, sides = NULL) {
-    res <- is.name(f[[1]])  && deparse(f[[1]]) %in% c( '~', '!') &&
+    res <- inherits(f, "formula") && is.name(f[[1]]) && deparse(f[[1]]) %in% c( '~', '!') &&
         length(f) >= 2
     if (is_not_null(sides) && is.numeric(sides) && sides %in% c(1,2)) {
         res <- res && length(f) == sides + 1
     }
     return(res)
+}
+subbars <- function(term) {
+    if (is.name(term) || !is.language(term))
+        return(term)
+    if (length(term) == 2) {
+        term[[2]] <- subbars(term[[2]])
+        return(term)
+    }
+    
+    if (is.call(term) && (term[[1]] == as.name("|") || term[[1]] == as.name("||"))) {
+        term[[1]] <- as.name("+")
+    }
+    for (j in 2:length(term)) term[[j]] <- subbars(term[[j]])
+    return(term)
 }
 
 #treat/covs
@@ -409,6 +458,10 @@ get.covs.and.treat.from.formula <- function(f, data = NULL, terms = FALSE, sep =
     
     env <- environment(f)
     
+    if (!is.formula(f)) stop("f must be a formula.")
+    
+    eval.model.matrx <- identical(f, f <- subbars(f))
+    
     tryCatch(tt <- terms(f, data = data),
              error = function(e) {
                  if (conditionMessage(e) == "'.' in formula and no 'data' argument") {
@@ -421,7 +474,13 @@ get.covs.and.treat.from.formula <- function(f, data = NULL, terms = FALSE, sep =
     if (is.formula(tt, 2)) {
         resp.vars.mentioned <- as.character(tt)[2]
         resp.vars.failed <- vapply(resp.vars.mentioned, function(v) {
-            null_or_error(try(eval(parse(text=v)[[1]], data, env), silent = TRUE))
+            test <- tryCatch(eval(parse(text=v), data, env), error = function(e) e)
+            if (inherits(test, "simpleError")) {
+                if (conditionMessage(test) == paste0("object '", v, "' not found")) return(TRUE)
+                else stop(test)
+            }
+            else if (is_null(test)) return(TRUE)
+            else return(FALSE)
         }, logical(1L))
         
         if (any(resp.vars.failed)) {
@@ -446,7 +505,13 @@ get.covs.and.treat.from.formula <- function(f, data = NULL, terms = FALSE, sep =
     rhs.vars.mentioned.lang <- attr(tt.covs, "variables")[-1]
     rhs.vars.mentioned <- vapply(rhs.vars.mentioned.lang, deparse, character(1L))
     rhs.vars.failed <- vapply(rhs.vars.mentioned, function(v) {
-        null_or_error(try(eval(parse(text=v)[[1]], data, env), silent = TRUE))
+        test <- tryCatch(eval(parse(text=v), data, env), error = function(e) e)
+        if (inherits(test, "simpleError")) {
+            if (conditionMessage(test) == paste0("object '", v, "' not found")) return(TRUE)
+            else stop(test)
+        }
+        else if (is_null(test)) return(TRUE)
+        else return(FALSE)
     }, logical(1L))
     
     if (any(rhs.vars.failed)) {
@@ -459,16 +524,24 @@ get.covs.and.treat.from.formula <- function(f, data = NULL, terms = FALSE, sep =
     rhs.term.orders <- attr(tt.covs, "order")
     
     rhs.df <- vapply(rhs.vars.mentioned, function(v) {
-        d <- try(eval(parse(text=v)[[1]], data, env), silent = TRUE)
-        is.data.frame(d) || is.matrix(d)
+        is_(try(eval(parse(text=v)[[1]], data, env), silent = TRUE),
+            c("data.frame", "matrix", "rms"))
     }, logical(1L))
     
     if (any(rhs.df)) {
         if (any(rhs.vars.mentioned[rhs.df] %in% unlist(lapply(rhs.term.labels[rhs.term.orders > 1], function(x) strsplit(x, ":", fixed = TRUE))))) {
             stop("Interactions with data.frames are not allowed in the input formula.", call. = FALSE)
         }
-        addl.dfs <- setNames(lapply(rhs.vars.mentioned[rhs.df], function(x) {as.data.frame(eval(parse(text=x)[[1]], data, env))}),
-                             rhs.vars.mentioned[rhs.df])
+        addl.dfs <- setNames(lapply(rhs.vars.mentioned[rhs.df], function(x) {
+            df <- eval(parse(text=x)[[1]], data, env)
+            if (is_(df, "rms")) {
+                if (length(dim(df)) == 2L) class(df) <- "matrix"
+                df <- setNames(as.data.frame(as.matrix(df)), attr(df, "colnames"))
+            }
+            else if (can_str2num(colnames(df))) colnames(df) <- paste(x, colnames(df), sep = sep)
+            return(as.data.frame(df))
+        }),
+        rhs.vars.mentioned[rhs.df])
         
         for (i in rhs.term.labels[rhs.term.labels %in% rhs.vars.mentioned[rhs.df]]) {
             ind <- which(rhs.term.labels == i)
@@ -490,7 +563,15 @@ get.covs.and.treat.from.formula <- function(f, data = NULL, terms = FALSE, sep =
         }
     }
     else {
-        new.form <- as.formula(paste("~", paste(rhs.term.labels, collapse = " + ")))
+        new.form.char <- paste("~", paste(vapply(rhs.term.labels, function(x) {
+            try.form <- try(as.formula(paste("~", x)), silent = TRUE)
+            if (null_or_error(try.form) || (grepl("^", x, fixed = TRUE) && !startsWith(x, "I("))) {
+                paste0("`", x, "`")
+            }
+            else x
+        } , character(1L)), collapse = " + "))
+        
+        new.form <- as.formula(new.form.char)
         tt.covs <- terms(new.form)
         attr(tt.covs, "intercept") <- 0
         
@@ -505,29 +586,34 @@ get.covs.and.treat.from.formula <- function(f, data = NULL, terms = FALSE, sep =
         if (is_not_null(treat.name) && treat.name %in% names(covs)) stop("The variable on the left side of the formula appears on the right side too.", call. = FALSE)
     }
     
-    if (s <- !identical(sep, "")) {
-        if (!is.character(sep) || length(sep) > 1) stop("sep must be a string of length 1.", call. = FALSE)
-        original.covs.levels <- setNames(vector("list", ncol(covs)), names(covs))
-        for (i in names(covs)) {
-            if (is.character(covs[[i]])) covs[[i]] <- factor(covs[[i]])
-            if (is.factor(covs[[i]])) {
-                original.covs.levels[[i]] <- levels(covs[[i]])
-                levels(covs[[i]]) <- paste0(sep, original.covs.levels[[i]])
+    if (eval.model.matrx) {
+        if (s <- !identical(sep, "")) {
+            if (!is.character(sep) || length(sep) > 1) stop("sep must be a string of length 1.", call. = FALSE)
+            original.covs.levels <- setNames(vector("list", ncol(covs)), names(covs))
+            for (i in names(covs)) {
+                if (is.character(covs[[i]])) covs[[i]] <- factor(covs[[i]])
+                if (is.factor(covs[[i]])) {
+                    original.covs.levels[[i]] <- levels(covs[[i]])
+                    levels(covs[[i]]) <- paste0(sep, original.covs.levels[[i]])
+                }
+            }
+        }
+        
+        #Get full model matrix with interactions too
+        covs.matrix <- model.matrix(tt.covs, data = covs,
+                                    contrasts.arg = lapply(Filter(is.factor, covs),
+                                                           contrasts, contrasts=FALSE))
+        
+        if (s) {
+            for (i in names(covs)) {
+                if (is.factor(covs[[i]])) {
+                    levels(covs[[i]]) <- original.covs.levels[[i]]
+                }
             }
         }
     }
-    
-    #Get full model matrix with interactions too
-    covs.matrix <- model.matrix(tt.covs, data = covs,
-                                contrasts.arg = lapply(Filter(is.factor, covs),
-                                                       contrasts, contrasts=FALSE))
-    
-    if (s) {
-        for (i in names(covs)) {
-            if (is.factor(covs[[i]])) {
-                levels(covs[[i]]) <- original.covs.levels[[i]]
-            }
-        }
+    else {
+        covs.matrix <- NULL
     }
     
     if (!terms) attr(covs, "terms") <- NULL
@@ -540,15 +626,16 @@ get.covs.and.treat.from.formula <- function(f, data = NULL, terms = FALSE, sep =
 assign.treat.type <- function(treat) {
     #Returns treat with treat.type attribute
     nunique.treat <- nunique(treat)
-    if (nunique.treat == 2) {
-        treat.type <- "binary"
-    }
-    else if (nunique.treat < 2) {
+    
+    if (nunique.treat < 2) {
         stop("The treatment must have at least two unique values.", call. = FALSE)
     }
-    else if (is.factor(treat) || is.character(treat)) {
+    else if (nunique.treat == 2) {
+        treat.type <- "binary"
+    }
+    else if (is_(treat, c("factor", "character"))) {
         treat.type <- "multinomial"
-        treat <- factor(treat)
+        if (!is_(treat, "processed.treat")) treat <- factor(treat)
     }
     else {
         treat.type <- "continuous"
@@ -566,7 +653,7 @@ process.s.weights <- function(s.weights, data = NULL) {
     #Process s.weights
     if (is_not_null(s.weights)) {
         if (!(is.character(s.weights) && length(s.weights) == 1) && !is.numeric(s.weights)) {
-            stop("The argument to s.weights must be a vector or data frame of sampling weights or the (quoted) names of variables in data that contain sampling weights.", call. = FALSE)
+            stop("The argument to s.weights must be a vector or data frame of sampling weights or the (quoted) names of the variable in data that contains sampling weights.", call. = FALSE)
         }
         if (is.character(s.weights) && length(s.weights)==1) {
             if (is_null(data)) {
@@ -578,6 +665,7 @@ process.s.weights <- function(s.weights, data = NULL) {
             else stop("The name supplied to s.weights is not the name of a variable in data.", call. = FALSE)
         }
     }
+    else s.weights <- NULL
     return(s.weights)
 }
 
@@ -602,18 +690,22 @@ nunique.gt <- function(x, n, na.rm = TRUE) {
         else tryCatch(nunique(x, nmax = n) > n, error = function(e) TRUE)
     }
 }
-all_the_same <- function(x) {
-    if (is.double(x)) check_if_zero(abs(max(x) - min(x)))
+all_the_same <- function(x, na.rm = TRUE) {
+    if (na.rm && anyNA(x)) x <- x[!is.na(x)]
+    if (is.double(x)) check_if_zero(abs(max_(x) - min_(x)))
     else !any(x != x[1])
 }
-is_binary <- function(x) !all_the_same(x) && all_the_same(x[x != x[1]])
+is_binary <- function(x, na.rm = TRUE) {
+    if (na.rm && anyNA(x)) x <- x[!is.na(x)]
+    !all_the_same(x) && all_the_same(x[x != x[1]])
+}
 
 #R Processing
 is_ <- function(x, types, stop = FALSE, arg.to = FALSE) {
     s1 <- deparse(substitute(x))
     if (is_not_null(x)) {
         for (i in types) {
-            if (i == "list") it.is <- is.vector(x, "list")
+            if (i == "list") it.is <- is.vector(clear_attr(x), "list")
             else if (is_not_null(get0(paste.("is", i)))) {
                 it.is <- get0(paste.("is", i))(x)
             }
@@ -637,8 +729,29 @@ is_ <- function(x, types, stop = FALSE, arg.to = FALSE) {
 }
 is_null <- function(x) length(x) == 0L
 is_not_null <- function(x) !is_null(x)
+if_null_then <- function(x1 = NULL, x2 = NULL, ...) {
+    if (is_not_null(x1)) x1
+    else if (is_not_null(x2)) x2
+    else {
+        for (k in ...length()) {
+            if (is_not_null(...elt(k))) return(...elt(k))
+        }
+        return(..1)
+    }
+    
+}
 clear_null <- function(x) {
     x[vapply(x, is_null, logical(1L))] <- NULL
+    return(x)
+}
+clear_attr <- function(x, all = FALSE) {
+    if (all) {
+        attributes(x) <- NULL
+    }
+    else {
+        dont_clear <- c("names", "class", "dim", "dimnames", "row.names")
+        attributes(x)[names(attributes(x)) %nin% dont_clear] <- NULL
+    }
     return(x)
 }
 probably.a.bug <- function() {
@@ -647,6 +760,14 @@ probably.a.bug <- function() {
                 fun), call. = FALSE)
 }
 `%nin%` <- function(x, table) is.na(match(x, table, nomatch = NA_integer_))
+`%pin%` <- function(x, table) {
+    #Partial in. TRUE if x uniquely identifies values in table.
+    !is.na(pmatch(x, table))
+}
+`%cin%` <- function(x, table) {
+    #Partial in w/ charmatch. TRUE if x at all in table.
+    !is.na(charmatch(x, table))
+}
 null_or_error <- function(x) {is_null(x) || class(x) == "try-error"}
 match_arg <- function(arg, choices, several.ok = FALSE) {
     #Replaces match.arg() but gives cleaner error message and processing
@@ -687,84 +808,11 @@ last <- function(x) {
     x[[length(x)]]
 }
 len <- function(x, recursive = TRUE) {
-    if (is.vector(x, "list")) sapply(x, len)
+    if (is.vector(x, "list") && recursive) sapply(x, len)
     else if (length(dim(x)) > 1) NROW(x)
     else length(x)
 }
-
-#Defunct; delete if everything works without them
-.center <- function(x, na.rm = TRUE, at = NULL) {
-    dimx <- dim(x)
-    if (length(dimx) == 2L) x <- apply(x, 2, center, na.rm = na.rm, at = at)
-    else if (length(dimx) > 2L) stop("x must be a numeric or matrix-like (not array).")
-    else if (!is.numeric(x)) warning("x is not numeric and will not be centered.")
-    else {
-        if (is_null(at)) at <- mean(x, na.rm = na.rm)
-        else if (!is.numeric(at)) stop("at must be numeric.")
-        x <- x - at
-    }
-    return(x)
-}
-.w.v <- function(x, w = NULL, na.rm = TRUE) {
-    .w.cov(x, x, w = w, na.rm = na.rm)
-}
-.w.cov <- function(x, y, w = NULL, na.rm = TRUE, type = 3) {
-    
-    if (length(x) != length(y)) stop("x and y must the same length")
-    
-    if (is_null(w)) w <- rep(1, length(x))
-    else if (length(w) != length(x)) stop("weights must be same length as x and y")
-    
-    w[is.na(x) | is.na(y)] <- NA_real_
-    
-    wmx <- w.m(x, w, na.rm = na.rm)
-    wmy <- w.m(y, w, na.rm = na.rm)
-    
-    wcov <- sum(w*(x - wmx)*(y - wmy), na.rm = na.rm) / .w.cov.scale(w, na.rm = na.rm, type = type)
-    return(wcov)
-}
-.w.cov.scale <- function(w, type = 3, na.rm = TRUE) {
-    
-    sw <- sum(w, na.rm = na.rm)
-    n <- sum(!is.na(w))
-    vw1 <- sum((w - sw/n)^2, na.rm = na.rm)/n
-    # vw2 <- sum((w - sw/n)^2, na.rm = na.rm)/(n-1)
-    
-    if (type == 1) sw
-    else if (type == 2) sw - 1
-    else if (type == 3) sw*(n-1)/n - vw1*n/sw
-    # else if (type == 4) sw*(n-1)/n - vw2*n/sw
-    
-}
-.w.r <- function(x, y, w = NULL, s.weights = NULL) {
-    #Computes weighted correlation but using the unweighted (s.weighted) variances
-    #in the denominator.
-    if (is_null(s.weights)) s.weights <- rep(1, length(x))
-    else if (length(s.weights) != length(x)) stop("s.weights must be same length as x and y")
-    
-    s.weights[is.na(x) | is.na(y)] <- NA_real_
-    
-    w_ <- w*s.weights
-    
-    r <- .w.cov(x, y, w_) / (sqrt(.w.v(x, s.weights) * .w.v(y, s.weights)))
-    
-    return(r)
-}
-.col.w.v <- function(mat, w = NULL, na.rm = TRUE) {
-    if (is_null(w)) {
-        w <- rep(1, nrow(mat))
-    }
-    means <- col.w.m(mat, w, na.rm)
-    w.scale <- apply(mat, 2, function(x) .w.cov.scale(w[!is.na(x)]))
-    vars <- colSums(w*center(mat, at = means)^2, na.rm = na.rm)/w.scale
-    
-    return(vars)
-}
-.col.w.v.bin <- function(mat, w = NULL, na.rm = TRUE) {
-    if (is_null(w)) {
-        w <- rep(1, nrow(mat))
-    }
-    means <- col.w.m(mat, w, na.rm)
-    vars <- means * (1 - means)
-    return(vars)
+na.rem <- function(x) {
+    #A faster na.omit for vectors
+    x[!is.na(x)]
 }

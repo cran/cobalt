@@ -13,14 +13,14 @@ bal.tab <- function(...) {
     if (any(c(.alls, .nones))) {
         .call[.alls] <- expression(NULL)
         .call[.nones] <- expression(NA)
-        return(eval(.call))
+        return(eval.parent(.call))
     }
     
     UseMethod("bal.tab", .obj)
 }
 
 #Point treatments
-bal.tab.matchit <- function(m, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.matchit <- function(m, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, imp = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -40,13 +40,15 @@ bal.tab.matchit <- function(m, int = FALSE, poly = 1, distance = NULL, addl = NU
     #Initializing variables
     X <- do.call("x2base.matchit", c(list(m), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
-bal.tab.ps <- function(ps, stop.method, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.ps <- function(ps, stop.method, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, imp = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -66,13 +68,15 @@ bal.tab.ps <- function(ps, stop.method, int = FALSE, poly = 1, distance = NULL, 
     #Initializing variables
     X <- do.call("x2base.ps", c(list(ps), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
-bal.tab.mnps <- function(mnps, stop.method, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, pairwise = TRUE, focal = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.mnps <- function(mnps, stop.method, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, focal = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -92,14 +96,16 @@ bal.tab.mnps <- function(mnps, stop.method, int = FALSE, poly = 1, distance = NU
     #Initializing variables
     X <- do.call("x2base.mnps", c(list(mnps), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     
     return(out)
 }
-bal.tab.ps.cont <- function(ps.cont, stop.method, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, r.threshold = NULL, cluster = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.ps.cont <- function(ps.cont, stop.method, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, r.threshold = NULL, cluster = NULL, imp = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -119,13 +125,15 @@ bal.tab.ps.cont <- function(ps.cont, stop.method, int = FALSE, poly = 1, distanc
     #Initializing variables
     X <- do.call("x2base.ps.cont", c(list(ps.cont), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
-bal.tab.Match <- function(M, formula = NULL, data = NULL, treat = NULL, covs = NULL, int = FALSE, poly = 1, distance = NULL, addl = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.Match <- function(M, formula = NULL, data = NULL, treat = NULL, covs = NULL, int = FALSE, poly = 1, distance = NULL, addl = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, imp = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -145,9 +153,11 @@ bal.tab.Match <- function(M, formula = NULL, data = NULL, treat = NULL, covs = N
     #Initializing variables
     X <- do.call("x2base", c(list(M), args), quote = TRUE) 
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
@@ -171,9 +181,11 @@ bal.tab.formula <- function(formula, data = NULL, ...) {
     #Initializing variables
     X <- do.call("x2base.formula", c(list(formula = formula), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     
     return(out)
@@ -197,9 +209,11 @@ bal.tab.data.frame <- function(covs, treat, data = NULL, weights = NULL, distanc
     
     X <- do.call("x2base.data.frame", c(list(covs), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     
     return(out)
@@ -208,7 +222,7 @@ bal.tab.numeric <- function(treat, covs, ...) {
     bal.tab(covs, treat = treat, ...)
 }
 bal.tab.factor <- bal.tab.character <- bal.tab.logical <- bal.tab.numeric
-bal.tab.CBPS <- function(cbps, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, cluster = NULL, pairwise = TRUE, focal = NULL, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.CBPS <- function(cbps, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, focal = NULL, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -228,13 +242,15 @@ bal.tab.CBPS <- function(cbps, int = FALSE, poly = 1, distance = NULL, addl = NU
     #Initializing variables
     X <- do.call("x2base", c(list(cbps), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
-bal.tab.weightit <- function(weightit, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL,  continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, focal = NULL, abs = FALSE, subset = NULL, quick = TRUE, ... ) {
+bal.tab.weightit <- function(weightit, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, focal = NULL, abs = FALSE, subset = NULL, quick = TRUE, ... ) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -254,9 +270,11 @@ bal.tab.weightit <- function(weightit, int = FALSE, poly = 1, distance = NULL, a
     #Initializing variables
     X <- do.call("x2base", c(list(weightit), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
@@ -290,14 +308,43 @@ bal.tab.mimids <- function(mimids, int = FALSE, poly = 1, distance = NULL, addl 
     
     #Initializing variables
     X <- do.call("x2base.mimids", c(list(mimids), args), quote = TRUE)
+
+    args[names(args) %in% names(X)] <- NULL
     
-    args <- args[names(args) %nin% names(X)]
+    X <- assign.X.class(X)
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
-bal.tab.wimids <- bal.tab.mimids
+bal.tab.wimids <- function(wimids, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, cluster = NULL, pairwise = TRUE, focal = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+    
+    args <- c(as.list(environment()), list(...))[-1]
+    
+    #Adjustments to arguments
+    args.with.choices <- names(formals()[-1])[vapply(formals()[-c(1, length(formals()))], function(x) length(x)>1, logical(1L))]
+    for (i in args.with.choices) args[[i]] <- eval(parse(text=paste0("match_arg(", i, ")")))
+    
+    blank.args <- vapply(formals()[-c(1, length(formals()))], function(x) identical(x, quote(expr =)), logical(1L))
+    if (any(blank.args)) {
+        for (arg.name in names(blank.args)[blank.args]) {
+            if (identical(args[[arg.name]], quote(expr = ))) {
+                args[[arg.name]] <- NULL
+            }
+        }
+    }
+    
+    #Initializing variables
+    X <- do.call("x2base.wimids", c(list(wimids), args), quote = TRUE)
+    
+    args[names(args) %in% names(X)] <- NULL
+    
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
+                   quote = TRUE)
+    return(out)
+}
 
 #MSMs wth multiple time points
 bal.tab.formula.list <- function(formula.list, data = NULL, ...) {
@@ -319,13 +366,15 @@ bal.tab.formula.list <- function(formula.list, data = NULL, ...) {
     
     X <- do.call("x2base.formula.list", c(list(formula.list = formula.list), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
-bal.tab.data.frame.list <- function(covs.list, treat.list = NULL, data = NULL, weights = NULL, int = FALSE, poly = 1, distance.list = NULL, addl.list = NULL, method, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, pairwise = TRUE, s.weights = NULL, estimand = "ATE", abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.data.frame.list <- function(covs.list, treat.list = NULL, data = NULL, weights = NULL, int = FALSE, poly = 1, distance.list = NULL, addl.list = NULL, method, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, r.threshold = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, s.weights = NULL, estimand = "ATE", abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -344,13 +393,15 @@ bal.tab.data.frame.list <- function(covs.list, treat.list = NULL, data = NULL, w
     
     X <- do.call("x2base.data.frame.list", c(list(covs.list = covs.list), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
-bal.tab.iptw <- function(iptw, stop.method, int = FALSE, poly = 1, distance.list = NULL, addl.list = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, pairwise = TRUE, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+bal.tab.iptw <- function(iptw, stop.method, int = FALSE, poly = 1, distance.list = NULL, addl.list = NULL, data = NULL, continuous, binary, s.d.denom, m.threshold = NULL, v.threshold = NULL, ks.threshold = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, abs = FALSE, subset = NULL, quick = TRUE, ...) {
     
     args <- c(as.list(environment()), list(...))[-1]
     
@@ -367,15 +418,14 @@ bal.tab.iptw <- function(iptw, stop.method, int = FALSE, poly = 1, distance.list
         }
     }
     
-    if (is_not_null(args$cluster)) stop("Clusters are not yet supported with longitudinal treatments.", call. = FALSE)
-    if (is_not_null(args$imp)) stop("Multiply imputed data sets are not yet supported with longitudinal treatments.", call. = FALSE)
-    
     #Initializing variables
     X <- do.call("x2base.iptw", c(list(iptw), args), quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     return(out)
 }
@@ -403,9 +453,11 @@ bal.tab.default <- function(obj, ...) {
     X <- do.call("x2base.default", c(list(obj = obj), args),
                  quote = TRUE)
     
-    args <- args[names(args) %nin% names(X)]
+    args[names(args) %in% names(X)] <- NULL
     
-    out <- do.call(paste.("base.bal.tab", class(X)), c(X, args),
+    X <- assign.X.class(X)
+    
+    out <- do.call(base.bal.tab, c(list(X), args),
                    quote = TRUE)
     
     return(out)

@@ -24,6 +24,7 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     v.threshold = NULL, 
     ks.threshold = NULL, 
     cluster = NULL, 
+    imp = NULL,
     abs = FALSE,
     subset = NULL,
     quick = TRUE, ...)
@@ -42,6 +43,7 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     v.threshold = NULL, 
     ks.threshold = NULL, 
     cluster = NULL, 
+    imp = NULL,
     pairwise = TRUE, 
     focal = NULL, 
     abs = FALSE,
@@ -61,6 +63,8 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     m.threshold = NULL, 
     v.threshold = NULL, 
     ks.threshold = NULL, 
+    cluster = NULL,
+    imp = NULL,
     pairwise = TRUE, 
     abs = FALSE, 
     subset = NULL, 
@@ -73,8 +77,12 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     distance = NULL, 
     addl = NULL, 
     data = NULL, 
+    continuous,
+    binary,
+    s.d.denom,
     r.threshold = NULL, 
     cluster = NULL, 
+    imp = NULL,
     abs = FALSE, 
     subset = NULL, 
     quick = TRUE, ...)
@@ -100,19 +108,19 @@ optional; either a vector or data.frame containing distance values (e.g., propen
 an optional data frame or the quoted names of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in the call to \code{ps()}, \code{mnps()}, \code{iptw()}, or \code{ps.cont()}. If variable names are specified, \code{bal.tab()} will look first in the argument to \code{data}, if specified, and next in the input object. For \code{iptw} objects, must be a list of additional covariate values described above, with one list entry per time period.
 }
   \item{data}{
-an optional data frame containing variables that might be named in arguments to \code{distance}, \code{addl}, and \code{cluster}.
+an optional data frame containing variables that might be named in arguments to \code{distance}, \code{addl}, \code{cluster}, and \code{imp}. Can also be \code{mids} object, the output of a call to \code{mice} from the \pkg{mice} package, containing multiply imputed data sets. In this case, \code{imp} is automatically supplied using the imputation variable created from processing the \code{mids} object.
 }
   \item{continuous}{
-whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
+whether mean differences for continuous covariates should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}. This argument is used to set \code{std} in \code{\link{col_w_smd}} and \code{\link{col_w_corr}}.
 }
   \item{binary}{
-whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
+whether mean differences for binary covariates (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}. This argument is used to set \code{std} in \code{\link{col_w_smd}} and \code{\link{col_w_corr}}.
 }
   \item{s.d.denom}{
 whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), the pooled standard deviation ("pooled", computed as the square root of the mean of the group variances) or the standard deviation in the full sample ("all"). Abbreviations allowed. If not specified, \code{bal.tab()} will use "treated" if the estimand of the call to \code{ps()} is the ATT and "pooled" if the estimand is the ATE.
 }
   \item{m.threshold}{
-a numeric value for the threshold for mean differences. .1 is recommended. 
+a numeric value for the threshold for mean differences.
 }
   \item{v.threshold}{
 a numeric value for the threshold for variance ratios. Will automatically convert to the inverse if less than 1.
@@ -124,13 +132,16 @@ a numeric value for the threshold for Kolmogorov-Smirnov statistics. Must be bet
 a numeric value for the threshold for correlations between covariates and treatment when treatment is continuous.
 }
   \item{cluster}{
-either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in data or the CBPS object. See \code{\link{bal.tab.cluster}} for details.
+either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in data or the \code{ps}, \code{mnps}, \code{iptw}, or \code{ps.cont}  object. See \code{\link{bal.tab.cluster}} for details.
+}
+  \item{imp}{
+either a vector containing imputation indices for each unit or a string containing the name of the imputation index variable in \code{data} or the original data set used in the call to \code{ps()}, \code{mnps()}, \code{iptw()}, or \code{ps.cont()}. See \code{\link{bal.tab.imp}} for details. Not necessary if \code{data} is a \code{mids} object.
 }
   \item{pairwise}{
 whether balance should be computed for pairs of treatments or for each treatment against all others combined. See \code{\link{bal.tab.multi}} for details. 
 }
   \item{focal}{
-ignored. With multiple categorical treatments, \code{bal.tab()} automatically assigns a focal treatment based on the \code{mnps} object. See \code{\link{bal.tab.multi}} for details.
+ignored. With multi-category treatments, \code{bal.tab()} automatically assigns a focal treatment based on the \code{mnps} object. See \code{\link{bal.tab.multi}} for details.
 }
   \item{abs}{
 \code{logical}; whether displayed balance statistics should be in absolute value or not. 
@@ -156,9 +167,9 @@ For binary point treatments, if clusters are not specified, an object of class \
 
 If clusters are specified, an object of class \code{"bal.tab.cluster"} containing balance summaries within each cluster and a summary of balance across clusters. See \code{\link{bal.tab.cluster}} for details.
 
-If \code{mnps()} is used with multiple categorical treatments, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
+If \code{mnps()} is used with multi-category treatments, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
 
-If \code{ps.cont()} is used with continuous treatments, means, mean differences, and variance ratios are replaced by (weighted) Pearson correlations between each covariate and treatment as colaculated using \code{\link{col_w_corr}}. The \code{r.threshold} argument works the same as \code{m.threshold}, \code{v.threshold}, or \code{ks.threshold}, adding an extra column to the balance table output and creating additional summaries for balance tallies and maximum imbalances. All arguments related to the calculation or display of mean differences or variance ratios are ignored. The \code{int}, \code{addl}, \code{un}, \code{distance}, and cluster arguments are still used as described above.
+If \code{ps.cont()} is used with continuous treatments, means, mean differences, and variance ratios are replaced by (weighted) Pearson correlations between each covariate and treatment as calculated using \code{\link{col_w_corr}}. The \code{r.threshold} argument works the same as \code{m.threshold}, \code{v.threshold}, or \code{ks.threshold}, adding an extra column to the balance table output and creating additional summaries for balance tallies and maximum imbalances. All arguments related to the calculation or display of mean differences or variance ratios are ignored. The \code{int}, \code{addl}, \code{un}, \code{distance}, and cluster arguments are still used as described above.
 
 }
 \note{
@@ -172,7 +183,7 @@ Noah Greifer
 \seealso{
 \code{\link{bal.tab}} for details of calculations.
 \code{\link{bal.tab.cluster}} for more information on clustered data.
-\code{\link{bal.tab.multi}} for more information on multiple categorical treatments.
+\code{\link{bal.tab.multi}} for more information on multi-category treatments.
 \code{\link{bal.tab.msm}} for more information on longitudinal treatments.
 }
 \examples{

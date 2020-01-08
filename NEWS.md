@@ -1,6 +1,64 @@
 `cobalt` News and Updates
 ======
 
+Version 4.0.0
+
+**Major Updates**
+* Added support for `mimids` and `wimids` objects from `MatchThem`.
+
+* Major restructuring so that clusters, longitudinal treatments, multi-category treatments, and multiply imputed data can all be used with each other. These are layers in the following order: clusters, time points, treatment categories, and imputations. Summaries across these layers are handled slightly differently from how they used to be; importantly, summaries are not nested, and only the lowest layer present can have a summary. For example, if multiply imputed data is used with multi-category treatments, there will be a summary across imputations (the lowest layer) but not across treatment pairs. `love.plot` allows multiple forms of faceting and aggregating and is extremely flexible in this regard.
+
+* Major changes to appearance of `bal.plot()` to be more in line with `love.plot()`, including new `grid` and `position` options to control the presence of the grid and the position of the legend.
+
+* Formula interfaces now accept `poly(x, .)` and other matrix-generating functions of variables, including the `rms`-class-generating functions from the `rms` package (e.g., `pol()`, `rcs()`, etc.) (the `rms` package must be loaded to use these latter ones) and the `basis`-class-generating functions from the `splines` package (i.e., `bs()` and `ns()`). A bug in an early version of this was found by @ahinton-mmc.
+
+**Minor Updates and Bug Fixes**
+***`s.d.denom` and `estimand`***
+* `s.d.denom` can now use the name of a treatment rather than just `"treated"` or `"control"`. In addition, `s.d.denom` can be `"weighted"` to use the weighted sample's standardization factors, an option available for continuous treatments, too.
+
+* Improved guessing of the estimand when not provided.
+
+* Estimands besides ATT can now be used with subclasses. The estimand can be inferred from the provided subclasses. Works with `match.strata` as well, which function like subclasses. In addition, it is not always assumed that `MatchIt` objects are targeting the ATT, for example, with subclassification or calipers.
+
+***`bal.plot`***
+* Added `sample.names` argument in `bal.plot` in response to [this post](https://stackoverflow.com/questions/57970679/change-name-of-groups-in-bal-plot) on Cross Validated.
+
+* Added functionality to the `which` argument in `bal.plot`, allowing more specificity when multiple sets of weights are used.
+
+* Added `type = "ecdf"` option to `bal.plot` for categorical treatments with continuous covariates to display empirical cumulative density plots as an alternative to density plots.
+
+* When using `bal.plot` with continuous treatments and continuous covariates, the points are shaded based on their weights; this behavior is controlled by the new `alpha.weight` argument, which replaces the functionality of `size.weight` (which was kind of ugly and not very informative) and is `TRUE` by default. Now it's more apparent which points are influential in the weighted sample. In addition, a line illustrating the unweighted covariate mean is present.
+
+* The default of the `grid` argument is now `FALSE` in `bal.plot()` and `love.plot()`. Previously it was `TRUE`. This make the plots cleaner at the outset.
+
+***Other improvements***
+
+* Added new function `col_w_cov()` to compute treatment-covariate covariances (i.e., unstandardized correlations) for continuous treatments. `continuous` and `binary` can be set to `"raw"` in `bal.tab()` and `std` can be set to `FALSE` in `col_w_cov()` to request treatment-covariate covariances instead of correlations. `col_w_corr()` is now a wrapper for `col_w_cov()` with `std = TRUE`. To get more functionality out of the `std` argument (e.g., to standardize the covariances for some covariates but not others), use `col_w_cov()`. 
+
+* Balance summary functions (e.g., `col_w_sd()`, `col_w_smd()`, etc.) process binary variables slightly differently. If `bin.vars` is missing, the function will figure out which variables are binary. If `NULL`, it will be assumed no variables are binary. Entering values for `bin.vars` can be done more flexibly. When a factor variable is supplied as part of `mat` and is split internally by `splitfactor()`, extra values will be automatically added to `bin.vars` with the newly created dummies considered binary variables.
+
+* Bug fixes when binary factor treatments are used, thanks to Moaath Mustafa Ali. 
+
+* `bal.tab()` no longer tells you whether it assumes matching or weighting when certain non-package-related methods are used.
+
+* Improvements to assessment of subclass balance. For binary treatments, balance statistics other than mean differences can now be requested. The across-subclass balance summary uses subclassification weights (processed in the same way `match.strata` is) instead of simply taking a weighted average across subclasses (which is not valid for non-additive statistics like variance ratios or KS statistics). For continuous treatments, a balance summary across subclasses can now be produced. This uses a weighted average of the subclass-specific balance statistics.
+
+* The default in `love.plot()` for `abs` is now to be whatever it is in the (implicit) call to `bal.tab()`, which is usually `FALSE`. Previously `abs` was not aligned between `love.plot()` and `bal.tab()`.
+
+* `s.weights` can now be manually supplied to methods that usually come with their own sampling weights, such as `twang` and `WeightIt`.
+
+* Speedup of `splitfactor()`.
+
+* `splitfactor()` now has a `split.with` option to split one or more vectors in concert with the data set being split.
+
+* `splitfactor()` and `unsplitfactor()` are a little smarter and more in sync.
+
+* All functions work better inside other functions like `lapply()` or `purrr::map()`, thanks to @the-Zian.
+
+* Updates to the vignettes; Appendix 2 is particularly different.
+
+* Other bug fixes and performance improvements here and there.
+
 Version 3.9.0
 
 * Added vignette for use of `love.plot`.
@@ -33,9 +91,7 @@ Version 3.8.0
 
 * The KS statistic is now computed for binary variables. It is simply the difference in proportion.
 
-* Added methods for objects from the `MatchIt.mice` package.
-
-* Allowed some methods to accept `mids` objects (the output of a call to `mice::mice()`) in the `data` argument to supply multiply imputated data. This essentially replaces `data = complete(imp.out, "long"), imp = ".imp"` with `data = imp.put`, assuming `imp.out` is a `mids` object.
+* Allowed some methods to accept `mids` objects (the output of a call to `mice::mice()`) in the `data` argument to supply multiply imputed data. This essentially replaces `data = complete(imp.out, "long"), imp = ".imp"` with `data = imp.put`, assuming `imp.out` is a `mids` object.
 
 * Other bug fixes and improvements.
 
@@ -47,7 +103,7 @@ Version 3.7.0
 
 * `love.plot` has several changes that make it much more user-friendly. First, rather than supplying a `bal.tab` object to `love.plot`, you can simply supply the arguments that would have gone into the `bal.tab()` call straight into `love.plot()`. Second, if `quick = TRUE` (the new default) and the first argument to `love.plot()` is a call to `bal.tab()` (or arguments provided to `bal.tab()`) and `stat` is set to `"variance.ratios"` or `"ks.statistics"`, `bal.tab()` will be re-called with the corresponding `disp` argument set to `TRUE` so that `love.plot()` will display those statistics regardless of `quick`. This will not work if the argument supplied to `love.plot()` is a `bal.tab` object. Third, because unadjusted mean differences are computed regardless of `quick`, there will never be a circumstance in which only adjusted values will be displayed. If `quick = TRUE`, `un = FALSE`, and `stat` is `"variance.ratios"` or `"ks.statistics"`, `un` will automatically be set to `TRUE` in the `bal.tab()` re-call.
 
-* When using `which.` arguments (e.g., `which.cluster`, `which.imp`, etc.), insted of supplying `NULL` and `NA`, you can supply `.all` and `.none` (not in quotes). This should make them easier to use. Note that these new inputs are not variables; they are keywords and are evaluated using nonstandard evaluation. If you actually have objects with those names, they will be ignored.
+* When using `which.` arguments (e.g., `which.cluster`, `which.imp`, etc.), instead of supplying `NULL` and `NA`, you can supply `.all` and `.none` (not in quotes). This should make them easier to use. Note that these new inputs are not variables; they are keywords and are evaluated using nonstandard evaluation. If you actually have objects with those names, they will be ignored.
 
 * Bugs in scoping related to the formula interface have been solved, in particularly making `bal.tab()` more usable within other functions.
 
@@ -65,7 +121,7 @@ Version 3.6.1
 
 Version 3.6.0
 
-* Added `poly` argument to `bal.tab()` to display polynomials of continuous covariates (e.g., squares, cubes, etc.). This used to only be available with the `int` argument, which also displayed all interactions. Now, the polynomials can be requested seperately. When `int = TRUE`, squares of the covariates will no longer be displayed; to replicate the old behavior, set `int = 2`, which is equivalent to `int = TRUE, poly = 2`.
+* Added `poly` argument to `bal.tab()` to display polynomials of continuous covariates (e.g., squares, cubes, etc.). This used to only be available with the `int` argument, which also displayed all interactions. Now, the polynomials can be requested separately. When `int = TRUE`, squares of the covariates will no longer be displayed; to replicate the old behavior, set `int = 2`, which is equivalent to `int = TRUE, poly = 2`.
 
 * Fixed a bug where using `subset` would produce an error.
 
@@ -87,9 +143,9 @@ Version 3.5.0
 
 * Added `cluster.fun` and `imp.fun` options to request that only certain functions (e.g., mean or maximum) of the balance statistics are displayed in the summary across clusters/imputations. Previously this option was only available by call `print()`. These parameters are part of the display options described above, so they are documented in `?options-display` and not in the `bal.tab` help files.
 
-* Added `factor_sep` and `int_sep` options to change the seperators between variable names when factor variables and interactions are displayed. This functionality had been available since version 3.4.0 but was not documented. It is now documented in the new `display_options` help page.
+* Added `factor_sep` and `int_sep` options to change the separators between variable names when factor variables and interactions are displayed. This functionality had been available since version 3.4.0 but was not documented. It is now documented in the new `display_options` help page.
 
-* In `bal.tab()`, `continuous` and `binary` can be specified with the global options `"cobalt_continuous"` and `"cobalt_binary"`, respectively, so that a global setting (e.g., to set `binary = "std"` to view standardizd mean difference rather than raw differences in proportion for binary variables) can be used instead of specifying the argument each time in the call to `bal.tab()`.
+* In `bal.tab()`, `continuous` and `binary` can be specified with the global options `"cobalt_continuous"` and `"cobalt_binary"`, respectively, so that a global setting (e.g., to set `binary = "std"` to view standardized mean difference rather than raw differences in proportion for binary variables) can be used instead of specifying the argument each time in the call to `bal.tab()`.
 
 * Minor updates to `f.build()` to process inputs more flexibly. The left hand side can now be empty, and the variables on the right hand side can now contain spaces.
 
@@ -123,7 +179,7 @@ Version 3.4.0
 
 * Added `default` method for `bal.tab` so it can be used with specially formatted output from other packages (e.g., from `optweight`). `bal.plot` should work with these outputs too. This, of course, will never be completely bug-free because infinite inputs are possible and cannot all be processed perfectly. Don't try to break this function :)
 
-* Fixed some bugs occuring when standardized mean differences are not finite, thanks to Noémie Kiefer.
+* Fixed some bugs occurring when standardized mean differences are not finite, thanks to Noémie Kiefer.
 
 * Speed improvements in `bal.plot`, especially with multiple facets, and in `bal.tab`.
 
@@ -157,7 +213,7 @@ Version 3.3.0
 
 Version 3.2.3
 
-* Added support for data with missing covariates. `bal.tab()` will produce balanace statistics for the non-missing values and will automatically create a new variable indicating whether the variable is missing or not and produce balance statistics on this variable as well. 
+* Added support for data with missing covariates. `bal.tab()` will produce balance statistics for the non-missing values and will automatically create a new variable indicating whether the variable is missing or not and produce balance statistics on this variable as well. 
 
 * Fixed a bug when displaying maximum imbalances with subclassification.
 
@@ -179,7 +235,7 @@ Version 3.2.2
 
 * Fixed a bug when variable names had special characters.
 
-* Added ablity to check higher order polynomials by setting `int` to a number.
+* Added ability to check higher order polynomials by setting `int` to a number.
 
 * Changed behavior of `bal.tab()` with multinomial treatments and `s.d.denom = "pooled"` to use the pooled standard deviation from the entire sample, not just the paired treatments.
 
@@ -263,9 +319,9 @@ Version 2.1.0
 
 * Added `which = "both"` option in `bal.plot()` to simultaneously display plots for both adjusted and unadjusted samples; changed argument syntax to accommodate
 
-* Allowed `bal.plot()` to display balance for mutliple clusters and imputations simultaneously
+* Allowed `bal.plot()` to display balance for multiple clusters and imputations simultaneously
 
-* Allowed `bal.plot()` to display balance for mutliple subclasses simultaneously with `which.sub`
+* Allowed `bal.plot()` to display balance for multiple subclasses simultaneously with `which.sub`
 
 * Fixes to `love.plot()` to ensure adjusted points are in front of unadjusted points; changed colors and shape defaults and allowable values
 
@@ -285,7 +341,7 @@ Version 2.0.0
 
 * Adjusted `love.plot()` display to perform better on Windows.
 
-* Added capabilties for `love.plot()` and `bal.plot()` to display plots for multiple groups at a time
+* Added capabilities for `love.plot()` and `bal.plot()` to display plots for multiple groups at a time
 
 * Added flexibility to `f.build()`.
 

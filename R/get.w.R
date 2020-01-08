@@ -2,9 +2,12 @@ get.w <- function(x, ...) UseMethod("get.w")
 get.w.matchit <- function(x,...) {
     return(x$weights)
 }
-get.w.ps <- function(x, stop.method = NULL, estimand = NULL, s.weights = FALSE, ...) {
+get.w.ps <- function(x, stop.method = NULL, estimand, s.weights = FALSE, ...) {
     ps <- x
-    estimand <- tolower(estimand)
+    
+    if (!missing(estimand)) estimand <- tolower(estimand)
+    else estimand <- NULL
+    
     if (is_not_null(stop.method)) {
         if (any(is.character(stop.method))) {
             rule1 <- names(ps$w)[pmatch(tolower(names(ps$w)), tolower(stop.method), 0L)]
@@ -226,13 +229,14 @@ get.w.Match <- function(x, ...) {
 
     return(w)
 }
-get.w.CBPS <- function(x, estimand = NULL, ...) {
+get.w.CBPS <- function(x, estimand, ...) {
     c <- x
     A <- list(...)
     if (is_null(A$use.weights)) use.weights <- TRUE
     else use.weights <- A$use.weights
     
-    estimand <- tolower(estimand)
+    if (!missing(estimand)) estimand <- tolower(estimand)
+    else estimand <- NULL
     
     if ("CBPSContinuous" %in% class(c) || is.factor(c$y)) { #continuous
         return(c$weights)
@@ -274,18 +278,20 @@ get.w.CBMSM <- function(x, ...) {
 get.w.ebalance <- function(x, treat, ...) {
     if (missing(treat)) stop("treat must be specified.", call. = FALSE)
     
+    if (!is_(treat, "processed.treat")) treat <- process_treat(treat)
+    
     weights <- rep(1, length(treat))
     
-    if (length(x$w) != sum(treat == 0)) {
+    if (length(x$w) != sum(treat == treat_vals(treat)["Control"])) {
         stop("There are more control units in treat than weights in the ebalance object.", call. = FALSE)
     }
-    weights[treat == 0] <- x$w
+    weights[treat == treat_vals(treat)["Control"]] <- x$w
     return(weights)
 }
 get.w.ebalance.trim <- get.w.ebalance
 get.w.optmatch <- function(x, ...) {
     treat <- as.numeric(attr(x, "contrast.group"))
-    return(match.strata2weights(x, treat = treat, covs = NULL))
+    return(strata2weights(x, treat = treat))
 }
 get.w.weightit <- function(x, s.weights = FALSE, ...) {
     if (s.weights) return(x$weights * x$s.weights)
@@ -295,30 +301,23 @@ get.w.designmatch <- function(x, treat, ...) {
     dm <- x
     if (missing(treat)) stop("treat must be specified.", call. = FALSE)
     if (length(dm[["group_id"]]) != length(dm[["t_id"]]) + length(dm[["c_id"]])) {
-        ratio <- length(dm[["c_id"]])/length(dm[["t_id"]])
-        if (check_if_zero(ratio - as.integer(ratio))) {
-            dm[["group_id"]] <- c(seq_along(dm[["t_id"]]),
-                                  rep(seq_along(dm[["c_id"]]), each = as.integer(ratio)))
-        }
-        else {
-            stop("There is a problem with the group_id value in the designmatch output. Matched sets cannot be determined.", call. = FALSE)
-        }
+        stop("designmatch objects without 1:1 matching cannot be used.", call. = FALSE)
     }
     q <- merge(data.frame(id = seq_along(treat)), 
                data.frame(id = c(dm[["t_id"]], dm[["c_id"]]),
-                          group = dm[["group_id"]]),
+                          group = factor(dm[["group_id"]])),
                all.x = TRUE, by = "id")
     q <- q[order(q$id), , drop = FALSE]
     
-    return(match.strata2weights(q$group, treat))
+    return(strata2weights(q$group, treat))
 }
 get.w.mimids <- function(x, ...) {
-    weights <- unlist(lapply(x[[2]][-1], function(m) m[["weights"]]))
-    weights[is.na(weights),] <- 0
+    weights <- unlist(lapply(x[["models"]][-1], function(m) get.w.matchit(m)))
+    weights[is.na(weights)] <- 0
     return(weights)
 }
 get.w.wimids <- function(x, ...) {
-    weights <- unlist(lapply(x[[4]][-1], function(m) m[["inverse.weights"]]))
-    weights[is.na(weights),] <- 0
+    weights <- unlist(lapply(x[["models"]][-1], function(m) get.w.weightit(m)))
+    weights[is.na(weights)] <- 0
     return(weights)
 }

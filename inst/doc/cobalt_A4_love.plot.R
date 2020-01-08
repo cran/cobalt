@@ -1,7 +1,7 @@
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE, fig.width=6, fig.height = 4)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 library(cobalt)
 data("lalonde", package = "cobalt")
 
@@ -9,27 +9,28 @@ library(WeightIt)
 w.out1 <- weightit(treat ~ age + educ + married + nodegree + race + re74 + re75,
                    data = lalonde, estimand = "ATE", method = "ps")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 set.cobalt.options(binary = "std")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 love.plot(w.out1)
 
-## ---- eval = FALSE-------------------------------------------------------
+## ---- eval = FALSE------------------------------------------------------------
 #  #This produces the same output as the prior block but with
 #  #the additional covariates included in the formula.
 #  love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75 +
 #              I(age^2) + I(educ^2), data = lalonde, weights = get.w(w.out1),
 #            method = "weighting", estimand = "ATE")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 love.plot(w.out1, 
           drop.distance = TRUE, 
           var.order = "unadjusted",
+          abs = TRUE,
           line = TRUE, 
           threshold = .1)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 new.names <- c(age = "Age (Years)",
                educ = "Education (Years)",
                married = "Married (Y/N)",
@@ -41,22 +42,24 @@ new.names <- c(age = "Age (Years)",
                re75 = "Earnings in 1975 ($)"
 )
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 love.plot(w.out1, 
           drop.distance = TRUE, 
           var.order = "unadjusted",
+          abs = TRUE,
           line = TRUE, 
           threshold = .1,
           var.names = new.names,
           colors = c("red", "blue"),
           shapes = c("triangle filled", "circle filled"))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 library(ggplot2)
 
 love.plot(w.out1, 
           drop.distance = TRUE, 
           var.order = "unadjusted",
+          abs = TRUE,
           line = TRUE, 
           threshold = .1,
           var.names = new.names,
@@ -68,7 +71,7 @@ love.plot(w.out1,
   theme(legend.box.background = element_rect(), 
         legend.box.margin = margin(1, 1, 1, 1))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 w.out2 <- weightit(treat ~ age + educ + married + nodegree + race + re74 + re75,
                    data = lalonde, estimand = "ATE", method = "cbps")
 
@@ -77,6 +80,7 @@ love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75,
           weights = list(w1 = get.w(w.out1),
                          w2 = get.w(w.out2)),
           var.order = "unadjusted",
+          abs = TRUE,
           line = TRUE, 
           threshold = .1,
           var.names = new.names,
@@ -88,13 +92,14 @@ love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75,
         legend.box.background = element_rect(), 
         legend.box.margin = margin(1, 1, 1, 1))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75,
           data = lalonde, estimand = "ATE",
           stats = "ks.statistics",
           weights = list(w1 = get.w(w.out1),
                          w2 = get.w(w.out2)),
           var.order = "unadjusted",
+          abs = TRUE,
           line = TRUE, 
           threshold = .1,
           var.names = new.names,
@@ -106,13 +111,14 @@ love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75,
         legend.box.background = element_rect(), 
         legend.box.margin = margin(1, 1, 1, 1))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75,
           data = lalonde, estimand = "ATE",
           stats = c("mean.diffs", "ks.statistics"),
           weights = list(w1 = get.w(w.out1),
                          w2 = get.w(w.out2)),
           var.order = "unadjusted",
+          abs = TRUE,
           line = FALSE, 
           threshold = c(mean.diffs = .1,
                         ks = .05),
@@ -125,7 +131,7 @@ love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75,
           wrap = 20, grid = FALSE,
           position = "top") 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 love.plot(w.out1, abs = FALSE,
           stats = c("mean.diffs", "variance.ratios"),
           drop.distance = TRUE,
@@ -143,7 +149,7 @@ love.plot(w.out1, abs = FALSE,
                                   legend.key.size = unit(.02, "npc"))))
 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 love.plot(w.out1, binary = "raw",
           stars = "raw",
           drop.distance = TRUE,

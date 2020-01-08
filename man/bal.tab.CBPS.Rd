@@ -22,6 +22,7 @@ Generates balance statistics for \code{CBPS} and \code{CBMSM} objects from the \
     ks.threshold = NULL, 
     r.threshold = NULL, 
     cluster = NULL, 
+    imp = NULL,
     pairwise = TRUE, 
     focal = NULL, 
     s.weights = NULL,
@@ -48,7 +49,7 @@ Optional; either a vector or data.frame containing distance values (e.g., propen
 An optional data frame or the quoted names of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in the call to \code{CBPS()} or \code{CBMSM()}. If variable names are specified, \code{bal.tab()} will look first in the argument to \code{data}, if specified, and next in the input object. For \code{CBMSM} objects, must be a list of additional covariate values as described above, with one list entry per time period. Each data set must have one row per individual, unlike the data frame in the original call to \code{CBMSM()}.
 }
   \item{data}{
-an optional data frame containing variables that might be named in arguments to \code{addl} and \code{cluster}.
+an optional data frame containing variables that might be named in arguments to \code{distance}, \code{addl}, \code{cluster}, and \code{imp}. Can also be \code{mids} object, the output of a call to \code{mice} from the \pkg{mice} package, containing multiply imputed data sets. In this case, \code{imp} is automatically supplied using the imputation variable created from processing the \code{mids} object.
 }
   \item{continuous}{
 whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
@@ -60,7 +61,7 @@ whether mean differences for binary variables (i.e., difference in proportion) s
 whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), the pooled standard deviation ("pooled", computed as the square root of the mean of the group variances) or the standard deviation in the full sample ("all"). Abbreviations allowed. If not specified, \code{bal.tab()} will use "treated" if the estimand of the call to \code{CBPS()} (or that specified by the user to \code{estimand}) is the ATT and "pooled" if the estimand is the ATE.
 }
   \item{m.threshold}{
-a numeric value for the threshold for mean differences. .1 is recommended. 
+a numeric value for the threshold for mean differences.
 }
   \item{v.threshold}{
 a numeric value for the threshold for variance ratios. Will automatically convert to the inverse if less than 1.
@@ -74,11 +75,14 @@ a numeric value for the threshold for correlations between covariates and treatm
   \item{cluster}{
 either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in \code{data} or the CBPS object. See \code{\link{bal.tab.cluster}} for details.
 }
+  \item{imp}{
+either a vector containing imputation indices for each unit or a string containing the name of the imputation index variable in \code{data} or the original data set used in the call to \code{CBPS()} or \code{CBMSM()}. See \code{\link{bal.tab.imp}} for details. Not necessary if \code{data} is a \code{mids} object.
+}
   \item{pairwise}{
 Whether balance should be computed for pairs of treatments or for each treatment against all others combined. See \code{\link{bal.tab.multi}} for details. 
 }
   \item{focal}{
-The name of the focal treatment when multiple categorical treatments are used. See \code{\link{bal.tab.multi}} for details.
+The name of the focal treatment when multi-category treatments are used. See \code{\link{bal.tab.multi}} for details.
 }
   \item{s.weights}{
 Optional; either a vector containing sampling weights for each unit or a string containing the name of the sampling weight variable in \code{data} or the CBPS object. If the original call to \code{CBPS()} included sampling weights, they should be specified again here to ensure correct computation of balance statistics and unadjusted values. See Details below.
@@ -111,9 +115,9 @@ If clusters are specified, an object of class \code{"bal.tab.cluster"} containin
 
 If treatment is continuous, means, mean differences, and variance ratios are replaced by (weighted) Pearson correlations between each covariate and treatment. The \code{r.threshold} argument works the same as \code{m.threshold}, \code{v.threshold}, or \code{ks.threshold}, adding an extra column to the balance table output and creating additional summaries for balance tallies and maximum imbalances. All arguments related to the calculation or display of mean differences or variance ratios are ignored. The \code{int}, \code{addl}, \code{un}, \code{distance}, and cluster arguments are still used as described above.
 
-If multiple categorical treatments are used, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
+If multi-category treatments are used, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
 
-If \code{CBPS()} is used with multiple categorical treatments, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
+If \code{CBPS()} is used with multi-category treatments, an object of class \code{"bal.tab.multi"} containing balance summaries for each pairwise treatment comparison and a summary of balance across pairwise comparisons. See \code{\link{bal.tab.multi}} for details.
 
 If \code{CBMSM()} is used for longitudinal treatments, an object of class \code{"bal.tab.msm"} containing balance summaries for each time period and a summary of balance across time periods. See \code{\link{bal.tab.msm}} for details.
 
@@ -126,7 +130,7 @@ Noah Greifer
 \seealso{
 \code{\link{bal.tab}} for details of calculations.
 \code{\link{bal.tab.cluster}} for more information on clustered data.
-\code{\link{bal.tab.multi}} for more information on multiple categorical treatments.
+\code{\link{bal.tab.multi}} for more information on multi-category treatments.
 \code{\link{bal.tab.msm}} for more information on longitudinal treatments.
 }
 \examples{

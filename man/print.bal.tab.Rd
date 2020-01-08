@@ -3,7 +3,6 @@
 \alias{print.bal.tab.cluster}
 \alias{print.bal.tab.subclass}
 \alias{print.bal.tab.imp}
-\alias{print.bal.tab.imp.cluster}
 \alias{print.bal.tab.multi}
 \alias{print.bal.tab.msm}
 
@@ -74,27 +73,6 @@ Prints \code{bal.tab()} output in a clean way. Provides options for printing.}
     disp.sds = "as.is",
     disp.v.ratio = "as.is", 
     disp.ks = "as.is", 
-    which.imp, 
-    imp.summary = "as.is", 
-    imp.fun = "as.is", 
-    digits = max(3, getOption("digits") - 3), 
-    ...)
-
-\method{print}{bal.tab.imp.cluster}(x, 
-    disp.m.threshold = "as.is", 
-    disp.v.threshold = "as.is", 
-    disp.ks.threshold = "as.is", 
-    disp.r.threshold = "as.is", 
-    imbalanced.only = "as.is", 
-    un = "as.is", 
-    disp.bal.tab = "as.is",
-    disp.means = "as.is", 
-    disp.sds = "as.is",
-    disp.v.ratio = "as.is", 
-    disp.ks = "as.is", 
-    which.cluster, 
-    cluster.summary = "as.is", 
-    cluster.fun = "as.is", 
     which.imp, 
     imp.summary = "as.is", 
     imp.fun = "as.is", 
@@ -198,10 +176,10 @@ whether to display the imputation summary table. If \code{which.imp} is \code{NA
 a character vector of functions of balance statistics to display when displaying balance across imputations. Can be "mean", "min", or "max". More than one are allowed.
 }
   \item{which.treat}{
-which treatments to display when multiple categorical treatments are used. See \code{\link{bal.tab.multi}} for details.
+which treatments to display when multi-category treatments are used. See \code{\link{bal.tab.multi}} for details.
 }
  \item{multi.summary}{
-\code{logical}; whether to display the balance summary table across pairwise comparisons when multiple categorical treatments are used. See \code{\link{bal.tab.multi}} for details.
+\code{logical}; whether to display the balance summary table across pairwise comparisons when multi-category treatments are used. See \code{\link{bal.tab.multi}} for details.
 }
   \item{which.time}{
 which time periods to display if longitudinal treatments are used. See \code{\link{bal.tab.msm}} for details.

@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
 
 <head>
 
 <meta charset="utf-8" />
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="generator" content="pandoc" />
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
@@ -13,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2019-10-06" />
+<meta name="date" content="2020-01-07" />
 
 <title>Appendix 1: Using cobalt with Other Preprocessing Packages</title>
 
@@ -304,7 +303,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 
 <h1 class="title toc-ignore">Appendix 1: Using cobalt with Other Preprocessing Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2019-10-06</h4>
+<h4 class="date">2020-01-07</h4>
 
 
 <div id="TOC">
@@ -321,6 +320,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <li><a href="#using-bal.tab-with-cbps">Using <code>bal.tab()</code> with <code>CBPS</code></a></li>
 <li><a href="#using-bal.tab-with-ebal">Using <code>bal.tab()</code> with <code>ebal</code></a></li>
 <li><a href="#using-bal.tab-with-designmatch">Using <code>bal.tab()</code> with <code>designmatch</code></a></li>
+<li><a href="#using-bal.tab-with-matchthem">Using <code>bal.tab()</code> with <code>MatchThem</code></a></li>
 <li><a href="#using-bal.tab-with-other-packages">Using <code>bal.tab()</code> with other packages</a></li>
 </ul></li>
 </ul>
@@ -337,7 +337,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <a class="sourceLine" id="cb1-2" data-line-number="2">covs &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78))</a>
 <a class="sourceLine" id="cb1-3" data-line-number="3"><span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs)</a></code></pre></div>
 <pre><code>## treat ~ age + educ + race + married + nodegree + re74 + re75
-## &lt;environment: 0x7fbb4d85b230&gt;</code></pre>
+## &lt;environment: 0x7f982566b430&gt;</code></pre>
 <p>The function creates a <code>formula</code> object from two inputs: the first argument is the quoted name of the variable to be the left hand side (response) variable in the formula; the second argument is a vector of right hand side (predictor) variable names or a data frame, the variable names of which are to be the predictor variables. The utility of <code>f.build()</code> is that the user does not have to manually type out the name of every covariate when entering a formula into a function. It can be used simply in place of a formula, as in the following examples, which make use of the objects defined above:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="co"># Generating propensity scores using logistic regression</span></a>
 <a class="sourceLine" id="cb3-2" data-line-number="2">p.score &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)<span class="op">$</span>fitted.values</a>
@@ -666,7 +666,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <p>When using <code>bal.tab()</code> with <code>twang</code>, the user must specify the <code>ps</code> object, the output of a call to <code>ps()</code>, as the first argument. The second argument, <code>stop.method</code>, is the name of the stop method(s) for which balance is to be assessed, since a <code>ps</code> object may contain more than one if so specified. <code>bal.tab()</code> can display the balance for more than one stop method at a time by specifying a vector of stop method names. If this argument is left empty or if the argument to <code>stop.method</code> does not correspond to any of the stop methods in the <code>ps</code> object, <code>bal.tab()</code> will default to displaying balance for all stop methods available. Abbreviations are allowed for the stop method, which is not case sensitive.</p>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>twang</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the stop method used is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>, mimicking the behavior of <code>twang</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advised.</p>
 <p>If sampling weights are used in the call to <code>ps()</code>, they will be automatically incorporated into the <code>bal.tab()</code> calculations for both the adjusted and unadjusted samples, just as <code>twang</code> does.</p>
-<p><code>mnps</code> objects resulting from fitting models in <code>twang</code> with multinomial treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with multinomial treatments” in the main vignette. <code>iptw</code> objects resulting from fitting models in <code>twang</code> with longitudinal treatments are also compatible with <code>cobalt</code>. See the Appendix 3 vignette. <code>ps.cont</code> objects resulting from using <code>ps.cont()</code> in <code>WeightIt</code>, which implements GBM for continuous treatments, are also compatible. See the section “Using <code>cobalt</code> with continuous treatments” in the main vignette.</p>
+<p><code>mnps</code> objects resulting from fitting models in <code>twang</code> with multi-category treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with multi-category treatments” in the main vignette. <code>iptw</code> objects resulting from fitting models in <code>twang</code> with longitudinal treatments are also compatible with <code>cobalt</code>. See the Appendix 3 vignette. <code>ps.cont</code> objects resulting from using <code>ps.cont()</code> in <code>WeightIt</code>, which implements GBM for continuous treatments, are also compatible. See the section “Using <code>cobalt</code> with continuous treatments” in the main vignette.</p>
 </div>
 <div id="using-bal.tab-with-matching" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>Matching</code></h3>
@@ -736,7 +736,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 </div>
 <div id="using-bal.tab-with-cbps" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>CBPS</code></h3>
-<p>The <code>CBPS</code> (Covariate Balancing Propensity Score) package is a great tool for generating covariate balancing propensity scores, a class of propensity scores that are quite effective at balancing covariates among groups. <code>CBPS</code> includes functions for estimating propensity scores for binary, multinomial, and continuous treatments. <code>bal.tab()</code> functions similarly to <code>CBPS</code>’s <code>balance()</code> command. Below is a simple example of its use with a binary treatment:</p>
+<p>The <code>CBPS</code> (Covariate Balancing Propensity Score) package is a great tool for generating covariate balancing propensity scores, a class of propensity scores that are quite effective at balancing covariates among groups. <code>CBPS</code> includes functions for estimating propensity scores for binary, multi-category, and continuous treatments. <code>bal.tab()</code> functions similarly to <code>CBPS</code>’s <code>balance()</code> command. Below is a simple example of its use with a binary treatment:</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb14-1" data-line-number="1"><span class="kw">library</span>(<span class="st">&quot;CBPS&quot;</span>)</a>
 <a class="sourceLine" id="cb14-2" data-line-number="2"><span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span></a>
 <a class="sourceLine" id="cb14-3" data-line-number="3">covs0 &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78, nodegree, married))</a>
@@ -766,7 +766,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <p>First is the original call to <code>CBPS()</code>. Next is the balance table containing mean differences for the covariates included in the input to <code>CBPS()</code>. Last is a table displaying sample size information. The “effective” sample size is displayed when weighting (rather than matching or subclassification) is used; it is calculated as is done in <code>twang</code>. See the <code>twang</code> documentation, <code>?bal.tab</code>, or “Details on Calculations” in the main vignette for details on this calculation.</p>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>CBPS</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the original call to <code>CBPS()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified, and if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable.</p>
 <p>When using <code>CBPS</code> and <code>bal.tab()</code> with continuous treatments, the same guidelines apply as when using <code>bal.tab()</code> with continuous treatments without a conditioning package. See the section “Using cobalt with continuous treatments” in the main vignette for more details.</p>
-<p><code>CBPSContinuous</code> objects resulting from fitting models in <code>CBPS</code> with continuous treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with continuous treatments” in the main vignette. <code>CBPS</code> objects resulting from fitting models in <code>CBPS</code> with multinomial treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with multinomial treatments” in the main vignette. <code>CBMSM</code> objects resulting from fitting models in <code>CBPS</code> with longitudinal treatments are also compatible with <code>cobalt</code>. See the Appendix 3 vignette.</p>
+<p><code>CBPSContinuous</code> objects resulting from fitting models in <code>CBPS</code> with continuous treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with continuous treatments” in the main vignette. <code>CBPS</code> objects resulting from fitting models in <code>CBPS</code> with multi-category treatments are also compatible with <code>cobalt</code>. See the section “Using <code>cobalt</code> with multi-category treatments” in the main vignette. <code>CBMSM</code> objects resulting from fitting models in <code>CBPS</code> with longitudinal treatments are also compatible with <code>cobalt</code>. See the Appendix 3 vignette.</p>
 </div>
 <div id="using-bal.tab-with-ebal" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>ebal</code></h3>
@@ -825,30 +825,67 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 ## re75     Contin.  -0.0076
 ## 
 ## Sample sizes
-##               Control Treated
-## All               429     185
-## Matched (ESS)     185     185
-## Unmatched         244       0</code></pre>
+##           Control Treated
+## All           429     185
+## Matched       185     185
+## Unmatched     244       0</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with <code>Matching</code> or <code>optmatch</code>. In addition to the <code>designmatch()</code> output object, one must specify either both a formula and a data set or both a treatment vector and a data frame of covariates. The output is similar to that of <code>optmatch</code>.</p>
+</div>
+<div id="using-bal.tab-with-matchthem" class="section level3">
+<h3>Using <code>bal.tab()</code> with <code>MatchThem</code></h3>
+<p>The <code>MatchThem</code> package is essentially a wrapper for <code>matchit()</code> from <code>MatchIt</code> and <code>weightit()</code> from <code>WeightIt</code> but for use with multiply imputed data. Using <code>bal.tab()</code> on <code>mimids</code> or <code>wimids</code> objects from <code>MatchThem</code> activates the features that accompany multiply imputed data; balance is assessed within each imputed dataset and aggregated across imputations. See <code>?bal.tab.imp</code> or the accompanying Appendix 2 for more information about using <code>cobalt</code> with multiply imputed data. Below is a simple example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb26-1" data-line-number="1"><span class="kw">library</span>(<span class="st">&quot;MatchThem&quot;</span>); <span class="kw">library</span>(<span class="st">&quot;mice&quot;</span>)</a>
+<a class="sourceLine" id="cb26-2" data-line-number="2"><span class="kw">data</span>(<span class="st">&quot;lalonde_mis&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)</a>
+<a class="sourceLine" id="cb26-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb26-4" data-line-number="4"><span class="co">#Generate imputed data sets</span></a>
+<a class="sourceLine" id="cb26-5" data-line-number="5">m &lt;-<span class="st"> </span><span class="dv">10</span> <span class="co">#number of imputed data sets</span></a>
+<a class="sourceLine" id="cb26-6" data-line-number="6">imp.out &lt;-<span class="st"> </span><span class="kw">mice</span>(lalonde_mis, <span class="dt">m =</span> m, <span class="dt">print =</span> <span class="ot">FALSE</span>) </a>
+<a class="sourceLine" id="cb26-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb26-8" data-line-number="8"><span class="co">#Matching for balance on covariates</span></a>
+<a class="sourceLine" id="cb26-9" data-line-number="9">wt.out &lt;-<span class="st"> </span><span class="kw">weightthem</span>(treat <span class="op">~</span><span class="st"> </span>age <span class="op">+</span><span class="st"> </span>educ <span class="op">+</span><span class="st"> </span>married <span class="op">+</span></a>
+<a class="sourceLine" id="cb26-10" data-line-number="10"><span class="st">                       </span>race <span class="op">+</span><span class="st"> </span>re74 <span class="op">+</span><span class="st"> </span>re75, </a>
+<a class="sourceLine" id="cb26-11" data-line-number="11">                     <span class="dt">datasets =</span> imp.out,</a>
+<a class="sourceLine" id="cb26-12" data-line-number="12">                     <span class="dt">approach =</span> <span class="st">&quot;within&quot;</span>, </a>
+<a class="sourceLine" id="cb26-13" data-line-number="13">                     <span class="dt">method =</span> <span class="st">&quot;ps&quot;</span>,</a>
+<a class="sourceLine" id="cb26-14" data-line-number="14">                     <span class="dt">estimand =</span> <span class="st">&quot;ATE&quot;</span>)</a></code></pre></div>
+<pre><code>## Estimating weights     | dataset: #1 #2 #3 #4 #5 #6 #7 #8 #9 #10</code></pre>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb28-1" data-line-number="1"><span class="kw">bal.tab</span>(wt.out)</a></code></pre></div>
+<pre><code>## Balance summary across all imputations
+##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
+## distance    Distance       0.1429        0.1555       0.1639
+## age          Contin.      -0.1964       -0.1874      -0.1836
+## educ         Contin.       0.0759        0.0818       0.0897
+## married       Binary      -0.1158       -0.1037      -0.0831
+## race_black    Binary       0.0507        0.0563       0.0615
+## race_hispan   Binary       0.0078        0.0098       0.0133
+## race_white    Binary      -0.0748       -0.0661      -0.0587
+## re74         Contin.      -0.2992       -0.2853      -0.2690
+## re75         Contin.      -0.1712       -0.1587      -0.1462
+## 
+## Average effective sample sizes across imputations
+##            Control Treated
+## Unadjusted 429.000 185.000
+## Adjusted   331.804  67.253</code></pre>
+<p>The input is similar to that for using <code>bal.tab()</code> with <code>MatchIt</code> or <code>WeightIt</code>.</p>
 </div>
 <div id="using-bal.tab-with-other-packages" class="section level3">
 <h3>Using <code>bal.tab()</code> with other packages</h3>
 <p>It is possible to use <code>bal.tab</code> with objects that don’t come from these packages using the <code>default</code> method. If an object that doesn’t correspond to the output from one of the specifically supported packages is passed as the first argument to <code>bal.tab</code>, <code>bal.tab</code> will do its best to process that object as if it did come from a supported package. It will search through the components of the object for items with names like <code>&quot;treat&quot;</code>, <code>&quot;covs&quot;</code>, <code>&quot;data&quot;</code>, <code>&quot;weights&quot;</code>, etc., that have the correct object types. Any additional arguments can be specified by the user.</p>
 <p>The goal of the <code>default</code> method is to allow package authors to rely on <code>cobalt</code> as a substitute for any balancing function they might otherwise write. By ensuring compatibility with the <code>default</code> method, package authors can have their users simply supply the output of a compatible function into <code>cobalt</code> functions without having to write a specific method in <code>cobalt</code>. A package author would need to make sure the output of their package contained enough information with correctly named components; if so, <code>cobalt</code> functions can be used as conveniently with the output as it is with specifically supported packages.</p>
 <p>Below, we demonstrate this capability with the output of <code>optweight</code>, which performs a version of propensity score weighting using optimization. No <code>bal.tab</code> method has been written with <code>optweight</code> output in mind; rather, <code>optweight</code> was written to have output compatible with the <code>default</code> method of <code>bal.tab</code>.</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb26-1" data-line-number="1"><span class="kw">library</span>(<span class="st">&quot;optweight&quot;</span>)</a>
-<a class="sourceLine" id="cb26-2" data-line-number="2"><span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)</a>
-<a class="sourceLine" id="cb26-3" data-line-number="3"></a>
-<a class="sourceLine" id="cb26-4" data-line-number="4"><span class="co">#Estimate the weights using optimization</span></a>
-<a class="sourceLine" id="cb26-5" data-line-number="5">ow.out &lt;-<span class="st"> </span><span class="kw">optweight</span>(treat <span class="op">~</span><span class="st"> </span>age <span class="op">+</span><span class="st"> </span>educ <span class="op">+</span><span class="st"> </span>married <span class="op">+</span><span class="st"> </span>race <span class="op">+</span><span class="st"> </span>re74 <span class="op">+</span><span class="st"> </span>re75,</a>
-<a class="sourceLine" id="cb26-6" data-line-number="6">                    <span class="dt">data =</span> lalonde, <span class="dt">estimand =</span> <span class="st">&quot;ATE&quot;</span>, <span class="dt">tols =</span> <span class="fl">.01</span>)</a>
-<a class="sourceLine" id="cb26-7" data-line-number="7"></a>
-<a class="sourceLine" id="cb26-8" data-line-number="8"><span class="co">#Note the contents of the output object:</span></a>
-<a class="sourceLine" id="cb26-9" data-line-number="9"><span class="kw">names</span>(ow.out)</a></code></pre></div>
-<pre><code>##  [1] &quot;weights&quot;   &quot;treat&quot;     &quot;covs&quot;      &quot;s.weights&quot; &quot;estimand&quot; 
-##  [6] &quot;focal&quot;     &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
-<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb28-1" data-line-number="1"><span class="co">#Use bal.tab() directly on the output</span></a>
-<a class="sourceLine" id="cb28-2" data-line-number="2"><span class="kw">bal.tab</span>(ow.out)</a></code></pre></div>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb30-1" data-line-number="1"><span class="kw">library</span>(<span class="st">&quot;optweight&quot;</span>)</a>
+<a class="sourceLine" id="cb30-2" data-line-number="2"><span class="kw">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;cobalt&quot;</span>)</a>
+<a class="sourceLine" id="cb30-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb30-4" data-line-number="4"><span class="co">#Estimate the weights using optimization</span></a>
+<a class="sourceLine" id="cb30-5" data-line-number="5">ow.out &lt;-<span class="st"> </span><span class="kw">optweight</span>(treat <span class="op">~</span><span class="st"> </span>age <span class="op">+</span><span class="st"> </span>educ <span class="op">+</span><span class="st"> </span>married <span class="op">+</span><span class="st"> </span>race <span class="op">+</span><span class="st"> </span>re74 <span class="op">+</span><span class="st"> </span>re75,</a>
+<a class="sourceLine" id="cb30-6" data-line-number="6">                    <span class="dt">data =</span> lalonde, <span class="dt">estimand =</span> <span class="st">&quot;ATE&quot;</span>, <span class="dt">tols =</span> <span class="fl">.01</span>)</a>
+<a class="sourceLine" id="cb30-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb30-8" data-line-number="8"><span class="co">#Note the contents of the output object:</span></a>
+<a class="sourceLine" id="cb30-9" data-line-number="9"><span class="kw">names</span>(ow.out)</a></code></pre></div>
+<pre><code>##  [1] &quot;weights&quot;   &quot;treat&quot;     &quot;covs&quot;      &quot;s.weights&quot; &quot;estimand&quot;  &quot;focal&quot;    
+##  [7] &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb32-1" data-line-number="1"><span class="co">#Use bal.tab() directly on the output</span></a>
+<a class="sourceLine" id="cb32-2" data-line-number="2"><span class="kw">bal.tab</span>(ow.out)</a></code></pre></div>
 <pre><code>## Call
 ##  optweight(formula = treat ~ age + educ + married + race + re74 + 
 ##     re75, data = lalonde, tols = 0.01, estimand = &quot;ATE&quot;)
