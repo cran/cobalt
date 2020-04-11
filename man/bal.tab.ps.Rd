@@ -12,6 +12,7 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
 \usage{
 \method{bal.tab}{ps}(ps, 
     stop.method, 
+    stats,
     int = FALSE, 
     poly = 1, 
     distance = NULL, 
@@ -20,9 +21,8 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     continuous,  
     binary, 
     s.d.denom, 
-    m.threshold = NULL, 
-    v.threshold = NULL, 
-    ks.threshold = NULL, 
+    thresholds = NULL, 
+    weights = NULL,
     cluster = NULL, 
     imp = NULL,
     abs = FALSE,
@@ -31,6 +31,7 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
 
 \method{bal.tab}{mnps}(mnps, 
     stop.method, 
+    stats,
     int = FALSE, 
     poly = 1, 
     distance = NULL, 
@@ -39,9 +40,8 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     continuous,  
     binary, 
     s.d.denom, 
-    m.threshold = NULL, 
-    v.threshold = NULL, 
-    ks.threshold = NULL, 
+    thresholds = NULL, 
+    weights = NULL,
     cluster = NULL, 
     imp = NULL,
     pairwise = TRUE, 
@@ -52,6 +52,7 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     
 \method{bal.tab}{iptw}(iptw, 
     stop.method, 
+    stats,
     int = FALSE, 
     poly = 1, 
     distance.list = NULL, 
@@ -60,9 +61,8 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     continuous,  
     binary, 
     s.d.denom, 
-    m.threshold = NULL, 
-    v.threshold = NULL, 
-    ks.threshold = NULL, 
+    thresholds = NULL, 
+    weights = NULL,
     cluster = NULL,
     imp = NULL,
     pairwise = TRUE, 
@@ -72,6 +72,7 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
 
 \method{bal.tab}{ps.cont}(ps.cont, 
     stop.method, 
+    stats,
     int = FALSE, 
     poly = 1, 
     distance = NULL, 
@@ -80,7 +81,8 @@ Generates balance statistics for \code{ps}, \code{mnps}, and \code{iptw} objects
     continuous,
     binary,
     s.d.denom,
-    r.threshold = NULL, 
+    thresholds = NULL, 
+    weights = NULL,
     cluster = NULL, 
     imp = NULL,
     abs = FALSE, 
@@ -95,6 +97,9 @@ a \code{ps}, \code{mnps}, \code{iptw}, or \code{ps.cont} object; the output of a
   \item{stop.method}{
 a string containing the names of the stopping methods used in the original call to \code{ps()}, \code{mnps()}, \code{iptw()}, or \code{ps.cont()}. Examples include "es.max" or "ks.mean" for \code{ps} and \code{mnps} objects and "p.mean" or "s.max" for \code{ps.cont} objects. \code{bal.tab} will assess balance for the weights created by those stopping methods. The names can be abbreviated as long as the abbreviations are specific enough. If no stopping methods are provided, \code{bal.tab} will default to displaying balance for all available stopping methods. This argument used to be called \code{full.stop.method}, and that name still works.
   }
+    \item{stats}{
+\code{character}; which statistic(s) should be reported. See \code{\link[=balance.stats]{stats}} for allowable options. For binary and multi-category treatments, "mean.diffs" (i.e., mean differences) is the default. For continuous treatments, "correlations" (i.e., treatment-covariate Pearson correlations) is the default. Multiple options are allowed.
+}
   \item{int}{
 \code{logical} or \code{numeric}; whether or not to include 2-way interactions of covariates included in \code{covs} and in \code{addl}. If \code{numeric}, will be passed to \code{poly} as well. In older versions of \pkg{cobalt}, setting \code{int = TRUE} displayed squares of covariates; to replicate this behavior, set \code{int = 2}.
 }
@@ -117,19 +122,13 @@ whether mean differences for continuous covariates should be standardized ("std"
 whether mean differences for binary covariates (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}. This argument is used to set \code{std} in \code{\link{col_w_smd}} and \code{\link{col_w_corr}}.
 }
   \item{s.d.denom}{
-whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), the pooled standard deviation ("pooled", computed as the square root of the mean of the group variances) or the standard deviation in the full sample ("all"). Abbreviations allowed. If not specified, \code{bal.tab()} will use "treated" if the estimand of the call to \code{ps()} is the ATT and "pooled" if the estimand is the ATE.
+\code{character}; how the denominator for standardized mean differences should be calculated, if requested. See \code{\link{col_w_smd}} for allowable options. If not specified, for \code{ps} objects, \code{bal.tab()} will use "treated" if the estimand of the call to \code{ps()} is the ATT and "pooled" if the estimand is the ATE; for \code{mnps} objects, \code{bal.tab()} will use "treated" if \code{treatATT} was specified in the original call to \code{mnps} and "pooled" otherwise. Use "all" to get the same values computed by \code{bal.table} in \pkg{twang}. Abbreviations allowed.
 }
-  \item{m.threshold}{
-a numeric value for the threshold for mean differences.
+  \item{thresholds}{
+a named vector of balance thresholds, where the name corresponds to the statistic (i.e., in \code{stats}) that the threshold applies to. For example, to request thresholds on mean differences and variance ratios, one can set \code{thresholds = c(m = .05, v = 2)}. Requesting a threshold automatically requests the display of that statistic. See Details.
 }
-  \item{v.threshold}{
-a numeric value for the threshold for variance ratios. Will automatically convert to the inverse if less than 1.
-}
-  \item{ks.threshold}{
-a numeric value for the threshold for Kolmogorov-Smirnov statistics. Must be between 0 and 1. 
-}
-  \item{r.threshold}{
-a numeric value for the threshold for correlations between covariates and treatment when treatment is continuous.
+  \item{weights}{
+a named list containing additional weights on which to assess balance. Each entry can be a vector of weights, the name of a variable in \code{data} that contains weights, or an object with a \code{\link{get.w}} method.
 }
   \item{cluster}{
 either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in data or the \code{ps}, \code{mnps}, \code{iptw}, or \code{ps.cont}  object. See \code{\link{bal.tab.cluster}} for details.
@@ -138,7 +137,7 @@ either a vector containing cluster membership for each unit or a string containi
 either a vector containing imputation indices for each unit or a string containing the name of the imputation index variable in \code{data} or the original data set used in the call to \code{ps()}, \code{mnps()}, \code{iptw()}, or \code{ps.cont()}. See \code{\link{bal.tab.imp}} for details. Not necessary if \code{data} is a \code{mids} object.
 }
   \item{pairwise}{
-whether balance should be computed for pairs of treatments or for each treatment against all others combined. See \code{\link{bal.tab.multi}} for details. 
+when treatment is multi-category, whether balance should be computed for pairs of treatments or for each treatment against all groups combined. See \code{\link{bal.tab.multi}} for details.
 }
   \item{focal}{
 ignored. With multi-category treatments, \code{bal.tab()} automatically assigns a focal treatment based on the \code{mnps} object. See \code{\link{bal.tab.multi}} for details.
@@ -147,7 +146,7 @@ ignored. With multi-category treatments, \code{bal.tab()} automatically assigns 
 \code{logical}; whether displayed balance statistics should be in absolute value or not. 
 }
   \item{subset}{
-a \code{logical} vector denoting whether each observation should be included. It should be the same length as the variables in the original call to \code{ps()}, \code{mnps()}, or \code{ps.cont()}. \code{NA}s will be treated as \code{FALSE}. This can be used as an alternative to \code{cluster} to examine balance on subsets of the data.
+a \code{logical} or \code{numeric} vector denoting whether each observation should be included or which observations should be included. If \code{logical}, it should be the same length as the variables in the original call to \code{ps()}, \code{mnps()}, or \code{ps.cont()}. \code{NA}s will be treated as \code{FALSE}. This can be used as an alternative to \code{cluster} to examine balance on subsets of the data.
 }
   \item{quick}{
 \code{logical}; if \code{TRUE}, will not compute any values that will not be displayed. Set to \code{FALSE} if computed values not displayed will be used later.
@@ -159,7 +158,7 @@ further arguments to control display of output. See \link[=options-display]{disp
 \details{
 \code{bal.tab.ps()} generates a list of balance summaries for the \code{ps} object given, and functions similarly to \code{bal.table()} in \pkg{twang}.
 
-All balance statistics are calculated whether they are displayed by \code{print} or not, unless \code{quick = TRUE}. The threshold values (\code{m.threshold}, \code{v.threshold}, \code{ks.threshold}, and \code{r.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
+All balance statistics are calculated whether they are displayed by \code{print} or not, unless \code{quick = TRUE}. The \code{threshold} argument controls whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
 
 }
 \value{

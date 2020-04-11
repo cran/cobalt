@@ -24,8 +24,8 @@ with multiply imputed and/or clustered data, one for the use of `cobalt`
 with longitudinal treatments, and one for the use of `cobalt` to
 generate publication-ready plots. Currently, `cobalt` is compatible with
 output from `MatchIt`, `twang`, `Matching`, `optmatch`, `CBPS`, `ebal`,
-`WeightIt`, and `designmatch`, as well as data not processed through
-these packages.
+`WeightIt`, `designmatch`, `sbw`, `MatchThem`, and `cem` as well as data
+not processed through these packages.
 
 # Why cobalt?
 
@@ -73,11 +73,10 @@ library("MatchIt")
 data("lalonde", package = "cobalt")
 
 # Nearest neighbor matching with MatchIt
-m.out <- matchit(treat ~ age + educ + race + married + nodegree + re74 + re75, 
-    data = lalonde)
+m.out <- matchit(treat ~ age + educ + race + married + nodegree + re74 + re75, data = lalonde)
 
 # Checking balance before and after matching:
-bal.tab(m.out, m.threshold = 0.1, un = TRUE)
+bal.tab(m.out, thresholds = c(m = 0.1), un = TRUE)
 ```
 
     #> Call
@@ -107,10 +106,10 @@ bal.tab(m.out, m.threshold = 0.1, un = TRUE)
     #>  race_black    0.373 Not Balanced, >0.1
     #> 
     #> Sample sizes
-    #>               Control Treated
-    #> All               429     185
-    #> Matched (ESS)     185     185
-    #> Unmatched         244       0
+    #>           Control Treated
+    #> All           429     185
+    #> Matched       185     185
+    #> Unmatched     244       0
 
 ``` r
 # Examining distributional balance with plots:
@@ -123,16 +122,16 @@ bal.plot(m.out, var.name = "distance", mirror = TRUE, type = "histogram")
 
 ``` r
 # Generating a Love plot to report balance:
-love.plot(m.out, stats = c("mean.diffs", "variance.ratios"), threshold = c(m = 0.1, 
+love.plot(m.out, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 0.1, 
     v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
 ```
 
 <img src="inst/figures/README-unnamed-chunk-4-1.png" style="display: block; margin: auto;" />
 
 Please remember to cite this package when using it to analyze data. For
-example, in a manuscript, write: “Matching was performed using the
-Matching package (Sekhon, 2011), and covariate balance was assessed
-using cobalt (Greifer, 2019), both in R (R Core Team, 2019).” Use
+example, in a manuscript, you could write: “Matching was performed using
+the Matching package (Sekhon, 2011), and covariate balance was assessed
+using cobalt (Greifer, 2020), both in R (R Core Team, 2019).” Use
 `citation("cobalt")` to generate a bibliographic reference for the
 `cobalt` package.
 

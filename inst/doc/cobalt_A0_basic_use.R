@@ -10,40 +10,38 @@ library("cobalt")
 
 ## -----------------------------------------------------------------------------
 data("lalonde", package = "cobalt") #If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+covs <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 # Generating ATT weights as specified in Austin (2011)
-lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde, 
+lalonde$p.score <- glm(f.build("treat", covs), data = lalonde, 
                        family = "binomial")$fitted.values
 lalonde$att.weights <- with(lalonde, treat + (1-treat)*p.score/(1-p.score))
 
-bal.tab(covs0, treat = lalonde$treat, weights = lalonde$att.weights,
-        method = "weighting")
+bal.tab(covs, treat = lalonde$treat, weights = lalonde$att.weights)
 
 
 ## -----------------------------------------------------------------------------
-bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
-        distance = "p.score", method = "weighting")
+bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
+        distance = "p.score")
 
 ## -----------------------------------------------------------------------------
-bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
-        method = "weighting", binary = "std", continuous = "std")
+bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
+        binary = "std", continuous = "std")
 
 ## -----------------------------------------------------------------------------
 # Balance on all covariates in data set, including interactions and squares
-bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
-        method = "weighting", addl = c("nodegree", "married"), 
-        int = TRUE, poly = 2)
+bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
+        addl = c("nodegree", "married"), int = TRUE, poly = 2)
 
 ## -----------------------------------------------------------------------------
 # Balance tables with variance ratios and statistics for the unadjusted sample
-bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
-        method = "weighting", disp.v.ratio = TRUE, un = TRUE)
+bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
+        un = TRUE, stats = c("mean.diffs", "variance.ratios"))
 
 ## -----------------------------------------------------------------------------
 # Balance tables with thresholds for mean differences and variance ratios
-bal.tab(treat ~ covs0, data = lalonde, weights = "att.weights",
-        method = "weighting", m.threshold = .1, v.threshold = 2)
+bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
+        thresholds = c(m = .1, v = 2))
 
 ## -----------------------------------------------------------------------------
 # Generating ATT weights with different covariates
@@ -51,12 +49,12 @@ lalonde$p.score2 <- glm(treat ~ age + I(age^2) + race + educ + re74,
                         data = lalonde, family = "binomial")$fitted.values
 lalonde$att.weights2 <- with(lalonde, treat + (1-treat)*p.score2/(1-p.score2))
 
-bal.tab(treat ~ covs0, data = lalonde, weights = c("att.weights", "att.weights2"),
-        method = "weighting", estimand = "ATT")
+bal.tab(treat ~ covs, data = lalonde, weights = c("att.weights", "att.weights2"),
+        estimand = "ATT")
 
 ## -----------------------------------------------------------------------------
-# Subclassification for ATT with 6 subclasses
-lalonde$p.score <- glm(f.build("treat", covs0), data = lalonde, 
+# Subclassification for ATT with 5 subclasses
+lalonde$p.score <- glm(f.build("treat", covs), data = lalonde, 
                        family = "binomial")$fitted.values
 nsub <- 5 #number of subclasses
 lalonde$subclass <- findInterval(lalonde$p.score, 
@@ -64,16 +62,16 @@ lalonde$subclass <- findInterval(lalonde$p.score,
                                           seq(0, 1, length.out = nsub + 1)), 
                                  all.inside = TRUE)
 
-bal.tab(treat ~ covs0, data = lalonde, subclass = "subclass", 
-        method = "subclassification", disp.subclass = TRUE)
+bal.tab(treat ~ covs, data = lalonde, subclass = "subclass", 
+        disp.subclass = TRUE)
 
 ## -----------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+covs <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 # Nearest neighbor 2:1 matching with replacement
 library("MatchIt") #if not yet loaded
-m.out <- matchit(f.build("treat", covs0), data = lalonde, method = "nearest", 
+m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest", 
                  ratio = 1,  replace = TRUE)
 
 bal.tab(m.out)
@@ -81,10 +79,10 @@ bal.tab(m.out)
 ## -----------------------------------------------------------------------------
 library("WeightIt")
 data("lalonde", package = "cobalt") #If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
+covs <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 #Generating propensity score weights for the ATT
-W.out <- weightit(treat ~ covs0, data = lalonde,
+W.out <- weightit(treat ~ covs, data = lalonde,
                   method = "ps", estimand = "ATT")
 
 bal.tab(W.out)
@@ -107,7 +105,7 @@ library("MatchIt") #if not yet loaded
 m.out <- matchit(f.build("treat", covs), data = lalonde, 
                  method = "nearest", replace = TRUE)
 
-love.plot(m.out, binary = "std", threshold = .1)
+love.plot(m.out, binary = "std", thresholds = c(m = .1))
 
 ## ---- fig.width = 5-----------------------------------------------------------
 v <- data.frame(old = c("age", "educ", "race_black", "race_hispan", 
@@ -117,7 +115,7 @@ v <- data.frame(old = c("age", "educ", "race_black", "race_hispan",
                         "Earnings 1974", "Earnings 1975", "Propensity Score"))
 
 love.plot(m.out, stats = c("mean.diffs", "ks.statistics"), 
-          threshold = c(mean.diffs = .1, ks.statistics = .05), 
+          threshold = c(m = .1, ks = .05), 
           binary = "std", abs = TRUE,
           var.order = "unadjusted", var.names = v,
           limits = c(0, 1), grid = FALSE, wrap = 20,
@@ -136,7 +134,7 @@ W.out.c <- weightit(re75 ~ age + educ + race + married + nodegree +
 
 ## -----------------------------------------------------------------------------
 #Assessing balance numerically
-bal.tab(W.out.c, un = TRUE, r.threshold = .1, int = TRUE,
+bal.tab(W.out.c, un = TRUE, thresholds = c(cor = .1), int = TRUE,
         poly = 2, imbalanced.only = TRUE)
 
 ## ---- fig.width = 5-----------------------------------------------------------
@@ -146,7 +144,7 @@ bal.plot(W.out.c, "married", which = "both")
 
 ## ---- fig.width = 5-----------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(W.out.c, threshold = .1, abs = TRUE,
+love.plot(W.out.c, thresholds = c(cor = .1), abs = TRUE,
           var.order = "unadjusted", line = TRUE)
 
 ## -----------------------------------------------------------------------------
@@ -177,31 +175,32 @@ bal.plot(W.out.mn, "married", which = "both",
 
 ## ---- fig.width = 7-----------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(W.out.mn, threshold = .1, binary = "std",
+love.plot(W.out.mn, thresholds = c(m = .1), binary = "std",
           which.treat = .all, abs = FALSE)
 
 ## -----------------------------------------------------------------------------
-bal.tab(treat ~ covs0, data = lalonde, 
-        weights = data.frame(Matched = get.w(m.out),
-                             IPW = get.w(W.out)),
-        method = c("matching", "weighting"), 
+bal.tab(treat ~ covs, data = lalonde, 
+        weights = list(Matched = m.out,
+                       IPW = W.out),
         disp.v.ratio = TRUE)
 
 ## ---- fig.width=7-------------------------------------------------------------
-bal.plot(treat ~ covs0, data = lalonde, 
-         weights = data.frame(Matched = get.w(m.out),
-                              IPW = get.w(W.out)),
-         method = c("matching", "weighting"), 
+bal.plot(treat ~ covs, data = lalonde, 
+         weights = list(Matched = m.out,
+                        IPW = W.out),
          var.name = "age", which = "both")
 
 ## ---- fig.width=5-------------------------------------------------------------
-love.plot(treat ~ covs0, data = lalonde, 
-          weights = data.frame(Matched = get.w(m.out),
-                               IPW = get.w(W.out)),
-          method = c("matching", "weighting"), 
+love.plot(treat ~ covs, data = lalonde, 
+          weights = list(Matched = m.out,
+                         IPW = W.out),
           var.order = "unadjusted", binary = "std",
           abs = TRUE, colors = c("red", "blue", "darkgreen"), 
-          shapes = c("circle", "square", "triangle"))
+          shapes = c("circle", "square", "triangle"),
+          line = TRUE)
+
+## ---- eval = FALSE------------------------------------------------------------
+#  bal.tab(m.out, weights = list(IPW = W.out))
 
 ## -----------------------------------------------------------------------------
 ctrl.data <- lalonde[lalonde$treat == 0,]
@@ -213,15 +212,13 @@ lalonde$prog.score <- predict(ctrl.fit, lalonde)
 bal.tab(m.out, distance = lalonde["prog.score"])
 
 ## ---- echo = FALSE, fig.show = 'hold', fig.width = 5, warning=FALSE-----------
-library("twang")
+library("MatchIt")
 data("lalonde", package = "cobalt") ##If not yet loaded
-covs0 <- subset(lalonde, select = -c(treat, re78, nodegree, married))
-ps.out <- ps(f.build("treat", covs0), data = lalonde, 
-             stop.method = "es.max", 
-             estimand = "ATT", n.trees = 100, verbose = FALSE)
-plot(ps.out, plots = "es", subset = 1)
-love.plot(ps.out, stop.method = "es.max", 
-          threshold = .1, abs = TRUE, var.order = "u", 
+covs <- subset(lalonde, select = -c(treat, re78))
+m.out <- matchit(f.build("treat", covs), data = lalonde)
+plot(summary(m.out, standardize = TRUE), interactive = FALSE)
+love.plot(m.out, thresholds = c(m = .1), 
+          abs = TRUE, var.order = "u", 
           color = c("red", "blue"), line = TRUE,
           binary = "std",
           drop.distance = TRUE)

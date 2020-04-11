@@ -34,7 +34,7 @@ love.plot(m.out, cluster = "race", which.cluster = .none, agg.fun = "mean")
 love.plot(m.out, cluster = "race", which.cluster = .none, agg.fun = "range")
 
 ## -----------------------------------------------------------------------------
-library("MatchThem"); library("cobalt"); library("mice")
+library("mice"); library("MatchThem"); library("cobalt")
 data("lalonde_mis", package = "cobalt")
 
 #Generate imputed data sets

@@ -8,6 +8,7 @@
 \alias{get.w.CBPS}
 \alias{get.w.ebalance}
 \alias{get.w.optmatch}
+\alias{get.w.cem.match}
 \alias{get.w.weightit}
 \alias{get.w.designmatch}
 \alias{get.w.mimids}
@@ -37,6 +38,8 @@ get.w(x, \dots)
 \method{get.w}{ebalance}(x, treat, ...)
 
 \method{get.w}{optmatch}(x, ...)
+
+\method{get.w}{cem.match}(x, ...)
 
 \method{get.w}{weightit}(x, s.weights = FALSE, ...)
 

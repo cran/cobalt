@@ -1,7 +1,8 @@
 bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL, which.cluster = NULL, 
                      imp = NULL, which.imp = NULL, which.treat = NULL, which.time = NULL, 
                      mirror = FALSE, type = "density", colors = NULL, grid = FALSE, sample.names,
-                     position = "right", facet.formula = NULL, alpha.weight = TRUE) {
+                     position = "right", facet.formula = NULL, disp.means = getOption("cobalt_disp.means", FALSE), 
+                     alpha.weight = TRUE) {
     
     tryCatch(identity(obj), error = function(e) stop(conditionMessage(e), call. = FALSE))
     
@@ -17,9 +18,10 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
     
     args <- list(...)
     
-    obj <- is.designmatch(obj)
-    obj <- is.time.list(obj)
-
+    obj <- process_designmatch(obj)
+    obj <- process_time.list(obj)
+    obj <- process_cem.match.list(obj)
+    
     X <- x2base(obj, ..., cluster = cluster, imp = imp, s.d.denom = "all") #s.d.denom to avoid x2base warning
     
     if (is_not_null(X$covs.list)) {
@@ -28,7 +30,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             var.name <- names(X$covs.list[[1]])[1]
             message(paste0("No var.name was provided. Dispalying balance for ", var.name, "."))
         }
-        var.list <- vector("list", length(X$covs.list))
+        var.list <- make_list(length(X$covs.list))
         appears.in.time <- rep.int(TRUE, length(X$covs.list))
         for (i in seq_along(X$covs.list)) {
             if (var.name %in% names(X$covs.list[[i]])) var.list[[i]] <- X$covs.list[[i]][[var.name]]
@@ -110,7 +112,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             if (is_null(X$subclass)) warning("which.sub was specified but no subclasses were supplied. Ignoring which.sub.", call. = FALSE)
             else warning("which.sub was specified but only the unadjusted sample was requested. Ignoring which.sub.", call. = FALSE)
         }
-            
+        
         facet <- "which"
         
         if ("both" %in% which) which <- c("Unadjusted Sample", weight.names)
@@ -267,7 +269,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         nobs <- sum(in.imp & in.cluster & in.time)
         if (nobs == 0) stop("No observations to display.", call. = FALSE)
         
-        Q <- setNames(vector("list", ntypes), which)
+        Q <- make_list(which)
         for (i in which) {
             Q[[i]] <- setNames(as.data.frame(matrix(0, ncol = 4, nrow = nobs)),
                                c("treat", "var", "weights", "which"))
@@ -428,7 +430,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                     colors <- gg_color_hue(ntypes)
                 }
                 
-                if (!all(sapply(colors, isColor))) {
+                if (!all(vapply(colors, isColor, logical(1L)))) {
                     warning("The argument to colors contains at least one value that is not a recognized color. Using default colors instead.", call. = FALSE)
                     colors <- gg_color_hue(ntypes)
                 }
@@ -436,10 +438,10 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             }
             
             bp <- ggplot(D, mapping = aes(x = treat, fill = var, weight = weights)) + 
-                geom_density(alpha = .4, bw = bw, adjust = adjust, kernel = kernel, n = n, trim = TRUE) + 
+                geom_density(alpha = .4, bw = bw, adjust = adjust, kernel = kernel, n = n, trim = TRUE, outline.type = "full") + 
                 labs(fill = var.name, y = "Density", x = "Treat", title = title, subtitle = subtitle) +
                 scale_fill_manual(values = colors) + geom_hline(yintercept = 0) +
-                scale_y_continuous(expand = expand_scale(mult = c(0, .05)))
+                scale_y_continuous(expand = expansion(mult = c(0, .05)))
         }
         else { #Continuous vars
             D$var.mean <- ave(D[["var"]], D[facet], FUN = mean)
@@ -449,7 +451,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             
             if (identical(which, "Unadjusted Sample") || isFALSE(alpha.weight)) bp <- bp + geom_point(alpha = .9)
             else bp <- bp + geom_point(aes(alpha = weights), show.legend = FALSE) + 
-                    scale_alpha(range = c(.04, 1))
+                scale_alpha(range = c(.04, 1))
             
             bp <- bp + 
                 geom_smooth(method = "lm", se = FALSE, color = "firebrick2", alpha = .4, size = 1.5) + 
@@ -525,7 +527,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                 labs(x = var.name, y = "Proportion", fill = "Treatment", title = title, subtitle = subtitle) + 
                 scale_x_discrete(drop=FALSE) + scale_fill_manual(drop=FALSE, values = colors) +
                 geom_hline(yintercept = 0) + 
-                scale_y_continuous(expand = expand_scale(mult = c(0, .05)))
+                scale_y_continuous(expand = expansion(mult = c(0, .05)))
         }
         else { #Continuous vars
             
@@ -535,28 +537,41 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                 mirror <- FALSE
                 alpha <- 1
                 legend.alpha <- alpha
-                expandScale <- expand_scale(mult = .005)
+                expandScale <- expansion(mult = .005)
             }
             else if (nlevels.treat <= 2 && mirror) {
                 posneg <- c(1, -1)
                 alpha <- .8
                 legend.alpha <- alpha
-                expandScale <- expand_scale(mult = .05)
+                expandScale <- expansion(mult = .05)
             }
             else {
                 mirror <- FALSE
                 posneg <- rep(1, nlevels.treat)
                 alpha <- .4
                 legend.alpha <- alpha/nlevels.treat
-                expandScale <- expand_scale(mult = c(0, .05))
+                expandScale <- expansion(mult = c(0, .05))
             }
             
             if (type == "histogram") {
+                if (disp.means) {
+                    D$var.mean <- ave(D[c("var", "weights")], D[c("treat", facet)], 
+                                      FUN = function(x) w.m(x[[1]], x[[2]]))[[1]]
+                }
+                
                 if (is_null(args$bins) || !is.numeric(args$bins)) args$bins <- 12
-                geom_fun <- function(t) geom_histogram(data = D[D$treat == levels(D$treat)[t],],
-                                                       mapping = aes(x = var, y = posneg[t]*stat(count), weight = weights,
-                                                                     fill = names(colors)[t]),
-                                                       alpha = alpha, bins = args$bins, color = "black")
+                geom_fun <- function(t) {
+                    out <- list(geom_histogram(data = D[D$treat == levels(D$treat)[t],],
+                                               mapping = aes(x = var, y = posneg[t]*stat(count), weight = weights,
+                                                             fill = names(colors)[t]),
+                                               alpha = alpha, bins = args$bins, color = "black"),
+                                NULL)
+                    if (disp.means) out[[2]] <-
+                            geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
+                                         mapping = aes(x = var.mean, xend = var.mean, y = 0, yend = posneg[t]*Inf), 
+                                         color = if (mirror) "black" else colors[[t]])
+                    out
+                }
                 ylab <- "Proportion"
                 
             }
@@ -568,12 +583,12 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                 
                 #Pad 0 and 1
                 extra <- setNames(do.call(expand.grid, c(list(c("top", "bottom")),
-                                                lapply(c("treat", facet), function(i) levels(D[[i]])))),
+                                                         lapply(c("treat", facet), function(i) levels(D[[i]])))),
                                   c("pos_", "treat", facet))
                 
                 merge.extra <- data.frame(pos_ = c("top", "bottom"),
-                                           var = c(-Inf, Inf),
-                                           cum.pt = c(0, 1))
+                                          var = c(-Inf, Inf),
+                                          cum.pt = c(0, 1))
                 extra <- merge(extra, merge.extra)
                 extra[["pos_"]] <- NULL
                 
@@ -582,7 +597,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                 D <- rbind(extra[names(D)], D)
                 
                 geom_fun <- function(t) {
-
+                    
                     geom_step(data = D[D$treat == levels(D$treat)[t],],
                               mapping = aes(x = var, y = cum.pt, color = names(colors)[t]))
                     
@@ -601,21 +616,36 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                     }
                 }
                 
-                geom_fun <- function(t) geom_density(data = D[D$treat == levels(D$treat)[t],],
-                                                     mapping = aes(x = var, y = posneg[t]*stat(density), weight = weights,
-                                                                   fill = names(colors)[t]),
-                                                     alpha = alpha, bw = bw, adjust = adjust,
-                                                     kernel = kernel, n = n, trim = TRUE)
+                if (disp.means) {
+                    D$var.mean <- ave(D[c("var", "weights")], D[c("treat", facet)], 
+                                      FUN = function(x) w.m(x[[1]], x[[2]]))[[1]]
+                }
+                
+                geom_fun <- function(t) {
+                    out <- list(
+                        geom_density(data = D[D$treat == levels(D$treat)[t],],
+                                     mapping = aes(x = var, y = posneg[t]*stat(density), weight = weights,
+                                                   fill = names(colors)[t]),
+                                     alpha = alpha, bw = bw, adjust = adjust,
+                                     kernel = kernel, n = n, trim = TRUE,
+                                     outline.type = "full"),
+                        NULL)
+                    if (disp.means) out[[2]] <-
+                            geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
+                                         mapping = aes(x = var.mean, xend = var.mean, y = 0, yend = posneg[t]*Inf), 
+                                         color = if (mirror) "black" else colors[[t]])
+                    out
+                }
                 ylab <- "Density"
                 
             }
             
-            bp <- Reduce("+", c(list(ggplot(),
-                                     labs(x = var.name, y = ylab, title = title, subtitle = subtitle)),
-                                lapply(seq_len(nlevels.treat), geom_fun))) +
+            bp <- Reduce("+", c(list(ggplot()),
+                                do.call(c, lapply(seq_len(nlevels.treat), geom_fun)))) +
                 scale_fill_manual(values = colors, guide = guide_legend(override.aes = list(alpha = legend.alpha, size = .25))) +
                 scale_color_manual(values = colors) +
-                labs(fill = "Treatment", color = "Treatment") + 
+                labs(x = var.name, y = ylab, title = title, subtitle = subtitle,
+                     fill = "Treatment", color = "Treatment") + 
                 scale_y_continuous(expand = expandScale)
             
             if (mirror) bp <- bp + geom_hline(yintercept = 0)

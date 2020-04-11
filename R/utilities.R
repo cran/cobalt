@@ -96,7 +96,7 @@ splitfactor <- function(data, var.name, drop.level = NULL, drop.first = TRUE, dr
         if (missing(var.name)) {
             names(data) <- dep
         }
-        else if (is.vector(var.name) && (is.atomic(var.name) || is.factor(var.name))) {
+        else if (is.atomic(var.name) || is.factor(var.name)) {
             if (is_null(var.name)) {
                 names(data) <- dep
             }
@@ -469,7 +469,7 @@ set.cobalt.options <- function(..., default = FALSE) {
     # if ("continuous" %in% names(opts)) names(opts)[names(opts) == "continuous"] <- "cont"
     # if ("binary" %in% names(opts)) names(opts)[names(opts) == "binary"] <- "bin"
     
-    multiple.allowed <- c("cluster.fun", "imp.fun")
+    multiple.allowed <- c("stats", "disp", "cluster.fun", "imp.fun")
     any.string.allowed <- c("int_sep", "factor_sep")
     
     if (any(duplicates <- table(names(opts)) > 1)) {
@@ -505,7 +505,7 @@ set.cobalt.options <- function(..., default = FALSE) {
         both.opts <- intersect(multiple.opts, bad.opts)
         multiple.opts <- multiple.opts[multiple.opts %nin% both.opts]
         bad.opts <- bad.opts[bad.opts %nin% both.opts]
-        problematic.opts <- setNames(vector("list", 3), c("multiple", "bad", "both"))
+        problematic.opts <- make_list(c("multiple", "bad", "both"))
         problematic.opts[["multiple"]] <- setNames(lapply(multiple.opts, function(i) {
             paste(i, "must be of length 1.")
         }), multiple.opts)

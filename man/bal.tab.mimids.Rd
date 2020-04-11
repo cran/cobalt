@@ -9,6 +9,7 @@ Generates balance statistics for \code{mimids} and \code{wimids} objects from \p
 }
 \usage{
 \method{bal.tab}{mimids}(mimids, 
+    stats,
     int = FALSE, 
     poly = 1, 
     distance = NULL, 
@@ -17,9 +18,8 @@ Generates balance statistics for \code{mimids} and \code{wimids} objects from \p
     continuous,  
     binary, 
     s.d.denom, 
-    m.threshold = NULL, 
-    v.threshold = NULL, 
-    ks.threshold = NULL,
+    thresholds = NULL,
+    weights = NULL,
     cluster = NULL, 
     abs = FALSE,
     subset = NULL,
@@ -27,6 +27,7 @@ Generates balance statistics for \code{mimids} and \code{wimids} objects from \p
     ...)
 
 \method{bal.tab}{wimids}(wimids, 
+    stats,
     int = FALSE, 
     poly = 1, 
     distance = NULL, 
@@ -35,10 +36,8 @@ Generates balance statistics for \code{mimids} and \code{wimids} objects from \p
     continuous,  
     binary, 
     s.d.denom, 
-    m.threshold = NULL, 
-    v.threshold = NULL, 
-    ks.threshold = NULL,
-    r.threshold = NULL,
+    thresholds = NULL,
+    weights = NULL,
     cluster = NULL, 
     pairwise = TRUE, 
     focal = NULL, 
@@ -51,6 +50,9 @@ Generates balance statistics for \code{mimids} and \code{wimids} objects from \p
 \arguments{
   \item{mimids, wimids}{
 a \code{mimids} or \code{wimids} object; the output of a call to \code{matchthem()} or \code{weightthem()} from the \pkg{MatchThem} package.
+}
+  \item{stats}{
+\code{character}; which statistic(s) should be reported. See \code{\link[=balance.stats]{stats}} for allowable options. For binary and multi-category treatments, "mean.diffs" (i.e., mean differences) is the default. For continuous treatments, "correlations" (i.e., treatment-covariate Pearson correlations) is the default. Multiple options are allowed.
 }
   \item{int}{
 \code{logical} or \code{numeric}; whether or not to include 2-way interactions of covariates included in \code{covs} and in \code{addl}. If \code{numeric}, will be passed to \code{poly} as well. In older versions of \pkg{cobalt}, setting \code{int = TRUE} displayed squares of covariates; to replicate this behavior, set \code{int = 2}.
@@ -74,19 +76,13 @@ whether mean differences for continuous variables should be standardized ("std")
 whether mean differences for binary variables (i.e., difference in proportion) should be standardized ("std") or raw ("raw"). Default "raw". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.
 }
   \item{s.d.denom}{
-whether the denominator for standardized differences (if any are calculated) should be the standard deviation of the treated group ("treated"), the standard deviation of the control group ("control"), the pooled standard deviation ("pooled", computed as the square root of the mean of the group variances), or the standard deviation in the full sample ("all"). Abbreviations allowed. The defaults depend on the options specified in the original function calls; see \code{\link{bal.tab.matchit}} and \code{\link{bal.tab.weightit}} for details on the defaults.
+\code{character}; how the denominator for standardized mean differences should be calculated, if requested. See \code{\link{col_w_smd}} for allowable options. The defaults depend on the options specified in the original function calls; see \code{\link{bal.tab.matchit}} and \code{\link{bal.tab.weightit}} for details on the defaults. Abbreviations allowed.
 }
-  \item{m.threshold}{
-a numeric value for the threshold for mean differences. 
+  \item{thresholds}{
+a named vector of balance thresholds, where the name corresponds to the statistic (i.e., in \code{stats}) that the threshold applies to. For example, to request thresholds on mean differences and variance ratios, one can set \code{thresholds = c(m = .05, v = 2)}. Requesting a threshold automatically requests the display of that statistic. See Details.
 }
-  \item{v.threshold}{
-a numeric value for the threshold for variance ratios. Will automatically convert to the inverse if less than 1.
-}
-  \item{ks.threshold}{
-a numeric value for the threshold for Kolmogorov-Smirnov statistics. Must be between 0 and 1. 
-}
-  \item{r.threshold}{
-a numeric value for the threshold for correlations between covariates and treatment when treatment is continuous.
+  \item{weights}{
+a named list containing additional weights on which to assess balance. Each entry can be a vector of weights, the name of a variable in \code{data} that contains weights, or an object with a \code{\link{get.w}} method.
 }
   \item{cluster}{
 either a vector containing cluster membership for each unit or a string containing the name of the cluster membership variable in \code{data} or the \code{mimids} or \code{wimids} object. See \code{\link{bal.tab.cluster}} for details.
@@ -101,7 +97,7 @@ Currently ignored.
 \code{logical}; whether displayed balance statistics should be in absolute value or not. 
 }
   \item{subset}{
-a \code{logical} vector denoting whether each observation should be included. It should be the same length as the variables in the original (unimputed) dataset or the call to \code{matchthem()} or \code{weightthem()} (i.e., one for each individual or one for each individual for each imputation). \code{NA}s will be treated as \code{FALSE}. This can be used as an alternative to \code{cluster} to examine balance on subsets of the data. For multinomial treatments, this can be used to subset treatment level pairs.
+a \code{logical} or \code{numeric} vector denoting whether each observation should be included or which observations should be included. If \code{logical}, it should be the same length as the variables in the original (unimputed) dataset or the call to \code{matchthem()} or \code{weightthem()} (i.e., one for each individual or one for each individual for each imputation). \code{NA}s will be treated as \code{FALSE}. This can be used as an alternative to \code{cluster} to examine balance on subsets of the data.
 }
   \item{quick}{
 \code{logical}; if \code{TRUE}, will not compute any values that will not be displayed. Set to \code{FALSE} if computed values not displayed will be used later.
@@ -113,7 +109,7 @@ further arguments to control display of output. See \link[=options-display]{disp
 \details{
 \code{bal.tab.mimids()} and \code{bal.tab.wimids()} generate a list of balance summaries for the \code{mimids} or \code{wimids} object given.
 
-The threshold values (\code{m.threshold}, \code{v.threshold}, and \code{ks.threshold}) control whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
+The \code{threshold} argument controls whether extra columns should be inserted into the Balance table describing whether the balance statistics in question exceeded or were within the threshold. Including these thresholds also creates summary tables tallying the number of variables that exceeded and were within the threshold and displaying the variables with the greatest imbalance on that balance measure.
 
 }
 \value{
@@ -130,8 +126,9 @@ Noah Greifer
 \code{\link{bal.tab}} for details of calculations.
 }
 \examples{
-library(MatchThem)
 library(mice)
+library(MatchThem)
+
 data("lalonde_mis", package = "cobalt")
 
 #Imputing the missing data

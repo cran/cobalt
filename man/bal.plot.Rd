@@ -26,6 +26,7 @@ bal.plot(obj,
     sample.names,
     position = "right", 
     facet.formula = NULL, 
+    disp.means = getOption("cobalt_disp.means", FALSE),
     alpha.weight = TRUE)
 }
 \arguments{
@@ -83,6 +84,9 @@ the position of the legend. This can be any value that would be appropriate as a
   \item{facet.formula}{
 a \code{formula} designating which facets should be on the rows and columns. This should be of the "historical" formula interface to \code{\link[ggplot2]{facet_grid}}. If of the form \code{a ~ b}, \code{a} will be faceted on the rows and \code{b} on the columns. To only facet on the rows, provide a one-sided formula with an empty left-hand side. To only facet on the columns, the formula should be of the form \code{a ~ .} (i.e., with only \code{.} on the right-hand side). The allowable facets depend on which arguments have been supplied to \code{bal.plot}; possible values include \code{which}, \code{cluster}, \code{imp}, and (for longitudinal treatments) \code{time}. If \code{NULL}, \code{bal.plot} will decide what looks best; this argument exists in case you disagree with its choice.
 }
+  \item{disp.means}{
+\code{logical}; for a categorical treatment with a continuous covariate, whether a line should be drawn for each treatment level denoting the (weighted) mean of the covariate. Ignored if \code{type} is not "density" or "histogram". Default is \code{FALSE}.
+}
   \item{alpha.weight}{
 \code{logical}; if both the treatment and the covariate are continuous, whether points should be shaded according to their weight. Fainter points are those that have smaller weights. Default is \code{TRUE}.
 }
@@ -111,13 +115,15 @@ For \code{data.frame}s: \code{treat}, (\code{data}), \code{weights}, (\code{dist
 
 For \code{designmatch} objects: \code{formula} and \code{data} or \code{covs} and \code{treat}.
 
+For \code{sbw} objects: None
+
 For \code{mimids} and \code{wimids} objects: None, but an argument to \code{which.imp} should be specified.
 
 For other objects processed through \code{bal.tab}'s default method, whichever arguments are required to identify treatment, variables, and a conditioning method (if any).
 
 }
 \details{
-\code{bal.plot()} uses \code{ggplot()} from the \pkg{ggplot2} package, and (invisibly) returns a \code{"ggplot"} object. For categorical treatments with continuous covariates or continuous treatments with categorical covariates, density plots are created using \code{\link[ggplot2]{geom_density}}, and histograms are created using \code{\link[ggplot2]{geom_histogram}}; for categorical treatments with categorical covariates, bar graphs are created using \code{\link[ggplot2]{geom_bar}}; for continuous treatments with continuous covariates, scatterplots are created using \code{\link[ggplot2]{geom_point}}.
+\code{bal.plot()} uses \code{ggplot()} from the \pkg{ggplot2} package, and (invisibly) returns a \code{"ggplot"} object. For categorical treatments with continuous covariates or continuous treatments with categorical covariates, density plots are created using \code{\link[ggplot2]{geom_density}}, histograms are created using \code{\link[ggplot2]{geom_histogram}}, and empirical CDF plots are created using \code{\link[ggplot2]{geom_step}}; for categorical treatments with categorical covariates, bar graphs are created using \code{\link[ggplot2]{geom_bar}}; for continuous treatments with continuous covariates, scatterplots are created using \code{\link[ggplot2]{geom_point}}.
 
 For continuous treatments with continuous covariates, four additional lines are presented for aid in balance assessment. The red line is the linear fit line. The blue line is a smoothing curve generated with \pkg{ggplot2}'s \code{\link[ggplot2]{geom_smooth}} with \code{method = "auto"}. The horizontal black line is a horizontal reference line intercepting the (unweighted) treatment mean. The vertical black line is a reference line intercepting the (unweighted) treatment mean. Balance is indicated by the flatness of both fit lines and whether they pass through the intersection of the two black reference lines.
 

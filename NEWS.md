@@ -1,9 +1,50 @@
 `cobalt` News and Updates
 ======
 
+Version 4.1.0
+
+* Added support for `sbwcau` objects from `sbw`. See Appendix 1 or `?bal.tab.sbw` for an example.
+
+* Added support for `cem.match` objects from `cem`. See Appendix 1 or `?bal.tab.cem.match` for an example.
+
+* Added `stats` argument to `bal.tab()` and `print()` to replace `disp.v.ratio` and `disp.ks`. This argument functions similarly to how it does in `love.plot()`; for example, to request mean differences and variance ratios, one can enter `stats = c("m", "v")`. One consequence of this is that it is possible to request statistics that don't include mean differences. See `?display_options` for more details. The old arguments still work (and probably always will) but you should use `stats` instead. The goal here was to unify syntax across `bal.tab()`, `print()`, and `love.plot()`. A new help page specifically for the `stats` argument can be viewed at `?balance.stats`.
+
+* Added `thresholds` argument to `bal.tab()` to replace `m.threshold`, `v.threshold`, etc. This argument functions similarly to how it does in `love.plot()`; for example, to request thresholds for mean differences and variance ratios, one can enter `thresholds = c(m = .1, v = 2)`. The old arguments still work (and probably always will) but you should use `thresholds` instead. The goal here was to unify syntax across `bal.tab()`, `print()`, and `love.plot()`.
+
+* Added `disp.means` option to `bal.plot` to display the mean of the covariate as a line on density plots and histograms.
+
+* Added `"hedges"` as an option to `s.d.denom`. This will compute the standardized mean difference using the formula for the small sample-corrected Hedge's G as described in the What Works Clearinghouse Procedures Handbook.
+
+* With multi-category treatments when `pairwise = FALSE`, rather than computing balance between each treatment group and the other treatment groups, balance is now computed between each treatment group and the entire sample.
+
+* In `print()`, the arguments `disp.m.threshold`, `disp.v.threshold`, `disp.ks.threshold`, and `disp.r.threshold`, which could be set to `FALSE` to prevent the corresponding balance thresholds and summaries from being printed, have been replaced with `disp.thresholds`. Named entries can be set to `FALSE`. The goal here was to unify syntax across `bal.tab()` and `print()`.
+
+* A new balance statistic, the overlapping coefficient (OVL), is allowed with binary and multi-category treatments. This is described in Belitser et al. (2011) and Franklin et al. (2014) for assessing balance. Generally, for each covariate, the overlapping coefficient is the area of the probability density functions for each sample that overlap. Here I follow Franklin et al. (2014) and report 1 - (OVL) so that values close to zero indicate good balance (i.e., completely overlapping distributions) and values close to 1 indicate poor balance (i.e., completely non-overlapping distributions). To estimate and display the OVL, set include `"ovl"` in the `stats` argument in a call to `bal.tab()` or `love.plot()` (or you can use the old syntax by setting `disp.ovl = TRUE`). The balance threshold can be requested by including `"ovl"` in the `thresholds` argument (or you can use the old syntax by using the `ovl.threshold` argument).
+
+* Spearman correlations can be requested for continuous treatments by adding `"sp"` to the `stats` argument.
+
+* The argument `weights` can now be supplied to any `bal.tab()` call to request balance on additional weights beyond the weights from the object on which `bal.tab()` is called. This argument takes a named list, where each element is a vector of weights, the name of a variable containing weights in an available dataset, or an object with a `get.w()` method (e.g., the output of another preprocessing function). This should make it easier to compare balancing methods without having to specify the covariates and treatment using the `formula` or `data.frame` methods.
+
+* `ggplot2` version 3.3.0 is required, which removes some warnings and makes it so `ggstance` doesn't need to be imported.
+
+* When there are more than 900 variables to compute balance statistics on in `bal.tab` (which can happen quickly when `int = TRUE` and categorical variables have many categories), to avoid major slowdowns, checks for redundancy of variables are forgone. This will dramatically increase the speed of `bal.tab` in these scenarios. This option can be changed with the `cobalt` option `"remove_perfect_col"` which can be set to `TRUE` or or `FALSE`. Set to `FALSE` to improve speed at the expense of possibly having redundant variables appear.
+
+* Fixed a bug when using the default `bal.tab` method with objects containing longitudinal treatments.
+
+* Fixed a bug when using `bal.tab` with continuous treatments and clusters.
+
+* Fixed a bug in `love.plot()` when using subclassification.
+
+* Fixed a bug when using `bal.tab` with longitudinal treatments and multiple sets of weights.
+
+* Fixed a bug when using `col_w_ovl()`. OVL values are now more accurate.
+
+* Speedups and other small fixes.
+
 Version 4.0.0
 
 **Major Updates**
+
 * Added support for `mimids` and `wimids` objects from `MatchThem`.
 
 * Major restructuring so that clusters, longitudinal treatments, multi-category treatments, and multiply imputed data can all be used with each other. These are layers in the following order: clusters, time points, treatment categories, and imputations. Summaries across these layers are handled slightly differently from how they used to be; importantly, summaries are not nested, and only the lowest layer present can have a summary. For example, if multiply imputed data is used with multi-category treatments, there will be a summary across imputations (the lowest layer) but not across treatment pairs. `love.plot` allows multiple forms of faceting and aggregating and is extremely flexible in this regard.
@@ -13,7 +54,9 @@ Version 4.0.0
 * Formula interfaces now accept `poly(x, .)` and other matrix-generating functions of variables, including the `rms`-class-generating functions from the `rms` package (e.g., `pol()`, `rcs()`, etc.) (the `rms` package must be loaded to use these latter ones) and the `basis`-class-generating functions from the `splines` package (i.e., `bs()` and `ns()`). A bug in an early version of this was found by @ahinton-mmc.
 
 **Minor Updates and Bug Fixes**
+
 ***`s.d.denom` and `estimand`***
+
 * `s.d.denom` can now use the name of a treatment rather than just `"treated"` or `"control"`. In addition, `s.d.denom` can be `"weighted"` to use the weighted sample's standardization factors, an option available for continuous treatments, too.
 
 * Improved guessing of the estimand when not provided.
@@ -21,6 +64,7 @@ Version 4.0.0
 * Estimands besides ATT can now be used with subclasses. The estimand can be inferred from the provided subclasses. Works with `match.strata` as well, which function like subclasses. In addition, it is not always assumed that `MatchIt` objects are targeting the ATT, for example, with subclassification or calipers.
 
 ***`bal.plot`***
+
 * Added `sample.names` argument in `bal.plot` in response to [this post](https://stackoverflow.com/questions/57970679/change-name-of-groups-in-bal-plot) on Cross Validated.
 
 * Added functionality to the `which` argument in `bal.plot`, allowing more specificity when multiple sets of weights are used.

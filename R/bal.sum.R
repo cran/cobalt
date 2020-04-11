@@ -339,7 +339,6 @@ col_w_ovl <- function(mat, treat, weights = NULL, s.weights = NULL, bin.vars, in
     
     if (needs.splitting) {
         bin.vars[to.split] <- TRUE
-        B <- A
         B <- A[names(A) %in% names(formals(splitfactor)) & 
                    names(A) %nin% c("data", "var.name", "drop.first",
                                     "drop.level", "split.with")]
@@ -378,13 +377,14 @@ col_w_ovl <- function(mat, treat, weights = NULL, s.weights = NULL, bin.vars, in
     smallest.t <- names(t.sizes)[which.min(t.sizes)]
     ovl <- setNames(numeric(ncol(mat)), colnames(mat))
     if (any(!bin.vars)) {
-        if (is_null(A[["bw"]])) A[["bw"]] <- "nrd" else A[["bw"]] <- A[["bw"]]
+        if (is_null(A[["bw"]])) A[["bw"]] <- "nrd"
         A[names(A) %nin% names(formals(density.default))] <- NULL
         
         ovl[!bin.vars] <- apply(mat[, !bin.vars, drop = FALSE], 2, function(cov) {
             if (na.rm) cov <- cov[!is.na(cov)]
             if (!na.rm && anyNA(cov)) return(NA_real_)
             else {
+                cov <- center(cov)/sd(cov)
                 if (is.function(get0(paste0("bw.", A[["bw"]])))) {
                     A[["bw"]] <- get0(paste0("bw.", A[["bw"]]))(cov[treat == smallest.t])
                 }
@@ -392,24 +392,29 @@ col_w_ovl <- function(mat, treat, weights = NULL, s.weights = NULL, bin.vars, in
                     stop(paste(A[["bw"]], "is not an acceptable entry to bw. See ?stats::density for allowable options."), call. = FALSE)
                 }
                 
-                f1 <- approxfun(do.call(density.default, c(list(cov[treat==tval1], 
+                f1_ <- approxfun(do.call(density.default, c(list(cov[treat==tval1], 
                                                                 weights = weights[treat==tval1]/sum(weights[treat==tval1])), A)))
-                f0 <- approxfun(do.call(density.default, c(list(cov[treat!=tval1], 
-                                                                weights = weights[treat!=tval1]/sum(weights[treat!=tval1])), A)))
-                fn <- function(x) {
-                    f1_ <- f1(x)
-                    f1_[is.na(f1_)] <- 0
-                    f0_ <- f0(x)
-                    f0_[is.na(f0_)] <- 0
-                    pmin(f1_, f0_)
+                f1 <- function(x) {
+                    y <- f1_(x)
+                    y[is.na(y)] <- 0
+                    return(y)
                 }
-                min.c <- min(cov)
-                max.c <- max(cov)
-                range <- max.c - min.c
+                f0_ <- approxfun(do.call(density.default, c(list(cov[treat!=tval1], 
+                                                                weights = weights[treat!=tval1]/sum(weights[treat!=tval1])), A)))
+                f0 <- function(x) {
+                    y <- f0_(x)
+                    y[is.na(y)] <- 0
+                    return(y)
+                }
+                fn <- function(x) {
+                    pmin(f1(x), f0(x))
+                }
+                min.c <- min(cov) - 4*A[["bw"]]
+                max.c <- max(cov) + 4*A[["bw"]]
+                # range <- max.c - min.c
                 # min.c.ext <- min.c - .01 * range
                 # max.c.ext <- max.c + .01 * range
                 if (isTRUE(integrate)) {
-                    
                     s <- try(integrate(fn, lower = min.c,
                                        upper = max.c)$value,
                              silent = TRUE)
@@ -420,7 +425,7 @@ col_w_ovl <- function(mat, treat, weights = NULL, s.weights = NULL, bin.vars, in
                     s <- sum(fn(mids))*(seg[2]-seg[1])
                 }
                 
-                if (inherits(s, "try-error"))  return(NA_real_)
+                if (inherits(s, "try-error") || s > 1.2)  return(NA_real_)
                 else return(1 - s) #Reverse: measure imbalance
             }
         })
@@ -489,7 +494,7 @@ col_w_cov <- function(mat, treat, weights = NULL, type = "pearson", std = FALSE,
     
     type <- match_arg(tolower(type), c("pearson", "spearman"))
     if (type == "spearman") {
-        for (i in 1:ncol(mat)) mat[,i] <- rank(mat[,i], na.last = "keep")
+        for (i in 1:ncol(mat)) if (!bin.vars[i]) mat[,i] <- rank(mat[,i], na.last = "keep")
         treat <- rank(treat, na.last = "keep")
     }
     
@@ -519,12 +524,12 @@ col_w_cov <- function(mat, treat, weights = NULL, type = "pearson", std = FALSE,
 }
 col_w_corr <- function(mat, treat, weights = NULL, type = "pearson", s.d.denom = "all", abs = FALSE, s.weights = NULL, bin.vars, subset = NULL, weighted.weights = weights, na.rm = TRUE, ...) {
     .call <- match.call(expand.dots = TRUE)
-    .call[[1]] <- quote(cobalt::col_w_cov)
+    .call[[1]] <- quote(col_w_cov)
     .call[["std"]] <- quote(TRUE)
     eval.parent(.call)
 }
 
-#Scalar balance functions 
+#Scalar balance functions - not implemented yet
 bal.sum <- function(mat, treat, weights = NULL, type, s.weights = NULL, check = TRUE, ...) {
     uni.type <- c("smd", "ks", "ovl")
     agg.funs <- c("max", "mean", "rms")
