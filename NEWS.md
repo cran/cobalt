@@ -1,6 +1,38 @@
 `cobalt` News and Updates
 ======
 
+Version 4.2.0
+
+* Added support for `Matchby` objects resulting from a call to `Matchby()` in the `Matching` package. These function identically to `Match` objects.
+
+* When using `formula` inputs, interaction terms (e.g., `X1 * X2`) will now correctly be resolved and displayed as an interaction term. This makes it easier to check balance on specific interactions rather than having to set `int = TRUE` or create a separate interaction variable in the data. Interaction terms specified in this way will be ignored by `int` and `poly` when they are used. When using `var.names` with `love.plot()`, changing the names of the base components of the interaction will also change their name in the interaction term, consistent with `int` behavior. If a `formula` was supplied in the input object to `bal.tab()` or other functions, terms in that formula will now also be included in balance reports.
+
+* Arguments to `addl` can now be specified as a one-sided formula (e.g., `~ X1 + X2 * X3`). This makes it easy to take advantage of the above changes to the formula interface to add additional interaction terms. The formula will look at all available datasets in the conditioning object or supplied to `bal.tab()` and at the global environment. If supplying a single variable that exists in the global environment, it makes sense to supply it as a formula (e.g., `addl = ~ X1`) rather than as just the variable (e.g., `addl = X1`). Doing the former will retain the name of the variable. The same can be done with `distance`. If variables in `addl` are perfectly correlated with or have the same name as supplied covariates, those variables will be removed from `addl`.
+
+* If only one argument is provided to `f.build()` (e.g., `f.build("x")`), it will be treated as the right-hand-side of the formula with no left-hand-side (e.g., the above will evaluate to `~ x`).
+
+* Fixed bug that caused `match.strata` input to be ignored.
+
+* Improved processing and error reporting when using the default `bal.tab()` method.
+
+* Speed improvements due to changes in how formulas are processed (now using `model.matrix()` directly rather than `splitfactor()` to process factors) and other small fixes. This is what enables the above changes to the formula capabilities.
+
+* Improved documentation for `weightitMSM` objects from `WeightIt` and `CBMSM` objects from `CBPS`.
+
+* Fixed bug when printing `bal.tab` objects with continuous treatments.
+
+* Fixed bug when using multi-category treatments with numbers as the level names.
+
+* Fixed bug when using `mnps` objects from `twang` with multiple stop methods.
+
+* Fixed bug when requesting means or standard deviations with segmented data.
+
+* Fixed bug where the x-axis in `love.plot` was always "Standardized Mean Differences" even when it wasn't supposed to be for `stats = "mean.diffs"`.
+
+* `rlang` is now in IMPORTS. 
+
+* General speed and stability improvements.
+
 Version 4.1.0
 
 * Added support for `sbwcau` objects from `sbw`. See Appendix 1 or `?bal.tab.sbw` for an example.

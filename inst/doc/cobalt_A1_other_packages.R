@@ -54,11 +54,11 @@ p.score <- fit$fitted.values
 match.out <- Match(Tr = lalonde$treat, X = p.score, estimand = "ATT")
 
 bal.tab(match.out, formula = f.build("treat", covs0), data = lalonde,
-        distance = p.score)
+        distance = ~ p.score)
 
 ## ---- eval = FALSE------------------------------------------------------------
 #  bal.tab(match.out, treat = lalonde$treat, covs = covs0,
-#          distance = p.score)
+#          distance = ~ p.score)
 
 ## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
@@ -76,7 +76,7 @@ fit <- glm(f.build("treat", covs0), data = lalonde, family = binomial)
 p.score <- fit$fitted.values #get the propensity score
 fm <- fullmatch(treat ~ p.score, data = lalonde)
 
-bal.tab(fm, covs = covs0, distance = p.score)
+bal.tab(fm, covs = covs0, distance = ~ p.score)
 
 ## ---- include=FALSE-----------------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)

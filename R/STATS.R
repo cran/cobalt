@@ -27,12 +27,12 @@ STATS[["mean.diffs"]] <- {list(
         stars <- A$stars
         
         #All std, no std, some std
-        if ((binary == "std" || sum(var_type == "Binary") == 0) && 
-            (continuous == "std" || sum(var_type != "Binary") == 0)) {
+        if ((binary == "std" || !any(var_type == "Binary")) && 
+            (continuous == "std" || !any(var_type == "Contin."))) {
             xlab.diff <- "Standardized Mean Differences"
         } 
-        else if ((binary == "raw" || sum(var_type == "Binary") == 0) && 
-                 (continuous == "raw" || sum(var_type != "Binary") == 0)) {
+        else if ((binary == "raw" || !any(var_type == "Binary")) && 
+                 (continuous == "raw" || !any(var_type == "Contin."))) {
             xlab.diff <- "Mean Differences"
         }
         else {
@@ -101,7 +101,7 @@ STATS[["mean.diffs"]] <- {list(
                   std = std, s.d.denom = s.d.denom,
                   abs = abs, s.weights = s.weights, bin.vars = bin.vars,
                   weighted.weights = weighted.weights,
-                  subset = subset)
+                  subset = NULL)
     }
 )}
 
@@ -134,7 +134,7 @@ STATS[["variance.ratios"]] <- {list(
             vrs[!bin.vars] <- col_w_vr(C[, !bin.vars, drop = FALSE], treat = treat, 
                                        weights = weights, abs = abs, 
                                        s.weights = s.weights, bin.vars = bin.vars[!bin.vars],
-                                       subset = subset)
+                                       subset = NULL)
         }
         vrs
     }
@@ -165,7 +165,7 @@ STATS[["ks.statistics"]] <- {list(
     fun = function(C, treat, weights, s.weights, bin.vars, subset = NULL, ...) {
         A <- list(...)
         do.call("col_w_ks", c(list(C, treat = treat, weights = weights, s.weights = s.weights, bin.vars = bin.vars,
-                                    subset = subset), A))
+                                   subset = NULL), A))
     }
 )}
 
@@ -191,10 +191,10 @@ STATS[["ovl.coefficients"]] <- {list(
         c(lower = base::abs(threshold))
     },
     love.plot_axis_scale = ggplot2::scale_x_continuous,
-    fun = function(C, treat, weights, s.weights, bin.vars, subset = NULL, integrate = FALSE, ...) {
+    fun = function(C, treat, weights, s.weights, bin.vars, integrate = FALSE, subset = NULL, ...) {
         A <- list(...)
         do.call("col_w_ovl", c(list(C, treat = treat, weights = weights, s.weights = s.weights, bin.vars = bin.vars,
-                  subset = subset, integrate = integrate), A))
+                                    subset = NULL, integrate = integrate), A))
     }
 )}
 
@@ -229,7 +229,7 @@ STATS[["correlations"]] <- {list(
                   std = std, type = "pearson",
                   s.d.denom = s.d.denom,
                   bin.vars = bin.vars, weighted.weights = weighted.weights, na.rm = TRUE,
-                  subset = subset)
+                  subset = NULL)
     }
 )}
 
@@ -264,7 +264,7 @@ STATS[["spearman.correlations"]] <- {list(
                   std = std, type = "spearman",
                   s.d.denom = s.d.denom,
                   bin.vars = bin.vars, weighted.weights = weighted.weights, na.rm = TRUE,
-                  subset = subset)
+                  subset = NULL)
     }
 )}
 

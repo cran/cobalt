@@ -11,7 +11,7 @@ Balance Statistics for \code{Matching}, \code{optmatch}, \code{ebal}, and \code{
 Generates balance statistics for output objects from \pkg{Matching}, \pkg{optmatch}, \pkg{ebal}, and \pkg{designmatch}. Note that several arguments that used to be documented here are now documented in \link[=options-display]{display options}. They are still available.
 }
 \usage{
-\method{bal.tab}{Match}(M, 
+\method{bal.tab}{Match}(x, 
     formula = NULL, 
     data = NULL, 
     treat = NULL, 
@@ -33,25 +33,16 @@ Generates balance statistics for output objects from \pkg{Matching}, \pkg{optmat
     quick = TRUE, 
     ...)
     
-\method{bal.tab}{optmatch}(optmatch, ...)
+\method{bal.tab}{optmatch}(x, ...)
 
-\method{bal.tab}{ebalance}(ebal, ...)
+\method{bal.tab}{ebalance}(x, ...)
 
-\method{bal.tab}{designmatch}(dm, ...)
+\method{bal.tab}{designmatch}(x, ...)
 }
 
 \arguments{
-  \item{M}{
-a \code{Match} object; the output of a call to \code{Match()} from the \pkg{Matching} package.
-}
-  \item{optmatch}{
-an \code{optmatch} object; the output of a call to \code{pairmatch()} or \code{fullmatch()} from the \pkg{optmatch} package. This should be a factor vector containing the matching stratum membership for each unit.
-}
-  \item{ebal}{
-an \code{ebalance} object; the output of a call to \code{ebalance()} or \code{ebalance.trim()} from the \pkg{ebal} package.
-}
-  \item{dm}{
-the output of a call to \code{bmatch()}, \code{nmatch()}, or related wrapper functions from the \pkg{designmatch} package. This should be a list containing the IDs of the matched treated and control units.
+  \item{x}{
+either a \code{Match} object (the output of a call to \code{Match()} or \code{Matchby()} from the \pkg{Matching} package), an \code{optmatch} object (the output of a call to \code{pairmatch()} or \code{fullmatch()} from the \pkg{optmatch} package), an \code{ebalance} object (the output of a call to \code{ebalance()} or \code{ebalance.trim()} from the \pkg{ebal} package), or the output of a call to \code{bmatch()} or related wrapper functions from the \pkg{designmatch} package.
 }
   \item{formula}{
 a \code{formula} with the treatment variable as the response and the covariates for which balance is to be assessed as the predictors. All named variables must be in \code{data}. See Details.
@@ -75,10 +66,10 @@ a data frame of covariate values for which to check balance. See Details.
 \code{numeric}; the highest polynomial of each continuous covariate to display. For example, if 2, squares of each continuous covariate will be displayed (in addition to the covariate itself); if 3, squares and cubes of each continuous covariate will be displayed, etc. If 1, the default, only the base covariate will be displayed. If \code{int} is numeric, \code{poly} will take on the value of \code{int}.
 }
   \item{distance}{
-optional; either a vector or data.frame containing distance values (e.g., propensity scores) for each unit or a string containing the name of the distance variable in \code{data}.
+an optional formula or data frame containing distance values (e.g., propensity scores) or a character vector containing their names. If a formula or variable names are specified, \code{bal.tab()} will look in the argument to \code{data}, if specified.
 }
   \item{addl}{
-a data frame of additional covariates for which to present balance. These may be covariates included in the original dataset but not included in \code{formula} or \code{covs}. In general, it makes more sense to include all desired variables in \code{formula} or \code{covs} than in \code{addl}. See note in Details for using \code{addl}.
+an optional formula or data frame containing additional covariates for which to present balance or a character vector containing their names. If a formula or variable names are specified, \code{bal.tab()} will look in the arguments to \code{covs} and \code{data}, if specified.
 }
   \item{continuous}{
 whether mean differences for continuous variables should be standardized ("std") or raw ("raw"). Default "std". Abbreviations allowed. This option can be set globally using \code{\link{set.cobalt.options}}.

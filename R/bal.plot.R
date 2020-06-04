@@ -1,75 +1,126 @@
-bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL, which.cluster = NULL, 
+bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, which.cluster = NULL, 
                      imp = NULL, which.imp = NULL, which.treat = NULL, which.time = NULL, 
                      mirror = FALSE, type = "density", colors = NULL, grid = FALSE, sample.names,
                      position = "right", facet.formula = NULL, disp.means = getOption("cobalt_disp.means", FALSE), 
                      alpha.weight = TRUE) {
     
-    tryCatch(identity(obj), error = function(e) stop(conditionMessage(e), call. = FALSE))
+    tryCatch(identity(x), error = function(e) stop(conditionMessage(e), call. = FALSE))
     
     #Replace .all and .none with NULL and NA respectively
     .call <- match.call(expand.dots = TRUE)
-    .alls <- vapply(seq_along(.call), function(x) identical(.call[[x]], quote(.all)), logical(1L))
-    .nones <- vapply(seq_along(.call), function(x) identical(.call[[x]], quote(.none)), logical(1L))
+    .alls <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.all)), logical(1L))
+    .nones <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.none)), logical(1L))
     if (any(c(.alls, .nones))) {
         .call[.alls] <- expression(NULL)
         .call[.nones] <- expression(NA)
         return(eval.parent(.call))
     }
     
+    tryCatch(force(x), error = function(e) stop(conditionMessage(e), call. = FALSE))
+    
     args <- list(...)
     
-    obj <- process_designmatch(obj)
-    obj <- process_time.list(obj)
-    obj <- process_cem.match.list(obj)
+    x <- process_obj(x)
     
-    X <- x2base(obj, ..., cluster = cluster, imp = imp, s.d.denom = "all") #s.d.denom to avoid x2base warning
+    X <- x2base(x, ..., cluster = cluster, imp = imp)
     
-    if (is_not_null(X$covs.list)) {
-        #Longitudinal
-        if (missing(var.name)) {
-            var.name <- names(X$covs.list[[1]])[1]
-            message(paste0("No var.name was provided. Dispalying balance for ", var.name, "."))
-        }
-        var.list <- make_list(length(X$covs.list))
-        appears.in.time <- rep.int(TRUE, length(X$covs.list))
-        for (i in seq_along(X$covs.list)) {
-            if (var.name %in% names(X$covs.list[[i]])) var.list[[i]] <- X$covs.list[[i]][[var.name]]
-            else if (is_not_null(X$addl.list) && var.name %in% names(X$addl.list[[i]])) var.list[[i]] <- X$addl[[var.name]]
-            else if (is_not_null(X$distance.list) && var.name %in% names(X$distance.list[[i]])) var.list[[i]] <- X$distance.list[[i]][[var.name]]
-            else appears.in.time[i] <- FALSE
-        }
-        if (all(sapply(var.list, is_null))) stop(paste0("\"", var.name, "\" is not the name of a variable in any available data set input."), call. = FALSE)
-        X$var <- unlist(var.list[appears.in.time])
-        X$time <- rep(seq_along(X$covs.list)[appears.in.time], each = NROW(X$covs.list[[1]]))
-        X$treat.list <- lapply(X$treat.list, function(t) if (get.treat.type(t) != "continuous") treat_vals(t)[t] else t)
-        X$treat <- unlist(X$treat.list[appears.in.time])
-        if (is_not_null(names(X$treat.list))) treat.names <- names(X$treat.list)
-        else treat.names <- seq_along(X$treat.list)
-        if (is_not_null(X$weights)) X$weights <- X$weights[rep(seq_len(nrow(X$weights)), sum(appears.in.time)), , drop = FALSE]
-        if (is_not_null(X$cluster)) X$cluster <- X$cluster[rep(seq_along(X$cluster), sum(appears.in.time))]
-        if (is_not_null(X$imp)) X$imp <- X$imp[rep(seq_along(X$imp), sum(appears.in.time))]
-    }
-    else {
+    if (is_null(X$covs.list)) {
         #Point treatment
+        X$covs <- get.C2(X$covs, addl = X$addl, distance = X$distance, cluster = X$cluster, treat = X$treat,
+                         drop = FALSE)
+        co.names <- attr(X$covs, "co.names")
         if (missing(var.name)) {
-            var.name <- names(X$covs)[1]
-            message(paste0("No var.name was provided. Dispalying balance for ", var.name, "."))
+            var.name <- NULL; k = 1
+            while(is_null(var.name)) {
+                x <- co.names[[k]]
+                if ("isep" %nin% x[["type"]]) var.name <- x[["component"]][x[["type"]] == "base"][1]
+                else {
+                    if (k < length(co.names)) k <- k + 1
+                    else 
+                        stop("Please specified an argument to 'var.name'.", call. = FALSE)
+                }
+            }
+            message(paste0("No 'var.name' was provided. Dispalying balance for ", var.name, "."))
         }
-        if (var.name %in% names(X$covs)) X$var <- X$covs[[var.name]]
-        else if (is_not_null(X$addl) && var.name %in% names(X$addl)) X$var <- X$addl[[var.name]]
-        else if (is_not_null(args$addl) && var.name %in% names(args$addl)) X$var <- args$addl[[var.name]]
-        else if (is_not_null(X$distance) && var.name %in% names(X$distance)) X$var <- X$distance[[var.name]]
-        else if (is_not_null(args$distance) && var.name %in% names(args$distance)) X$var <- args$distance[[var.name]]
-        else stop(paste0("\"", var.name, "\" is not the name of a variable in any available data set input."), call. = FALSE)
+        var.name_in_name <- vapply(co.names, function(x) var.name %in% x[["component"]][x[["type"]] == "base"] &&
+                                       "isep" %nin% x[["type"]], logical(1L))
+        var.name_in_name_and_factor <- vapply(seq_along(co.names), function(x) var.name_in_name[x] && "fsep" %in% co.names[[x]][["type"]], logical(1L))
+        if (any(var.name_in_name_and_factor)) {
+            X$var <- unsplitfactor(as.data.frame(X$covs[,var.name_in_name_and_factor, drop = FALSE]), 
+                                   var.name, sep = attr(co.names, "seps")["factor"])[[1]]
+        }
+        else if (any(var.name_in_name)) {
+            X$var <- X$covs[,var.name]
+        }
+        else {
+            stop(paste0("\"", var.name, "\" is not the name of an available covariate."), call. = FALSE)
+        }
         
         if (get.treat.type(X$treat) != "continuous") X$treat <- treat_vals(X$treat)[X$treat]
     }
-    
-    #Density arguments supplied through ...
-    if (is_not_null(args$bw)) bw <- args$bw else bw <- "nrd0"
-    if (is_not_null(args$adjust)) adjust <- args$adjust else adjust <- 1
-    if (is_not_null(args$kernel)) kernel <- args$kernel else kernel <- "gaussian"
-    if (is_not_null(args$n)) n <- args$n else n <- 512
+    else {
+        #Longitudinal
+        X$covs.list <- lapply(seq_along(X$covs.list), function(i) {
+            get.C2(X$covs.list[[i]], addl = X$addl.list[[i]], distance = X$distance.list[[i]], cluster = X$cluster,
+                   treat = X$treat.list[[i]], drop = FALSE)
+        })
+        co.names.list <- lapply(X$covs.list, attr, "co.names")
+        ntimes <- length(X$covs.list)
+        
+        if (missing(var.name)) {
+            var.name <- NULL; k <- 1; time <- 1
+            while (is_null(var.name)) {
+                x <- co.names.list[[time]][[k]]
+                if ("isep" %nin% x[["type"]]) {
+                    var.name <- x[["component"]][x[["type"]] == "base"][1]
+                }
+                else {
+                    if (time < ntimes) {
+                        if (k <  length(co.names.list[[time]])) k <- k + 1
+                        else {
+                            k <- 1
+                            time <- time + 1
+                        }
+                    }
+                    else if (k < length(co.names.list[[time]]))  k <- k + 1
+                    else stop("Please specified an argument to 'var.name'.", call. = FALSE)
+                }
+            }
+            message(paste0("No 'var.name' was provided. Dispalying balance for ", var.name, "."))
+        }
+        
+        var.list <- make_list(length(X$covs.list))
+        appears.in.time <- rep.int(TRUE, length(X$covs.list))
+        for (i in seq_along(X$covs.list)) {
+            var.name_in_name <- vapply(co.names.list[[i]], function(x) var.name %in% x[["component"]][x[["type"]] == "base"] &&
+                                           "isep" %nin% x[["type"]], logical(1L))
+            var.name_in_name_and_factor <- var.name_in_name & vapply(co.names.list[[i]], function(x) "fsep" %in% x[["type"]], logical(1L))
+            if (any(var.name_in_name_and_factor)) {
+                var.list[[i]] <- unsplitfactor(as.data.frame(X$covs.list[[i]][,var.name_in_name_and_factor, drop = FALSE]), 
+                                               var.name, sep = attr(co.names, "seps")["factor"])[[1]]
+            }
+            else if (any(var.name_in_name)) {
+                var.list[[i]] <- X$covs.list[[i]][,var.name]
+            }
+            else {
+                appears.in.time[i] <- FALSE
+            }
+        }
+        if (all(vapply(var.list, is_null, logical(1L)))) stop(paste0("\"", var.name, "\" is not the name of an available covariate."), call. = FALSE)
+        
+        X$var <- unlist(var.list[appears.in.time])
+        
+        X$time <- rep(which(appears.in.time), times = lengths(var.list[appears.in.time]))
+        
+        X$treat.list[appears.in.time] <- lapply(X$treat.list[appears.in.time], function(t) if (get.treat.type(t) != "continuous") treat_vals(t)[t] else t)
+        X$treat <- unlist(X$treat.list[appears.in.time])
+        if (is_not_null(names(X$treat.list)[appears.in.time])) treat.names <- names(X$treat.list)[appears.in.time]
+        else treat.names <- which(appears.in.time)
+        
+        if (is_not_null(X$weights)) X$weights <- do.call("rbind", lapply(seq_len(sum(appears.in.time)), function(x) X$weights))
+        if (is_not_null(X$cluster)) X$cluster <- rep(X$cluster, sum(appears.in.time))
+        if (is_not_null(X$imp)) X$imp <- rep(X$imp, sum(appears.in.time))
+    }
     
     if (is_null(X$subclass)) {
         if (NCOL(X$weights) == 1L) weight.names <- "adjusted"
@@ -230,7 +281,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                         in.time <- !is.na(X$time) & X$time %in% which.time
                     }
                     else {
-                        stop(paste0("The following inputs to which.time do not correspond to given time periods:\n\t", word_list(which.time[!which.time %in% seq_along(X$covs.list)])), call. = FALSE)
+                        stop(paste0("The following inputs to 'which.time' do not correspond to given time periods:\n\t", word_list(which.time[!which.time %in% seq_along(X$covs.list)])), call. = FALSE)
                     }
                 }
                 else if (is.character(which.time)) {
@@ -255,15 +306,15 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                         
                     }
                     else {
-                        stop(paste0("The following inputs to which.time do not correspond to given time periods:\n\t", word_list(which.time[!which.time %in% treat.names])), call. = FALSE)
+                        stop(paste0("The following inputs to 'which.time' do not correspond to given time periods:\n\t", word_list(which.time[!which.time %in% treat.names])), call. = FALSE)
                     }
                 }
-                else stop("The argument to which.time must be the names or indices corresponding to the time periods for which distributions are to be displayed.", call. = FALSE)
+                else stop("The argument to 'which.time' must be the names or indices corresponding to the time periods for which distributions are to be displayed.", call. = FALSE)
             }
             facet <- c("time", facet)
         }
         else if (is_not_null(which.time)) {
-            warning("which.time was specified but a point treatment was supplied. Ignoring which.time.", call. = FALSE)
+            warning("'which.time' was specified but a point treatment was supplied. Ignoring 'which.time'.", call. = FALSE)
         }
         
         nobs <- sum(in.imp & in.cluster & in.time)
@@ -271,8 +322,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         
         Q <- make_list(which)
         for (i in which) {
-            Q[[i]] <- setNames(as.data.frame(matrix(0, ncol = 4, nrow = nobs)),
-                               c("treat", "var", "weights", "which"))
+            Q[[i]] <- make_df(c("treat", "var", "weights", "which"), nobs)
             Q[[i]]$treat <- X$treat[in.imp & in.cluster & in.time]
             Q[[i]]$var <- X$var[in.imp & in.cluster & in.time]
             Q[[i]]$weights <-  X$weights[in.imp & in.cluster & in.time, i]
@@ -305,15 +355,15 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         # ntypes <- as.numeric("both" %in% which)
         if (!missing(sample.names)) {
             if (which %nin% c("both", "unadjusted")) {
-                warning("sample.names can only be used with which = \"both\" or \"unadjusted\" to rename the unadjusted sample when called with subclasses. Ignoring sample.names.", call. = FALSE)
+                warning("'sample.names' can only be used with which = \"both\" or \"unadjusted\" to rename the unadjusted sample when called with subclasses. Ignoring 'sample.names'.", call. = FALSE)
                 sample.names <- NULL
             }
             else if (!is.vector(sample.names, "character")) {
-                warning("The argument to sample.names must be a character vector. Ignoring sample.names.", call. = FALSE)
+                warning("The argument to 'sample.names' must be a character vector. Ignoring 'sample.names'.", call. = FALSE)
                 sample.names <- NULL
             }
             else if (length(sample.names) != 1) {
-                warning("The argument to sample.names must be of length 1 when called with subclasses. Ignoring sample.names.", call. = FALSE)
+                warning("The argument to 'sample.names' must be of length 1 when called with subclasses. Ignoring 'sample.names'.", call. = FALSE)
                 sample.names <- NULL
             }
         }
@@ -330,7 +380,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             if (anyNA(which.sub)) which.sub <- which.sub[!is.na(which.sub)]
             
             if (is_null(which.sub)) {
-                stop(paste0("The argument to which.sub cannot be .none or NA when which = \"", which, "\"."), call. = FALSE)
+                stop(paste0("The argument to 'which.sub' cannot be .none or NA when which = \"", which, "\"."), call. = FALSE)
             }
             else if (is.character(which.sub)) {
                 which.sub <- which.sub[which.sub %in% sub.names]
@@ -340,7 +390,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             }
             
             if (is_null(which.sub)) {
-                stop("The argument to which.sub must be .none, .all, or the valid names or indices of subclasses.", call. = FALSE)
+                stop("The argument to 'which.sub' must be .none, .all, or the valid names or indices of subclasses.", call. = FALSE)
             }
             else if (any(which.sub.original %nin% which.sub)) {
                 w.l <- word_list(which.sub.original[which.sub.original %nin% which.sub])
@@ -349,9 +399,8 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         }
         
         in.sub <- !is.na(X$subclass) & X$subclass %in% which.sub
-        D <- setNames(as.data.frame(matrix(0, nrow = sum(in.sub), ncol = 4)),
-                      c("weights", "treat", "var", "subclass"))
-        D$weights <- rep(1, NROW(D))
+        D <- make_df(c("weights", "treat", "var", "subclass"), sum(in.sub))
+        D$weights <- 1
         D$treat <- X$treat[in.sub]
         D$var <- X$var[in.sub]
         D$subclass <- paste("Subclass", X$subclass[in.sub])
@@ -359,9 +408,8 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         
         if (which == "both") {
             #Make unadjusted sample
-            D2 <- setNames(as.data.frame(matrix(0, nrow = length(X$treat), ncol = 4)),
-                           c("weights", "treat", "var", "subclass"))
-            D2$weights <- rep(1, NROW(D2))
+            D2 <- make_df(c("weights", "treat", "var", "subclass"), length(X$treat))
+            D2$weights <- 1
             D2$treat <- X$treat
             D2$var <- X$var
             D2$subclass <- rep("Unadjusted Sample", length(X$treat))
@@ -388,7 +436,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
     
     treat.type <- get.treat.type(assign.treat.type(D$treat))
     
-    D <- D[order(D$var),]
+    D <- na.omit(D[order(D$var),])
     
     if (treat.type == "continuous") { #Continuous treatments
         
@@ -401,15 +449,22 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         D$treat <- as.numeric(D$treat)
         
         if (is.categorical.var) { #Categorical vars
+            #Density arguments supplied through ...
+            bw <- if_null_then(args$bw, "nrd0")
+            adjust <- if_null_then(args$adjust, 1)
+            kernel <- if_null_then(args$kernel, "gaussian")
+            n <- if_null_then(args$n, 512)
+            
             D$var <- factor(D$var)
             cat.sizes <- tapply(rep(1, NROW(D)), D$var, sum)
             smallest.cat <- names(cat.sizes)[which.min(cat.sizes)]
+            
             if (is.character(bw)) {
                 if (is.function(get0(paste0("bw.", bw)))) {
                     bw <- get0(paste0("bw.", bw))(D$treat[D$var == smallest.cat])
                 }
                 else {
-                    stop(paste(bw, "is not an acceptable entry to bw. See ?stats::density for allowable options."), call. = FALSE)
+                    stop(paste(bw, "is not an acceptable entry to 'bw'. See ?stats::density for allowable options."), call. = FALSE)
                 }
             }
             
@@ -423,7 +478,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             else {
                 if (length(colors) > ntypes) {
                     colors <- colors[seq_len(ntypes)]
-                    warning(paste("Only using first", ntypes, "values in colors."), call. = FALSE)
+                    warning(paste("Only using first", ntypes, "values in 'colors'."), call. = FALSE)
                 }
                 else if (length(colors) < ntypes) {
                     warning("Not enough colors were specified. Using default colors instead.", call. = FALSE)
@@ -431,35 +486,40 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                 }
                 
                 if (!all(vapply(colors, isColor, logical(1L)))) {
-                    warning("The argument to colors contains at least one value that is not a recognized color. Using default colors instead.", call. = FALSE)
+                    warning("The argument to 'colors' contains at least one value that is not a recognized color. Using default colors instead.", call. = FALSE)
                     colors <- gg_color_hue(ntypes)
                 }
                 
             }
             
-            bp <- ggplot(D, mapping = aes(x = treat, fill = var, weight = weights)) + 
-                geom_density(alpha = .4, bw = bw, adjust = adjust, kernel = kernel, n = n, trim = TRUE, outline.type = "full") + 
-                labs(fill = var.name, y = "Density", x = "Treat", title = title, subtitle = subtitle) +
-                scale_fill_manual(values = colors) + geom_hline(yintercept = 0) +
-                scale_y_continuous(expand = expansion(mult = c(0, .05)))
+            bp <- ggplot2::ggplot(D, mapping = aes(x = .data$treat, fill = .data$var, weight = .data$weights)) + 
+                ggplot2::geom_density(alpha = .4, bw = bw, adjust = adjust, kernel = kernel, n = n, trim = TRUE, outline.type = "full") + 
+                ggplot2::labs(fill = var.name, y = "Density", x = "Treat", title = title, subtitle = subtitle) +
+                ggplot2::scale_fill_manual(values = colors) + 
+                ggplot2::geom_hline(yintercept = 0) +
+                ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, .05)))
         }
         else { #Continuous vars
             D$var.mean <- ave(D[["var"]], D[facet], FUN = mean)
             D$treat.mean <- ave(D[["treat"]], D[facet], FUN = mean)
             
-            bp <- ggplot(D, mapping = aes(x = var, y = treat, weight = weights))
+            bp <- ggplot2::ggplot(D, mapping = aes(x = .data$var, y = .data$treat, weight = .data$weights))
             
-            if (identical(which, "Unadjusted Sample") || isFALSE(alpha.weight)) bp <- bp + geom_point(alpha = .9)
-            else bp <- bp + geom_point(aes(alpha = weights), show.legend = FALSE) + 
-                scale_alpha(range = c(.04, 1))
+            if (identical(which, "Unadjusted Sample") || isFALSE(alpha.weight)) bp <- bp + ggplot2::geom_point(alpha = .9)
+            else bp <- bp + ggplot2::geom_point(aes(alpha = .data$weights), show.legend = FALSE) + 
+                ggplot2::scale_alpha(range = c(.04, 1))
             
             bp <- bp + 
-                geom_smooth(method = "lm", se = FALSE, color = "firebrick2", alpha = .4, size = 1.5) + 
-                geom_smooth(method = "loess", se = FALSE, color = "royalblue1", alpha = .1, size = 1.5) +
-                # geom_smooth(method = "gam", se = FALSE, color = "royalblue1", alpha = .1, size = 1.5, formula = y ~ s(x, bs = "cs")) +
-                geom_hline(aes(yintercept = treat.mean), linetype = 1, alpha = .9) + 
-                geom_vline(aes(xintercept = var.mean), linetype = 1, alpha = .8) +
-                labs(y = "Treat", x = var.name, title = title, subtitle = subtitle)
+                ggplot2::geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "firebrick2", alpha = .4, size = 1.5) + 
+                {
+                    if (nrow(D) <= 1000)
+                        ggplot2::geom_smooth(method = "loess", formula = y ~ x, se = FALSE, color = "royalblue1", alpha = .1, size = 1.5) 
+                    else
+                        ggplot2::geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE, color = "royalblue1", alpha = .1, size = 1.5)
+                } +
+                ggplot2::geom_hline(aes(yintercept = .data$treat.mean), linetype = 1, alpha = .9) + 
+                ggplot2::geom_vline(aes(xintercept = .data$var.mean), linetype = 1, alpha = .8) +
+                ggplot2::labs(y = "Treat", x = var.name, title = title, subtitle = subtitle)
         }
     }
     else { #Categorical treatments (multinomial supported)
@@ -470,14 +530,14 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         else if (is.numeric(which.treat)) {
             which.treat <- levels(D$treat)[seq_along(levels(D$treat)) %in% which.treat]
             if (is_null(which.treat)) {
-                warning("No numbers in which.treat correspond to treatment values. All treatment groups will be displayed.", call. = FALSE)
+                warning("No numbers in 'which.treat' correspond to treatment values. All treatment groups will be displayed.", call. = FALSE)
                 which.treat <- character(0)
             }
         }
         else if (is.character(which.treat)) {
             which.treat <- levels(D$treat)[levels(D$treat) %in% which.treat]
             if (is_null(which.treat)) {
-                warning("No names in which.treat correspond to treatment values. All treatment groups will be displayed.", call. = FALSE)
+                warning("No names in 'which.treat' correspond to treatment values. All treatment groups will be displayed.", call. = FALSE)
                 which.treat <- character(0)
             }
         }
@@ -485,12 +545,12 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             which.treat <- character(0)
         }
         else {
-            warning("The argument to which.treat must be NA, NULL, or a vector of treatment names or indices. All treatment groups will be displayed.", call. = FALSE)
+            warning("The argument to 'which.treat' must be NA, NULL, or a vector of treatment names or indices. All treatment groups will be displayed.", call. = FALSE)
             which.treat <- character(0)
         }
         if (is_not_null(which.treat) && !anyNA(which.treat)) D <- D[D$treat %in% which.treat,]
         
-        for (i in names(D)[sapply(D, is.factor)]) D[[i]] <- factor(D[[i]])
+        for (i in names(D)[vapply(D, is.factor, logical(1L))]) D[[i]] <- factor(D[[i]])
         
         D$weights <- ave(D[["weights"]], 
                          D[c("treat", facet)], 
@@ -506,15 +566,15 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         else {
             if (length(colors) > ntypes) {
                 colors <- colors[seq_len(ntypes)]
-                warning(paste("Only using first", ntypes, "values in colors."), call. = FALSE)
+                warning(paste("Only using first", ntypes, "values in 'colors'."), call. = FALSE)
             }
             else if (length(colors) < ntypes) {
                 warning("Not enough colors were specified. Using default colors instead.", call. = FALSE)
                 colors <- gg_color_hue(ntypes)
             }
             
-            if (!all(sapply(colors, isColor))) {
-                warning("The argument to colors contains at least one value that is not a recognized color. Using default colors instead.", call. = FALSE)
+            if (!all(vapply(colors, isColor, logical(1L)))) {
+                warning("The argument to 'colors' contains at least one value that is not a recognized color. Using default colors instead.", call. = FALSE)
                 colors <- gg_color_hue(ntypes)
             }
         }
@@ -522,12 +582,13 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
         
         if (is_binary(D$var) || is.factor(D$var) || is.character(D$var)) { #Categorical vars
             D$var <- factor(D$var)
-            bp <- ggplot(D, mapping = aes(x = var, fill = treat, weight = weights)) + 
-                geom_bar(position = "dodge", alpha = .8, color = "black") + 
-                labs(x = var.name, y = "Proportion", fill = "Treatment", title = title, subtitle = subtitle) + 
-                scale_x_discrete(drop=FALSE) + scale_fill_manual(drop=FALSE, values = colors) +
-                geom_hline(yintercept = 0) + 
-                scale_y_continuous(expand = expansion(mult = c(0, .05)))
+            bp <- ggplot2::ggplot(D, mapping = aes(x = .data$var, fill = .data$treat, weight = .data$weights)) + 
+                ggplot2::geom_bar(position = "dodge", alpha = .8, color = "black") + 
+                ggplot2::labs(x = var.name, y = "Proportion", fill = "Treatment", title = title, subtitle = subtitle) + 
+                ggplot2::scale_x_discrete(drop=FALSE) + 
+                ggplot2::scale_fill_manual(drop=FALSE, values = colors) +
+                ggplot2::geom_hline(yintercept = 0) + 
+                ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, .05)))
         }
         else { #Continuous vars
             
@@ -537,40 +598,41 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                 mirror <- FALSE
                 alpha <- 1
                 legend.alpha <- alpha
-                expandScale <- expansion(mult = .005)
+                expandScale <- ggplot2::expansion(mult = .005)
             }
-            else if (nlevels.treat <= 2 && mirror) {
+            else if (nlevels.treat <= 2 && isTRUE(mirror)) {
                 posneg <- c(1, -1)
                 alpha <- .8
                 legend.alpha <- alpha
-                expandScale <- expansion(mult = .05)
+                expandScale <- ggplot2::expansion(mult = .05)
             }
             else {
                 mirror <- FALSE
                 posneg <- rep(1, nlevels.treat)
                 alpha <- .4
                 legend.alpha <- alpha/nlevels.treat
-                expandScale <- expansion(mult = c(0, .05))
+                expandScale <- ggplot2::expansion(mult = c(0, .05))
             }
             
             if (type == "histogram") {
-                if (disp.means) {
+                if (isTRUE(disp.means)) {
                     D$var.mean <- ave(D[c("var", "weights")], D[c("treat", facet)], 
                                       FUN = function(x) w.m(x[[1]], x[[2]]))[[1]]
                 }
                 
-                if (is_null(args$bins) || !is.numeric(args$bins)) args$bins <- 12
+                if (!is_(args$bins, "numeric")) args$bins <- 12
                 geom_fun <- function(t) {
-                    out <- list(geom_histogram(data = D[D$treat == levels(D$treat)[t],],
-                                               mapping = aes(x = var, y = posneg[t]*stat(count), weight = weights,
-                                                             fill = names(colors)[t]),
-                                               alpha = alpha, bins = args$bins, color = "black"),
+                    out <- list(ggplot2::geom_histogram(data = D[D$treat == levels(D$treat)[t],],
+                                                        mapping = aes(x = .data$var, y = posneg[t]*ggplot2::after_stat(!!sym("count")), 
+                                                                      weight = .data$weights,
+                                                                      fill = names(colors)[t]),
+                                                        alpha = alpha, bins = args$bins, color = "black"),
                                 NULL)
-                    if (disp.means) out[[2]] <-
-                            geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
-                                         mapping = aes(x = var.mean, xend = var.mean, y = 0, yend = posneg[t]*Inf), 
-                                         color = if (mirror) "black" else colors[[t]])
-                    out
+                    if (isTRUE(disp.means)) out[[2]] <-
+                            ggplot2::geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
+                                                  mapping = aes(x = .data$var.mean, xend = .data$var.mean, y = 0, yend = posneg[t]*Inf), 
+                                                  color = if (isTRUE(mirror)) "black" else colors[[t]])
+                    return(clear_null(out))
                 }
                 ylab <- "Proportion"
                 
@@ -598,13 +660,19 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                 
                 geom_fun <- function(t) {
                     
-                    geom_step(data = D[D$treat == levels(D$treat)[t],],
-                              mapping = aes(x = var, y = cum.pt, color = names(colors)[t]))
+                    ggplot2::geom_step(data = D[D$treat == levels(D$treat)[t],],
+                                       mapping = aes(x = .data$var, y = .data$cum.pt, color = names(colors)[t]))
                     
                 }
                 ylab <- "Cumulative Proportion"
             }
             else {
+                #Density arguments supplied through ...
+                bw <- if_null_then(args$bw, "nrd0")
+                adjust <- if_null_then(args$adjust, 1)
+                kernel <- if_null_then(args$kernel, "gaussian")
+                n <- if_null_then(args$n, 512)
+                
                 t.sizes <- tapply(rep(1, NROW(D)), D$treat, sum)
                 smallest.t <- names(t.sizes)[which.min(t.sizes)]
                 if (is.character(bw)) {
@@ -612,69 +680,69 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
                         bw <- get0(paste0("bw.", bw))(D$var[D$treat == smallest.t])
                     }
                     else {
-                        stop(paste(bw, "is not an acceptable entry to bw. See ?stats::density for allowable options."), call. = FALSE)
+                        stop(paste(bw, "is not an acceptable entry to 'bw'. See ?stats::density for allowable options."), call. = FALSE)
                     }
                 }
                 
-                if (disp.means) {
+                if (isTRUE(disp.means)) {
                     D$var.mean <- ave(D[c("var", "weights")], D[c("treat", facet)], 
                                       FUN = function(x) w.m(x[[1]], x[[2]]))[[1]]
                 }
                 
                 geom_fun <- function(t) {
                     out <- list(
-                        geom_density(data = D[D$treat == levels(D$treat)[t],],
-                                     mapping = aes(x = var, y = posneg[t]*stat(density), weight = weights,
-                                                   fill = names(colors)[t]),
-                                     alpha = alpha, bw = bw, adjust = adjust,
-                                     kernel = kernel, n = n, trim = TRUE,
-                                     outline.type = "full"),
+                        ggplot2::geom_density(data = D[D$treat == levels(D$treat)[t],],
+                                              mapping = aes(x = .data$var, y = posneg[t]*ggplot2::after_stat(!!sym("density")), 
+                                                            weight = .data$weights, fill = names(colors)[t]),
+                                              alpha = alpha, bw = bw, adjust = adjust,
+                                              kernel = kernel, n = n, trim = TRUE,
+                                              outline.type = "full"),
                         NULL)
-                    if (disp.means) out[[2]] <-
-                            geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
-                                         mapping = aes(x = var.mean, xend = var.mean, y = 0, yend = posneg[t]*Inf), 
-                                         color = if (mirror) "black" else colors[[t]])
-                    out
+                    if (isTRUE(disp.means)) out[[2]] <-
+                            ggplot2::geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
+                                                  mapping = aes(x = .data$var.mean, xend = .data$var.mean, y = 0, yend = posneg[t]*Inf), 
+                                                  color = if (isTRUE(mirror)) "black" else colors[[t]])
+                    return(clear_null(out))
                 }
                 ylab <- "Density"
                 
             }
             
-            bp <- Reduce("+", c(list(ggplot()),
-                                do.call(c, lapply(seq_len(nlevels.treat), geom_fun)))) +
-                scale_fill_manual(values = colors, guide = guide_legend(override.aes = list(alpha = legend.alpha, size = .25))) +
-                scale_color_manual(values = colors) +
-                labs(x = var.name, y = ylab, title = title, subtitle = subtitle,
-                     fill = "Treatment", color = "Treatment") + 
-                scale_y_continuous(expand = expandScale)
+            bp <- Reduce("+", c(list(ggplot2::ggplot()),
+                                lapply(seq_len(nlevels.treat), geom_fun))) +
+                ggplot2::scale_fill_manual(values = colors, guide = ggplot2::guide_legend(override.aes = list(alpha = legend.alpha, size = .25))) +
+                ggplot2::scale_color_manual(values = colors) +
+                ggplot2::labs(x = var.name, y = ylab, title = title, subtitle = subtitle,
+                              fill = "Treatment", color = "Treatment") + 
+                ggplot2::scale_y_continuous(expand = expandScale)
             
-            if (mirror) bp <- bp + geom_hline(yintercept = 0)
+            if (isTRUE(mirror)) bp <- bp + ggplot2::geom_hline(yintercept = 0)
         }
     }
     
     #Themes
-    bp <- bp + theme(panel.background = element_rect(fill = "white", color = "black"),
-                     panel.border = element_rect(fill = NA, color = "black"),
-                     plot.background = element_blank(),
-                     legend.position = position,
-                     legend.key=element_rect(fill = "white", color = "black", size = .25))
-    if (isFALSE(grid)) {
-        bp <- bp + theme(panel.grid.major = element_blank(),
-                         panel.grid.minor = element_blank())
+    bp <- bp + ggplot2::theme(panel.background = element_rect(fill = "white", color = "black"),
+                              panel.border = element_rect(fill = NA, color = "black"),
+                              plot.background = element_blank(),
+                              legend.position = position,
+                              legend.key=element_rect(fill = "white", color = "black", size = .25))
+    if (!isTRUE(grid)) {
+        bp <- bp + ggplot2::theme(panel.grid.major = element_blank(),
+                                  panel.grid.minor = element_blank())
     }
     else {
-        bp <- bp + theme(panel.grid.major = element_line(color = "gray87"),
-                         panel.grid.minor = element_line(color = "gray90"))
+        bp <- bp + ggplot2::theme(panel.grid.major = element_line(color = "gray87"),
+                                  panel.grid.minor = element_line(color = "gray90"))
     }
     
     if (is_not_null(facet)) {
         if (is_not_null(facet.formula)) {
-            if (!is.formula(facet.formula)) {
+            if (!rlang::is_formula(facet.formula)) {
                 stop("facet.formula must be a formula.", call. = FALSE)
             }
-            test.facet <- invisible(facet_grid(facet.formula))
+            test.facet <- invisible(ggplot2::facet_grid(facet.formula))
             if (any(c(names(test.facet$params$rows), names(test.facet$params$cols)) %nin% facet)) {
-                stop(paste("Only", word_list(facet, is.are = TRUE, quotes = TRUE), "allowed in facet.formula."), call. = FALSE)
+                stop(paste("Only", word_list(facet, is.are = TRUE, quotes = 2), "allowed in facet.formula."), call. = FALSE)
             }
             if ("which" %nin% c(names(test.facet$params$rows), names(test.facet$params$cols))) {
                 if (length(which) > 1) stop("\"which\" must be in the facet formula when the which argument refers to more than one sample.", call. = FALSE)
@@ -696,7 +764,7 @@ bal.plot <- function(obj, var.name, ..., which, which.sub = NULL, cluster = NULL
             }
         }
         else facet.formula <- f.build(".", facet)
-        bp <- bp + facet_grid(facet.formula, drop = FALSE, scales = ifelse("subclass" %in% facet, "free_x", "fixed"))
+        bp <- bp + ggplot2::facet_grid(facet.formula, drop = FALSE, scales = ifelse("subclass" %in% facet, "free_x", "fixed"))
     }
     
     return(bp)

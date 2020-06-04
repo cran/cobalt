@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2020-04-10" />
+<meta name="date" content="2020-06-03" />
 
 <title>Appendix 1: Using cobalt with Other Preprocessing Packages</title>
 
@@ -301,7 +301,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Appendix 1: Using cobalt with Other Preprocessing Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2020-04-10</h4>
+<h4 class="date">2020-06-03</h4>
 
 
 <div id="TOC">
@@ -337,7 +337,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <a class="sourceLine" id="cb1-2" data-line-number="2">covs &lt;-<span class="st"> </span><span class="kw">subset</span>(lalonde, <span class="dt">select =</span> <span class="op">-</span><span class="kw">c</span>(treat, re78))</a>
 <a class="sourceLine" id="cb1-3" data-line-number="3"><span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs)</a></code></pre></div>
 <pre><code>## treat ~ age + educ + race + married + nodegree + re74 + re75
-## &lt;environment: 0x7fe978ed76f8&gt;</code></pre>
+## &lt;environment: 0x7ff9dee32878&gt;</code></pre>
 <p>The function creates a <code>formula</code> object from two inputs: the first argument is the quoted name of the variable to be the left hand side (response) variable in the formula; the second argument is a vector of right hand side (predictor) variable names or a data frame, the variable names of which are to be the predictor variables. The utility of <code>f.build()</code> is that the user does not have to manually type out the name of every covariate when entering a formula into a function. It can be used simply in place of a formula, as in the following examples, which make use of the objects defined above:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="co"># Generating propensity scores using logistic regression</span></a>
 <a class="sourceLine" id="cb3-2" data-line-number="2">p.score &lt;-<span class="st"> </span><span class="kw">glm</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">family =</span> <span class="st">&quot;binomial&quot;</span>)<span class="op">$</span>fitted.values</a>
@@ -345,7 +345,6 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <a class="sourceLine" id="cb3-4" data-line-number="4"><span class="co"># Using matchit() from the MatchIt package</span></a>
 <a class="sourceLine" id="cb3-5" data-line-number="5"><span class="kw">library</span>(<span class="st">&quot;MatchIt&quot;</span>)</a>
 <a class="sourceLine" id="cb3-6" data-line-number="6">m.out &lt;-<span class="st"> </span><span class="kw">matchit</span>(<span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs), <span class="dt">data =</span> lalonde, <span class="dt">method =</span> <span class="st">&quot;nearest&quot;</span>)</a></code></pre></div>
-<p><code>f.build()</code> can also be used in the <code>Matching</code>, <code>optmatch</code>, <code>ebalance</code>, and formula interfaces in <code>bal.tab()</code>.</p>
 </div>
 <div id="splitfactor-and-unsplitfactor" class="section level3">
 <h3><code>splitfactor()</code> and <code>unsplitfactor()</code></h3>
@@ -624,7 +623,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 </div>
 <div id="get.w" class="section level3">
 <h3><code>get.w()</code></h3>
-<p><code>get.w()</code> allows users to extract weights from the output of a call to a preprocessing function in one of the supported packages. Because each package stores weights in different ways, it can be helpful to have a single function that applies equally to all outputs. <code>twang</code> has a function called <code>get.weights()</code> that performs the same functions with slightly finer control for the output of a call to <code>ps()</code>. See the section “Comparing balancing methods” in the main vignette for examples of the use of <code>get.w()</code>.</p>
+<p><code>get.w()</code> allows users to extract weights from the output of a call to a preprocessing function in one of the supported packages. Because each package stores weights in different ways, it can be helpful to have a single function that applies equally to all outputs. <code>twang</code> has a function called <code>get.weights()</code> that performs the same functions with slightly finer control for the output of a call to <code>ps()</code>.</p>
 </div>
 </div>
 <div id="bal.tab" class="section level2">
@@ -659,10 +658,10 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <a class="sourceLine" id="cb8-7" data-line-number="7">match.out &lt;-<span class="st"> </span><span class="kw">Match</span>(<span class="dt">Tr =</span> lalonde<span class="op">$</span>treat, <span class="dt">X =</span> p.score, <span class="dt">estimand =</span> <span class="st">&quot;ATT&quot;</span>)</a>
 <a class="sourceLine" id="cb8-8" data-line-number="8"></a>
 <a class="sourceLine" id="cb8-9" data-line-number="9"><span class="kw">bal.tab</span>(match.out, <span class="dt">formula =</span> <span class="kw">f.build</span>(<span class="st">&quot;treat&quot;</span>, covs0), <span class="dt">data =</span> lalonde,</a>
-<a class="sourceLine" id="cb8-10" data-line-number="10">        <span class="dt">distance =</span> p.score)</a></code></pre></div>
+<a class="sourceLine" id="cb8-10" data-line-number="10">        <span class="dt">distance =</span> <span class="op">~</span><span class="st"> </span>p.score)</a></code></pre></div>
 <pre><code>## Balance Measures
 ##                 Type Diff.Adj
-## distance    Distance   0.0043
+## p.score     Distance   0.0043
 ## age          Contin.   0.2106
 ## educ         Contin.   0.0201
 ## race_black    Binary   0.0054
@@ -682,7 +681,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <p>The output looks quite different from <code>Matching</code>’s <code>MatchBalance()</code> output. Rather than being stacked vertically, balance statistics are arranged horizontally in a table format, allowing for quick balance checking. Below the balance table is a summary of the sample size before and after matching, similar to what <code>Matching</code>’s <code>summary()</code> command would display. The sample size can include a “weighted” and “unweighted” count; the “weighted” count is the sum of the matching weights, while the “unweighted” is the count of units with nonzero matching weights.</p>
 <p>The input to <code>bal.tab()</code> is similar to that given to <code>MatchBalance()</code>: the <code>Match</code> object resulting from the call to <code>Match()</code>, a formula relating treatment to the covariates for which balance is to be assessed, and the original data set. This is not the only way to call <code>bal.tab()</code>: instead of a formula and a data set, one can also input a data frame of covariates and a vector of treatment status indicators, just as when using <code>bal.tab()</code> without a conditioning package. For example, the code below will yield the same results as the call to <code>bal.tab()</code> above:</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="kw">bal.tab</span>(match.out, <span class="dt">treat =</span> lalonde<span class="op">$</span>treat, <span class="dt">covs =</span> covs0,</a>
-<a class="sourceLine" id="cb10-2" data-line-number="2">        <span class="dt">distance =</span> p.score)</a></code></pre></div>
+<a class="sourceLine" id="cb10-2" data-line-number="2">        <span class="dt">distance =</span> <span class="op">~</span><span class="st"> </span>p.score)</a></code></pre></div>
 <p>The other arguments to <code>bal.tab()</code> when using it with <code>Matching</code> have the same form and function as those given when using it without a conditioning package, except for <code>s.d.denom</code>. If the estimand of the original call to <code>Match()</code> is the ATT, <code>s.d.denom</code> will default to <code>&quot;treated&quot;</code> if not specified; if the estimand is the ATE, <code>s.d.denom</code> will default to <code>&quot;pooled&quot;</code>; if the estimand is the ATC, <code>s.d.denom</code> will default to <code>&quot;control&quot;</code>. The user can specify their own argument to <code>s.d.denom</code>, but using the defaults is advisable. In addition, the use of the <code>addl</code> argument is unnecessary because the covariates are entered manually as arguments, so all covariates for which balance is to be assessed can be entered through the <code>formula</code> or <code>covs</code> argument. If the covariates are stored in two separate data frames, it may be useful to include one in <code>formula</code> or <code>covs</code> and the other in <code>addl</code>.</p>
 </div>
 <div id="using-bal.tab-with-optmatch" class="section level3">
@@ -697,13 +696,13 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <a class="sourceLine" id="cb11-7" data-line-number="7">p.score &lt;-<span class="st"> </span>fit<span class="op">$</span>fitted.values <span class="co">#get the propensity score</span></a>
 <a class="sourceLine" id="cb11-8" data-line-number="8">fm &lt;-<span class="st"> </span><span class="kw">fullmatch</span>(treat <span class="op">~</span><span class="st"> </span>p.score, <span class="dt">data =</span> lalonde)</a>
 <a class="sourceLine" id="cb11-9" data-line-number="9"></a>
-<a class="sourceLine" id="cb11-10" data-line-number="10"><span class="kw">bal.tab</span>(fm, <span class="dt">covs =</span> covs0, <span class="dt">distance =</span> p.score)</a></code></pre></div>
+<a class="sourceLine" id="cb11-10" data-line-number="10"><span class="kw">bal.tab</span>(fm, <span class="dt">covs =</span> covs0, <span class="dt">distance =</span> <span class="op">~</span><span class="st"> </span>p.score)</a></code></pre></div>
 <pre><code>## Call
 ##  fullmatch(x = treat ~ p.score, data = lalonde)
 ## 
 ## Balance Measures
 ##                 Type Diff.Adj
-## distance    Distance   0.0052
+## p.score     Distance   0.0052
 ## age          Contin.   0.1623
 ## educ         Contin.  -0.0185
 ## race_black    Binary   0.0086
@@ -715,10 +714,10 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 ## re75         Contin.  -0.0084
 ## 
 ## Sample sizes
-##                        FALSE TRUE
-## All                  429.000  185
-## Matched (ESS)         52.517  185
-## Matched (Unweighted) 429.000  185</code></pre>
+##                      Control Treated
+## All                  429.000     185
+## Matched (ESS)         52.517     185
+## Matched (Unweighted) 429.000     185</code></pre>
 <p>Most details for the use of <code>bal.tab()</code> with <code>optmatch</code> are similar to those when using <code>bal.tab()</code> with <code>Matching</code>. Users can enter either a formula and a data set or a vector of treatment status and a set of covariates. Unlike with <code>Matching</code>, entering the treatment variable is optional as it is already stored in the <code>optmatch</code> object. <code>bal.tab()</code> is compatible with both <code>pairmatch()</code> and <code>fullmatch()</code> output.</p>
 </div>
 <div id="using-bal.tab-with-cbps" class="section level3">
@@ -880,20 +879,20 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <div class="sourceCode" id="cb31"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb31-1" data-line-number="1"><span class="kw">bal.tab</span>(wt.out)</a></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## distance    Distance       0.1391        0.1528       0.1632
-## age          Contin.      -0.1923       -0.1878      -0.1847
-## educ         Contin.       0.0781        0.0825       0.0883
-## married       Binary      -0.1048       -0.0970      -0.0896
-## race_black    Binary       0.0496        0.0555       0.0593
-## race_hispan   Binary       0.0076        0.0093       0.0114
-## race_white    Binary      -0.0696       -0.0648      -0.0581
-## re74         Contin.      -0.2965       -0.2887      -0.2791
-## re75         Contin.      -0.1651       -0.1557      -0.1412
+## prop.score  Distance       0.1392        0.1504       0.1605
+## age          Contin.      -0.1913       -0.1870      -0.1822
+## educ         Contin.       0.0747        0.0808       0.0900
+## married       Binary      -0.1067       -0.0963      -0.0857
+## race_black    Binary       0.0494        0.0540       0.0580
+## race_hispan   Binary       0.0082        0.0098       0.0119
+## race_white    Binary      -0.0690       -0.0638      -0.0586
+## re74         Contin.      -0.3081       -0.2942      -0.2839
+## re75         Contin.      -0.1703       -0.1579      -0.1484
 ## 
 ## Average effective sample sizes across imputations
 ##            Control Treated
-## Unadjusted  429.00 185.000
-## Adjusted    331.82  66.558</code></pre>
+## Unadjusted 429.000 185.000
+## Adjusted   332.207  67.059</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with <code>MatchIt</code> or <code>WeightIt</code>.</p>
 </div>
 <div id="using-bal.tab-with-cem" class="section level3">
@@ -941,22 +940,22 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <a class="sourceLine" id="cb37-12" data-line-number="12"><span class="kw">bal.tab</span>(cem.out.imp, <span class="dt">data =</span> imp.out)</a></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## age         Contin.       0.0468        0.0492       0.0532
-## educ        Contin.      -0.0454       -0.0368      -0.0170
+## age         Contin.       0.0405        0.0462       0.0493
+## educ        Contin.      -0.0386       -0.0368      -0.0306
 ## race_black   Binary       0.0000        0.0000       0.0000
 ## race_hispan  Binary       0.0000        0.0000       0.0000
 ## race_white   Binary       0.0000        0.0000       0.0000
 ## married      Binary       0.0000        0.0000       0.0000
 ## nodegree     Binary       0.0000        0.0000       0.0000
-## re74        Contin.      -0.0419       -0.0348      -0.0325
-## re75        Contin.      -0.0730       -0.0569      -0.0463
+## re74        Contin.      -0.0424       -0.0368      -0.0324
+## re75        Contin.      -0.0746       -0.0566      -0.0458
 ## 
 ## Average sample sizes across imputations
 ##                      Control Treated
 ## All                  429.000   185.0
-## Matched (ESS)         35.438    66.1
-## Matched (Unweighted)  77.400    66.1
-## Unmatched            351.600   118.9</code></pre>
+## Matched (ESS)         35.737    66.5
+## Matched (Unweighted)  77.800    66.5
+## Unmatched            351.200   118.5</code></pre>
 </div>
 <div id="using-bal.tab-with-other-packages" class="section level3">
 <h3>Using <code>bal.tab()</code> with other packages</h3>
@@ -977,8 +976,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <div class="sourceCode" id="cb41"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb41-1" data-line-number="1"><span class="co">#Use bal.tab() directly on the output</span></a>
 <a class="sourceLine" id="cb41-2" data-line-number="2"><span class="kw">bal.tab</span>(ow.out)</a></code></pre></div>
 <pre><code>## Call
-##  optweight(formula = treat ~ age + educ + married + race + re74 + 
-##     re75, data = lalonde, tols = 0.01, estimand = &quot;ATE&quot;)
+##  optweight(formula = treat ~ age + educ + married + race + re74 + re75, data = lalonde, tols = 0.01, estimand = &quot;ATE&quot;)
 ## 
 ## Balance Measures
 ##                Type Diff.Adj

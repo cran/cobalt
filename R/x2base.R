@@ -8,7 +8,7 @@ x2base.matchit <- function(m, ...) {
     #Process matchit
     
     #Process data and get imp
-    m.data <- m$model$data
+    m.data <- if (NROW(m$model$data) != length(m$weights)) NULL else m$model$data
     imp <- A$imp
     if (is_not_null(data <- A$data)) {
         if (is_(data, "mids")) {
@@ -27,23 +27,27 @@ x2base.matchit <- function(m, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, m.data), 
+                              datalist = list(data, m.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    treat <- process_treat(m[["treat"]], data = list(data, m.data))
+    treat <- process_treat(m[["treat"]], datalist = list(data, m.data), pairwise = A$pairwise)
     
     #Process covs
     if (is_not_null(m$model$model)) {
         if (nrow(m$model$model) == length(treat)) {
-            covs <- data.frame(m$model$model[, names(m$model$model) %in% attributes(terms(m$model))$term.labels])
+            covs <- get_covs_from_formula(m$formula, data = m$model$model)
         }
         else {
             #Recreating covs from model object and m$X. Have to do this because when 
-            #drop != NULL and reestimate = TRUE, cases are lost. This recovers them.
+            #discard != NULL and reestimate = TRUE, cases are lost. This recovers them.
             
+            # if (is_not_null(data)) {
+            #     covs <- get_covs_from_formula(m$formula, data = m$model$model)
+            # }
+            # else {
             order <- setNames(attr(m$model$terms, "order"),
                               attr(m$model$terms, "term.labels"))
             assign <- setNames(attr(m$X, "assign"), colnames(m$X))
@@ -67,15 +71,16 @@ x2base.matchit <- function(m, ...) {
                                       dropped.level = f0[[i]]$levels[f0[[i]]$faclev %nin% colnames(m$X)])
                 if (dataClasses[i] == "logical") covs[[i]] <- as.logical(covs[[i]])
             }
+            covs <- get_covs_from_formula(m$formula, data = covs)
+            # }
         }
         
     }
-    else if ("matchit.mahalanobis" %nin% class(m) && is_not_null(data)) {
-        t.c <- get.covs.and.treat.from.formula(m$formula, data = data)
-        covs <- t.c[["reported.covs"]]
+    else if (is_not_null(m$formula) && is_not_null(data)) {
+        covs <- get_covs_from_formula(m$formula, data = data)
     }
     else {
-        covs <- data.frame(m$X)
+        covs <- get_covs_from_formula(~m$X)
     }
     
     #Get estimand
@@ -93,14 +98,12 @@ x2base.matchit <- function(m, ...) {
     }
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, m.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, m.data, covs))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, m.data))
-    if (any(is.finite(m$distance))) {
-        if (is_not_null(distance)) distance <- cbind(distance, distance = m$distance)
-        else distance <- data.frame(distance = m$distance)
-    }
+    distance <- process_distance(A[["distance"]], datalist = list(data, m.data, covs),
+                                 obj.distance = m[["distance"]], 
+                                 obj.distance.name = "distance")
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -130,7 +133,7 @@ x2base.matchit <- function(m, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, m.data),
+                                  datalist = list(data, m.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -150,45 +153,47 @@ x2base.matchit <- function(m, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "matchit()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -225,7 +230,7 @@ x2base.ps <- function(ps, ...) {
         if (is.character(A$stop.method)) {
             rule1 <- names(ps$w)[sapply(t(sapply(tolower(A$stop.method), function(x) startsWith(tolower(names(ps$w)), x))), any)]
             if (is_null(rule1)) {
-                message(paste0("Warning: stop.method should be ", word_list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
+                message(paste0("Warning: stop.method should be ", word_list(names(ps$w), and.or = "or", quotes = 2), ".\nUsing all available stop methods instead."))
                 rule1 <- names(ps$w)
             }
         }
@@ -237,7 +242,7 @@ x2base.ps <- function(ps, ...) {
             rule1 <- names(ps$w)[A$stop.method %in% seq_along(names(ps$w))]
         }
         else {
-            warning("stop.method should be ", word_list(names(ps$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead.", call. = FALSE)
+            warning("stop.method should be ", word_list(names(ps$w), and.or = "or", quotes = 2), ".\nUsing all available stop methods instead.", call. = FALSE)
             rule1 <- names(ps$w)
         }
     }
@@ -267,16 +272,17 @@ x2base.ps <- function(ps, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, ps.data), 
+                              datalist = list(data, ps.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    treat <- process_treat(ps$treat, data = list(data, ps.data))
+    treat <- process_treat(ps$treat, datalist = list(data, ps.data))
     
     #Process covs
-    covs <- ps.data[, ps$gbm.obj$var.names, drop = FALSE]
+    f <- f.build(ps$gbm.obj$var.names)
+    covs <- get_covs_from_formula(f, data = ps.data)
     
     #Get estimand
     estimand <- ps$estimand
@@ -285,26 +291,12 @@ x2base.ps <- function(ps, ...) {
     method <- rep("weighting", length(s))
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, ps.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, ps.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, ps.data))
-    if (is_not_null(distance)) {
-        if (length(s) == 1) {
-            distance <- cbind(distance, prop.score = ps$ps[[s]])
-        }
-        else {
-            distance <- cbind(distance, prop.score = ps$ps[s])
-        }
-    }
-    else {
-        if (length(s) == 1) {
-            distance <- data.frame(prop.score = ps$ps[[s]])
-        }
-        else {
-            distance <- data.frame(prop.score = ps$ps[s])
-        }
-    }
+    distance <- process_distance(A[["distance"]], datalist = list(data, ps.data, covs),
+                                 obj.distance = ps$ps[s], 
+                                 obj.distance.name = if (length(s) > 1) paste.("prop.score", substr(s, 1, nchar(s) - 4)) else "prop.score")
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -329,7 +321,7 @@ x2base.ps <- function(ps, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- if_null_then(A$s.weights, ps$sampw))) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, ps.data),
+                                    datalist = list(data, ps.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -339,7 +331,7 @@ x2base.ps <- function(ps, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, ps.data),
+                                  datalist = list(data, ps.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -358,45 +350,47 @@ x2base.ps <- function(ps, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "ps()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -433,7 +427,7 @@ x2base.mnps <- function(mnps, ...) {
         if (any(is.character(A$stop.method))) {
             rule1 <- mnps$stopMethods[sapply(t(sapply(tolower(A$stop.method), function(x) startsWith(tolower(mnps$stopMethods), x))), any)]
             if (is_null(rule1)) {
-                message(paste0("Warning: stop.method should be ", word_list(mnps$stopMethods, and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
+                message(paste0("Warning: stop.method should be ", word_list(mnps$stopMethods, and.or = "or", quotes = 2), ".\nUsing all available stop methods instead."))
                 rule1 <- mnps$stopMethods
             }
         }
@@ -445,7 +439,7 @@ x2base.mnps <- function(mnps, ...) {
             rule1 <- mnps$stopMethods[A$stop.method %in% seq_along(mnps$stopMethods)]
         }
         else {
-            warning("stop.method should be ", word_list(mnps$stopMethods, and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead.", call. = FALSE)
+            warning("stop.method should be ", word_list(mnps$stopMethods, and.or = "or", quotes = 2), ".\nUsing all available stop methods instead.", call. = FALSE)
             rule1 <- mnps$stopMethods
         }
     }
@@ -475,16 +469,17 @@ x2base.mnps <- function(mnps, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, mnps.data), 
+                              datalist = list(data, mnps.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    treat <- process_treat(mnps$treatVar, data = list(data, mnps.data))
+    treat <- process_treat(mnps$treatVar, datalist = list(data, mnps.data))
     
     #Process covs
-    covs <- mnps$data[mnps$psList[[1]]$gbm.obj$var.names]
+    f <- f.build(mnps$psList[[1]]$gbm.obj$var.names)
+    covs <- get_covs_from_formula(f, mnps.data)
     
     #Get estimand
     estimand <- mnps$estimand
@@ -493,10 +488,10 @@ x2base.mnps <- function(mnps, ...) {
     method <- rep("weighting", length(s))
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, mnps.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, mnps.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, mnps.data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, mnps.data))
     
     #Process focal
     focal <- mnps$treatATT
@@ -519,7 +514,7 @@ x2base.mnps <- function(mnps, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- if_null_then(A$s.weights, mnps$sampw))) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, mnps.data),
+                                    datalist = list(data, mnps.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -529,7 +524,7 @@ x2base.mnps <- function(mnps, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, mnps.data),
+                                  datalist = list(data, mnps.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -548,45 +543,47 @@ x2base.mnps <- function(mnps, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "mnps()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -623,7 +620,7 @@ x2base.ps.cont <- function(ps.cont, ...) {
         if (is.character(A$stop.method)) {
             rule1 <- names(ps.cont$w)[sapply(t(sapply(tolower(A$stop.method), function(x) startsWith(tolower(names(ps.cont$w)), x))), any)]
             if (is_null(rule1)) {
-                message(paste0("Warning: stop.method should be ", word_list(names(ps.cont$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
+                message(paste0("Warning: stop.method should be ", word_list(names(ps.cont$w), and.or = "or", quotes = 2), ".\nUsing all available stop methods instead."))
                 rule1 <- names(ps.cont$w)
             }
         }
@@ -635,7 +632,7 @@ x2base.ps.cont <- function(ps.cont, ...) {
             rule1 <- names(ps.cont$w)[A$stop.method %in% seq_along(names(ps.cont$w))]
         }
         else {
-            warning("stop.method should be ", word_list(names(ps.cont$w), and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead.", call. = FALSE)
+            warning("stop.method should be ", word_list(names(ps.cont$w), and.or = "or", quotes = 2), ".\nUsing all available stop methods instead.", call. = FALSE)
             rule1 <- names(ps.cont$w)
         }
     }
@@ -665,16 +662,17 @@ x2base.ps.cont <- function(ps.cont, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, ps.data), 
+                              datalist = list(data, ps.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    treat <- process_treat(ps.cont$treat, data = list(data, ps.data))
+    treat <- process_treat(ps.cont$treat, datalist = list(data, ps.data))
     
     #Process covs
-    covs <- ps.cont$data[, ps.cont$gbm.obj$var.names, drop = FALSE]
+    f <- f.build(ps.cont$gbm.obj$var.names)
+    covs <- get_covs_from_formula(f, ps.data)
     
     #Get estimand
     
@@ -682,10 +680,10 @@ x2base.ps.cont <- function(ps.cont, ...) {
     method <- rep("weighting", length(s))
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, ps.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, ps.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, ps.data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, ps.data))
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -710,7 +708,7 @@ x2base.ps.cont <- function(ps.cont, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- if_null_then(A$s.weights, ps.cont$sampw))) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, ps.data),
+                                    datalist = list(data, ps.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -720,7 +718,7 @@ x2base.ps.cont <- function(ps.cont, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, ps.data),
+                                  datalist = list(data, ps.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -739,45 +737,47 @@ x2base.ps.cont <- function(ps.cont, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "ps.cont()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("correlations" %in% stats) {
+            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("correlations" %in% stats) {
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -828,14 +828,14 @@ x2base.Match <- function(Match, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data), 
+                              datalist = list(data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
     t.c <- use.tc.fd(A$formula, data, A$treat, A$covs)
-    treat <- process_treat(t.c[["treat"]], data = list(data))
+    treat <- process_treat(t.c[["treat"]], datalist = list(data))
     
     #Process covs
     covs <- t.c[["covs"]]
@@ -847,10 +847,10 @@ x2base.Match <- function(Match, ...) {
     method <- "matching"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, covs))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, covs))
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -879,7 +879,7 @@ x2base.Match <- function(Match, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data),
+                                  datalist = list(data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -900,45 +900,47 @@ x2base.Match <- function(Match, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "Match()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -972,9 +974,12 @@ x2base.formula <- function(formula, ...) {
         if (is_null(A[["imp"]])) A[["imp"]] <- A[["data"]][[".imp"]]
     }
     
-    t.c <- get.covs.and.treat.from.formula(formula, A[["data"]], treat = A[["treat"]])
-    covs <- t.c[["reported.covs"]]
-    treat <- t.c[["treat"]]
+    # t.c <- get.covs.and.treat.from.formula(formula, A[["data"]], treat = A[["treat"]])
+    # covs <- t.c[["reported.covs"]]
+    # treat <- t.c[["treat"]]
+    
+    treat <- get_treat_from_formula(formula, A[["data"]], treat = A[["treat"]])
+    covs <- get_covs_from_formula(formula, A[["data"]])
     
     if (is_null(covs)) stop("The right hand side of the formula must contain covariates for which balance is to be assessed.", call. = FALSE)
     
@@ -1008,19 +1013,20 @@ x2base.data.frame <- function(covs, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data), 
+                              datalist = list(data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    treat <- process_treat(A$treat, data = list(data))
+    treat <- process_treat(A$treat, datalist = list(data))
     
     #Process covs
     if (is_null(covs)) {
         stop("covs data.frame must be specified.", call. = FALSE)
     }
-    is_(covs, "data.frame", stop = TRUE)
+    # is_(covs, "data.frame", stop = TRUE)
+    if (is_null(attr(covs, "co.names"))) covs <- get_covs_from_formula(~covs)
     
     #Get estimand
     estimand <- A$estimand
@@ -1149,10 +1155,10 @@ x2base.data.frame <- function(covs, ...) {
     }
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, covs))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, covs))
     
     #Process focal
     if (is_not_null(focal <- A$focal) && get.treat.type(treat) != "continuous") {
@@ -1162,7 +1168,7 @@ x2base.data.frame <- function(covs, ...) {
     #Process subclass
     if (is_not_null(subclass <- A$subclass)) {
         subclass <- vector.process(subclass, 
-                                   data = list(data),
+                                   datalist = list(data),
                                    name = "subclass", 
                                    which = "subclass membership",
                                    missing.okay = TRUE)
@@ -1173,7 +1179,7 @@ x2base.data.frame <- function(covs, ...) {
     #Process match.strata
     else if (is_not_null(match.strata <- A$match.strata)) {
         match.strata <- vector.process(match.strata, 
-                                       data = list(data),
+                                       datalist = list(data),
                                        name = "match.strata", 
                                        which = "matching strata membership",
                                        missing.okay = TRUE)
@@ -1182,13 +1188,18 @@ x2base.data.frame <- function(covs, ...) {
                                                        focal = focal))
     }
     #Process weights
-    weights <- process_weights(NULL, A, treat, covs, method, addl.data = list(data))
-    method <- attr(weights, "method")
+    else if (is_not_null(A[["weights"]])) {
+        weights <- process_weights(NULL, A, treat, covs, method, addl.data = list(data))
+        method <- attr(weights, "method")
+    }
+    else {
+        weights <- NULL
+    }
     
     #Process s.weights
     if (is_not_null(s.weights <- A$s.weights)) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data),
+                                    datalist = list(data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -1198,7 +1209,7 @@ x2base.data.frame <- function(covs, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data),
+                                  datalist = list(data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -1219,48 +1230,50 @@ x2base.data.frame <- function(covs, ...) {
                        imp = imp)
     
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, 
+                                       weights = weights, subclass = subclass, 
+                                       treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
+        else if ("correlations" %in% stats) {
+            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, 
-                                   weights = weights, subclass = subclass, 
-                                   treat = treat, focal = focal)
-    }
-    else if ("correlations" %in% stats) {
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -1308,42 +1321,36 @@ x2base.CBPS <- function(cbps.fit, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, c.data), 
+                              datalist = list(data, c.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    t.c <- use.tc.fd(cbps.fit$formula, c.data)
-    treat <- process_treat(t.c[["treat"]], data = list(data, c.data))
+    treat <- get_treat_from_formula(cbps.fit$formula, c.data)
+    treat <- process_treat(treat, datalist = list(data, c.data))
     
     #Process covs
-    covs <- t.c[["covs"]]
+    covs <- get_covs_from_formula(cbps.fit$formula, c.data)
     
     #Get estimand
-    estimand <- A$estimand
+    if (is_not_null(estimand <- A$estimand)) {
+        stop("'estimand' is not allowed with CBPS objects.", call. = FALSE)
+    }
     
     #Get method
     method <- "weighting"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, c.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, c.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, c.data))
-    if (get.treat.type(treat) == "binary") {
-        if (all_the_same(cbps.fit$fitted.values)) {
-            if (is_null(distance)) distance <- NULL
-        }
-        else {
-            if (is_null(distance)) distance <- data.frame(prop.score = cbps.fit$fitted.values)
-            else distance <- cbind(distance, prop.score = cbps.fit$fitted.values)
-        }
-    }
-    
+    distance <- process_distance(A[["distance"]], datalist = list(data, c.data),
+                                 obj.distance = if (get.treat.type(treat) == "binary") cbps.fit[["fitted.values"]], 
+                                 obj.distance.name = "prop.score")
     #Process focal
     if (is_not_null(focal <- A$focal)) {
-        stop("focal is not allowed with CBPS objects.", call. = FALSE)
+        stop("'focal' is not allowed with CBPS objects.", call. = FALSE)
     }
     
     #Process subclass
@@ -1364,7 +1371,7 @@ x2base.CBPS <- function(cbps.fit, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- A$sampw)) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, c.data),
+                                    datalist = list(data, c.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -1375,7 +1382,7 @@ x2base.CBPS <- function(cbps.fit, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, c.data),
+                                  datalist = list(data, c.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -1394,50 +1401,51 @@ x2base.CBPS <- function(cbps.fit, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "CBPS()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal,
+                                       quietly = TRUE)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
+        else if ("correlations" %in% stats) {
+            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
-    }
-    else if ("correlations" %in% stats) {
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -1485,14 +1493,14 @@ x2base.ebalance <- function(ebalance, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data), 
+                              datalist = list(data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
     t.c <- use.tc.fd(A$formula, data, A$treat, A$covs)
-    treat <- process_treat(t.c[["treat"]], data = list(data))
+    treat <- process_treat(t.c[["treat"]], datalist = list(data))
     
     #Process covs
     covs <- t.c[["covs"]]
@@ -1504,10 +1512,10 @@ x2base.ebalance <- function(ebalance, ...) {
     method <- "weighting"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, covs))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, covs))
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -1531,7 +1539,7 @@ x2base.ebalance <- function(ebalance, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- A$sampw)) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data),
+                                    datalist = list(data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -1541,7 +1549,7 @@ x2base.ebalance <- function(ebalance, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data),
+                                  datalist = list(data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -1560,45 +1568,47 @@ x2base.ebalance <- function(ebalance, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "ebalance()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -1623,7 +1633,6 @@ x2base.ebalance <- function(ebalance, ...) {
     
     return(X)
 }
-x2base.ebalance.trim <- x2base.ebalance
 x2base.optmatch <- function(optmatch, ...) {
     A <- list(...)
     
@@ -1649,15 +1658,16 @@ x2base.optmatch <- function(optmatch, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data), 
+                              datalist = list(data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
     t.c <- use.tc.fd(A$formula, data = data, covs = A$covs,
-                     treat = if_null_then(A$treat, attr(optmatch, "contrast.group")))
-    treat <- process_treat(t.c[["treat"]], data = list(data))
+                     treat = if_null_then(A$treat, as.numeric(attr(optmatch, "contrast.group"))),
+                     needs.covs = FALSE)
+    treat <- process_treat(t.c[["treat"]], datalist = list(data))
     
     #Process covs
     covs <- t.c[["covs"]]
@@ -1669,10 +1679,10 @@ x2base.optmatch <- function(optmatch, ...) {
     method <- "matching"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, covs))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, covs))
     
     #Process subclass
     if (is_not_null(subclass <- A$subclass)) {
@@ -1701,7 +1711,7 @@ x2base.optmatch <- function(optmatch, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data),
+                                  datalist = list(data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -1719,46 +1729,48 @@ x2base.optmatch <- function(optmatch, ...) {
     length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
-                       original.call.to = paste0(deparse(attr(optmatch, "call")[[1]]), "()"))
-
+                       original.call.to = paste0(deparse1(attr(optmatch, "call")[[1]]), "()"))
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -1793,7 +1805,6 @@ x2base.cem.match <- function(cem.match, ...) {
         cem.match[["baseline.group"]] <- cem.match[[1]][["baseline.group"]]
         cem.match[["groups"]] <- unlist(lapply(cem.match[vapply(cem.match, is_, logical(1L), "cem.match")], `[[`, "groups"))
         cem.match[["w"]] <- get.w.cem.match(cem.match)
-        cem.match <- process_cem.match.list(cem.match)
     }
     if (all(check_if_zero(cem.match[["w"]]))) stop("The 'cem.match' object contains no valid matches.", call. = FALSE)
     
@@ -1819,7 +1830,7 @@ x2base.cem.match <- function(cem.match, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data), 
+                              datalist = list(data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
@@ -1830,7 +1841,7 @@ x2base.cem.match <- function(cem.match, ...) {
     #Process treat
     t.c <- use.tc.fd(data = data, treat = cem.match[["groups"]], 
                      covs = cem.match[["vars"]])
-    treat <- process_treat(t.c[["treat"]], data = list(data))
+    treat <- process_treat(t.c[["treat"]], datalist = list(data))
     
     #Process covs
     covs <- t.c[["covs"]]
@@ -1842,10 +1853,10 @@ x2base.cem.match <- function(cem.match, ...) {
     method <- "matching"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, covs))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, covs))
     
     #Process subclass
     if (is_not_null(subclass <- A$subclass)) {
@@ -1872,7 +1883,7 @@ x2base.cem.match <- function(cem.match, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data),
+                                  datalist = list(data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -1893,43 +1904,45 @@ x2base.cem.match <- function(cem.match, ...) {
                        original.call.to = "cem()")
     
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -1938,7 +1951,7 @@ x2base.cem.match <- function(cem.match, ...) {
     }
     
     #Get call
-
+    
     #Process output
     X <- initialize_X()
     X.names <- names(X)
@@ -1961,7 +1974,7 @@ x2base.weightit <- function(weightit, ...) {
     
     #Process data and get imp
     d.e.in.w <- vapply(c("covs", "exact", "by", "moderator"), function(x) is_not_null(weightit[[x]]), logical(1L))
-    if (any(d.e.in.w)) weightit.data <- do.call("cbind", unname(weightit[c("covs", "exact", "by", "moderator")[d.e.in.w]]))
+    if (any(d.e.in.w)) weightit.data <- do.call("data.frame", unname(weightit[c("covs", "exact", "by", "moderator")[d.e.in.w]]))
     else weightit.data <- NULL
     
     imp <- A$imp
@@ -1981,16 +1994,17 @@ x2base.weightit <- function(weightit, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, weightit.data), 
+                              datalist = list(data, weightit.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    treat <- process_treat(weightit$treat, data = list(data, weightit.data))
+    treat <- process_treat(weightit$treat, datalist = list(data, weightit.data))
     
     #Process covs
     if (is_null(covs <- weightit$covs)) stop("No covariates were specified in the weightit object.", call. = FALSE)
+    covs <- get_covs_from_formula(~covs)
     
     #Get estimand
     estimand <- weightit$estimand
@@ -1999,13 +2013,12 @@ x2base.weightit <- function(weightit, ...) {
     method <- "weighting"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, weightit.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, weightit.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, weightit.data))
-    if (is_not_null(distance)) distance <- cbind(distance, prop.score = weightit$ps)
-    else if (is_not_null(weightit$ps)) distance <- data.frame(prop.score = weightit$ps)
-    else distance <- NULL
+    distance <- process_distance(A[["distance"]], datalist = list(data, weightit.data),
+                                 obj.distance = if (get.treat.type(treat) == "binary") weightit[["ps"]], 
+                                 obj.distance.name = "prop.score")
     
     #Process focal
     focal <- weightit$focal
@@ -2027,7 +2040,7 @@ x2base.weightit <- function(weightit, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- if_null_then(A$s.weights, weightit$s.weights))) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, weightit.data),
+                                    datalist = list(data, weightit.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -2037,7 +2050,7 @@ x2base.weightit <- function(weightit, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, weightit.data),
+                                  datalist = list(data, weightit.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -2057,48 +2070,50 @@ x2base.weightit <- function(weightit, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "weightit()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
+        else if ("correlations" %in% stats) {
+            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
-    }
-    else if ("correlations" %in% stats) {
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -2149,14 +2164,14 @@ x2base.designmatch <- function(dm, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data), 
+                              datalist = list(data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
     t.c <- use.tc.fd(A$formula, data, A$treat, A$covs)
-    treat <- process_treat(t.c[["treat"]], data = list(data))
+    treat <- process_treat(t.c[["treat"]], datalist = list(data))
     
     #Process covs
     covs <- t.c[["covs"]]
@@ -2168,10 +2183,10 @@ x2base.designmatch <- function(dm, ...) {
     method <- "matching"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, covs))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, covs))
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -2200,7 +2215,7 @@ x2base.designmatch <- function(dm, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data),
+                                  datalist = list(data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -2219,45 +2234,47 @@ x2base.designmatch <- function(dm, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "the matching function in designmatch")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -2313,7 +2330,7 @@ x2base.mimids <- function(mimids, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, m.data), 
+                              datalist = list(data, m.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
@@ -2322,47 +2339,7 @@ x2base.mimids <- function(mimids, ...) {
     treat <- process_treat(unlist(lapply(mimids[["models"]][-1], function(m) m[["treat"]])))
     
     #Process covs
-    covs <- do.call("rbind", lapply(levels(imp), function(i) {
-        m <- mimids[["models"]][-1][[as.numeric(i)]]
-        if (is_not_null(m$model$model)) {
-            if (nrow(m$model$model) == length(m$treat)) {
-                covs <- data.frame(m$model$model[, names(m$model$model) %in% attributes(terms(m$model))$term.labels])
-            }
-            else {
-                #Recreating covs from model object and m$X. Have to do this because when 
-                #drop != NULL and reestimate = TRUE, cases are lost. This recovers them.
-                
-                order <- setNames(attr(m$model$terms, "order"),
-                                  attr(m$model$terms, "term.labels"))
-                assign <- setNames(attr(m$X, "assign"), colnames(m$X))
-                assign1 <- assign[assign %in% which(order == 1)] #Just main effects
-                
-                dataClasses <- attr(m$model$terms, "dataClasses")
-                factors.to.unsplit <- names(dataClasses)[dataClasses %in% c("factor", "character", "logical")]
-                f0 <- setNames(lapply(factors.to.unsplit, 
-                                      function(x) {
-                                          if (dataClasses[x] == "factor")
-                                              list(levels = levels(m$model$model[[x]]),
-                                                   faclev = paste0(x, levels(m$model$model[[x]])))
-                                          else 
-                                              list(levels = unique(m$model$model[[x]]),
-                                                   faclev = paste0(x, unique(m$model$model[[x]])))
-                                      }),
-                               factors.to.unsplit)
-                covs <- as.data.frame(m$X[, names(assign1)])
-                for (j in factors.to.unsplit) {
-                    covs <- unsplitfactor(covs, j, sep = "",
-                                          dropped.level = f0[[j]]$levels[f0[[j]]$faclev %nin% colnames(m$X)])
-                    if (dataClasses[j] == "logical") covs[[j]] <- as.logical(covs[[j]])
-                }
-            }
-        }
-        else  {
-            t.c <- get.covs.and.treat.from.formula(m$formula, data = m.data[imp == i, , drop = FALSE])
-            covs <- t.c[["reported.covs"]]
-        }
-        return(covs)
-    }))
+    covs <- get_covs_from_formula(mimids[["models"]][[2]]$formula, data = m.data)
     
     #Get estimand
     estimand <- A$estimand
@@ -2371,15 +2348,15 @@ x2base.mimids <- function(mimids, ...) {
     method <- "matching"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, m.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, m.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, m.data))
     m.distance <- unlist(lapply(mimids[["models"]][-1], function(m) m[["distance"]]))
     if (all(is.na(m.distance))) m.distance <- NULL
-    else m.distance <- data.frame(distance = m.distance)
-    if (is_not_null(distance)) distance <- cbind(distance, m.distance)
-    else distance <- m.distance
+    
+    distance <- process_distance(A[["distance"]], datalist = list(data, m.data),
+                                 obj.distance = m.distance, 
+                                 obj.distance.name = "distance")
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -2408,7 +2385,7 @@ x2base.mimids <- function(mimids, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, m.data),
+                                  datalist = list(data, m.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -2428,45 +2405,47 @@ x2base.mimids <- function(mimids, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "matchthem()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -2521,7 +2500,7 @@ x2base.wimids <- function(wimids, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, w.data), 
+                              datalist = list(data, w.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
@@ -2531,6 +2510,7 @@ x2base.wimids <- function(wimids, ...) {
     
     #Process covs
     covs <- do.call("rbind", lapply(wimids[["models"]][-1], function(w) w[["covs"]]))
+    covs <- get_covs_from_formula(~covs)
     
     #Get estimand
     estimand <- unique(unlist(lapply(wimids[["models"]][-1], function(w) w[["estimand"]])))
@@ -2539,15 +2519,15 @@ x2base.wimids <- function(wimids, ...) {
     method <- "weighting"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, w.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, w.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, w.data))
     w.distance <- unlist(lapply(wimids[["models"]][-1], function(m) m[["ps"]]))
     if (all(is.na(w.distance))) w.distance <- NULL
-    else w.distance <- data.frame(distance = w.distance)
-    if (is_not_null(distance)) distance <- cbind(distance, w.distance)
-    else distance <- w.distance
+    
+    distance <- process_distance(A[["distance"]], datalist = list(data, w.data),
+                                 obj.distance = if (get.treat.type(treat) == "binary") w.distance, 
+                                 obj.distance.name = "prop.score")
     
     #Process focal
     focal <- unique(unlist(lapply(wimids[["models"]][-1], function(w) w[["focal"]])))
@@ -2569,7 +2549,7 @@ x2base.wimids <- function(wimids, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- if_null_then(A$s.weights, unlist(lapply(wimids[["models"]][-1], function(w) w[["s.weights"]]))))) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, w.data),
+                                    datalist = list(data, w.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -2579,7 +2559,7 @@ x2base.wimids <- function(wimids, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, w.data),
+                                  datalist = list(data, w.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -2599,48 +2579,50 @@ x2base.wimids <- function(wimids, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "weightthem()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
+        else if ("correlations" %in% stats) {
+            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
-    }
-    else if ("coreelations" %in% stats) {
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -2691,16 +2673,18 @@ x2base.sbwcau <- function(sbwcau, ...) {
         imp <- vector.process(imp, 
                               name = "imp", 
                               which = "imputation identifiers", 
-                              data = list(data, sbw.data), 
+                              datalist = list(data, sbw.data), 
                               missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat
-    treat <- process_treat(sbwcau[["ind"]], data = list(data, sbw.data))
+    treat <- process_treat(sbwcau[["ind"]], datalist = list(data, sbw.data))
     
     #Process covs
-    covs <- sbw.data[sbwcau[["bal"]][["bal_cov"]]]
+    # covs <- sbw.data[sbwcau[["bal"]][["bal_cov"]]]
+    f <- f.build(sbwcau[["bal"]][["bal_cov"]])
+    covs <- get_covs_from_formula(f, data = sbw.data)
     
     #Get estimand
     estimand <- sbwcau[["par"]][["par_est"]]
@@ -2709,10 +2693,10 @@ x2base.sbwcau <- function(sbwcau, ...) {
     method <- "weighting"
     
     #Process addl 
-    addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data, sbw.data))
+    addl <- process_addl(A[["addl"]], datalist = list(data, sbw.data))
     
     #Process distance
-    distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data, sbw.data))
+    distance <- process_distance(A[["distance"]], datalist = list(data, sbw.data))
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -2736,7 +2720,7 @@ x2base.sbwcau <- function(sbwcau, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- A$sampw)) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, sbw.data),
+                                    datalist = list(data, sbw.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -2746,7 +2730,7 @@ x2base.sbwcau <- function(sbwcau, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, sbw.data),
+                                  datalist = list(data, sbw.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -2765,45 +2749,47 @@ x2base.sbwcau <- function(sbwcau, ...) {
                        data.frames = c("covs", "weights", "distance", "addl"),
                        imp = imp,
                        original.call.to = "sbw()")
- 
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat, focal = focal)
     }
     
     #Missing values warning
@@ -2841,7 +2827,7 @@ x2base.iptw <- function(iptw, ...) {
         if (any(is.character(A$stop.method))) {
             rule1 <- available.stop.methods[vapply(available.stop.methods, function(x) any(startsWith(tolower(x), tolower(A$stop.method))), logical(1L))]
             if (is_null(rule1)) {
-                message(paste0("Warning: stop.method should be ", word_list(available.stop.methods, and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead."))
+                message(paste0("Warning: stop.method should be ", word_list(available.stop.methods, and.or = "or", quotes = 2), ".\nUsing all available stop methods instead."))
                 rule1 <- available.stop.methods
             }
         }
@@ -2853,7 +2839,7 @@ x2base.iptw <- function(iptw, ...) {
             rule1 <- available.stop.methods[A$stop.method %in% seq_along(available.stop.methods)]
         }
         else {
-            warning("stop.method should be ", word_list(available.stop.methods, and.or = "or", quotes = TRUE), ".\nUsing all available stop methods instead.", call. = FALSE)
+            warning("stop.method should be ", word_list(available.stop.methods, and.or = "or", quotes = 2), ".\nUsing all available stop methods instead.", call. = FALSE)
             rule1 <- available.stop.methods
         }
     }
@@ -2880,17 +2866,15 @@ x2base.iptw <- function(iptw, ...) {
     
     #Process imp
     if (is_not_null(imp)) {
-        imp <- vector.process(imp, "imp", "imputation identifiers", data = list(data), missing.okay = FALSE)
+        imp <- vector.process(imp, "imp", "imputation identifiers", datalist = list(data), missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat.list
-    treat.list <- process_treat.list(lapply(iptw$psList, function(x) x$treat), data = list(data, ps.data))
+    treat.list <- process_treat.list(lapply(iptw$psList, function(x) x$treat), datalist = list(data, ps.data))
     
     #Process covs.list
-    covs.list <- lapply(iptw$psList, function(x) x$data[x$gbm.obj$var.names])
-    all.covs <- unique(unlist(lapply(covs.list, names)))
-    covs.list <- lapply(covs.list, function(x) x[all.covs[all.covs %in% names(x)]])
+    covs.list <- lapply(iptw$psList, function(x) get_covs_from_formula(f.build(x$gbm.obj$var.names), data = x$data))
     
     #Get estimand
     estimand <- substr(toupper(s), nchar(s)-2, nchar(s))
@@ -2899,41 +2883,43 @@ x2base.iptw <- function(iptw, ...) {
     method <- rep("weighting", length(s))
     
     #Process addl.list 
-    ntimes <- iptw$nFits
-    addl.list <- list.process("addl.list", A[["addl.list"]], ntimes, 
-                              "the original call to iptw()",
-                              treat.list,
-                              covs.list,
-                              list(data, ps.data))
+    addl.list <- process_addl.list(A[["addl.list"]], datalist = list(data, ps.data),
+                                   covs.list = covs.list)
     
     #Process distance
-    distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
-                                  "the original call to iptw()",
-                                  treat.list,
-                                  covs.list,
-                                  list(data, ps.data))
-    if (is_not_null(distance.list)) {
-        for (ti in seq_along(distance.list)) {
-            if (length(s) == 1) {
-                distance.list[[ti]] <- data.frame(distance[[ti]], prop.score = iptw$psList[[ti]]$ps[[s]])
-            }
-            else {
-                distance.list[[ti]] <- data.frame(distance[[ti]], prop.score = iptw$psList[[ti]]$ps[s])
-            }
-        }
-        
-    }
-    else {
-        distance.list <- make_list(ntimes)
-        for (ti in seq_along(distance.list)) {
-            if (length(s) == 1) {
-                distance.list[[ti]] <- data.frame(prop.score = iptw$psList[[ti]]$ps[[s]])
-            }
-            else {
-                distance.list[[ti]] <- data.frame(prop.score = iptw$psList[[ti]]$ps[s])
-            }
-        }
-    }
+    # ntimes <- iptw$nFits
+    # distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
+    #                               "the original call to iptw()",
+    #                               treat.list,
+    #                               covs.list,
+    #                               list(data, ps.data))
+    # if (is_not_null(distance.list)) {
+    #     for (ti in seq_along(distance.list)) {
+    #         if (length(s) == 1) {
+    #             distance.list[[ti]] <- data.frame(distance[[ti]], prop.score = iptw$psList[[ti]]$ps[[s]])
+    #         }
+    #         else {
+    #             distance.list[[ti]] <- data.frame(distance[[ti]], prop.score = iptw$psList[[ti]]$ps[s])
+    #         }
+    #     }
+    #     
+    # }
+    # else {
+    #     distance.list <- make_list(ntimes)
+    #     for (ti in seq_along(distance.list)) {
+    #         if (length(s) == 1) {
+    #             distance.list[[ti]] <- data.frame(prop.score = iptw$psList[[ti]]$ps[[s]])
+    #         }
+    #         else {
+    #             distance.list[[ti]] <- data.frame(prop.score = iptw$psList[[ti]]$ps[s])
+    #         }
+    #     }
+    # }
+    # if (is_not_null(distance.list)) distance.list <- lapply(distance.list, function(x) get_covs_from_formula(~x))
+    # 
+    distance.list <- process_distance.list(A[["distance.list"]], datalist = list(data, ps.data),
+                                           covs.list = covs.list, obj.distance = lapply(iptw$psList, function(x) x[["ps"]][,s,drop = FALSE]),
+                                           obj.distance.name = if (length(s) > 1) paste.("prop.score", substr(s, 1, nchar(s) - 4)) else "prop.score")
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -2958,7 +2944,7 @@ x2base.iptw <- function(iptw, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- if_null_then(A$s.weights, iptw$psList[[1]]$sampw))) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, ps.data),
+                                    datalist = list(data, ps.data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -2968,7 +2954,7 @@ x2base.iptw <- function(iptw, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, ps.data),
+                                  datalist = list(data, ps.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -2988,45 +2974,47 @@ x2base.iptw <- function(iptw, ...) {
                        lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
                        imp = imp,
                        original.call.to = "iptw()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat.list)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat.list)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat.list)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
-        }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
     }
     
     #Missing values warning
@@ -3071,12 +3059,12 @@ x2base.data.frame.list <- function(covs.list, ...) {
     
     #Process imp
     if (is_not_null(imp)) {
-        imp <- vector.process(imp, "imp", "imputation identifiers", data = list(data), missing.okay = FALSE)
+        imp <- vector.process(imp, "imp", "imputation identifiers", datalist = list(data), missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat.list
-    treat.list <- process_treat.list(A$treat.list, list(data))
+    treat.list <- process_treat.list(A$treat.list, datalist = list(data))
     
     #Process covs.list
     if (is_null(covs.list)) {
@@ -3085,11 +3073,12 @@ x2base.data.frame.list <- function(covs.list, ...) {
     if (!is_(covs.list, "list")) {
         stop("covs.list must be a list of covariates for which balance is to be assessed at each time point.", call. = FALSE)
     }
-    if (any(!vapply(covs.list, is.data.frame, logical(1L)))) {
+    if (any(!vapply(covs.list, is_, logical(1L), c("data.frame", "matrix")))) {
         stop("Each item in covs.list must be a data frame.", call. = FALSE)
     }
-    all.covs <- unique(unlist(lapply(covs.list, names)))
-    covs.list <- lapply(covs.list, function(x) x[all.covs[all.covs %in% names(x)]])
+    if (any(vapply(covs.list, function(x) is_null(attr(x, "co.names")), logical(1L)))) {
+        covs.list <- lapply(covs.list, function(x) get_covs_from_formula(~x))
+    }
     
     if (length(treat.list) != length(covs.list)) {
         stop("treat.list must be a list of treatment statuses at each time point.", call. = FALSE)
@@ -3156,43 +3145,38 @@ x2base.data.frame.list <- function(covs.list, ...) {
     }
     
     #Process addl.list 
-    ntimes <- length(covs.list)
-    addl.list <- list.process("addl.list", A[["addl.list"]], ntimes, 
-                              "covs.list",
-                              treat.list,
-                              covs.list,
-                              list(data))
+    addl.list <- process_addl.list(A[["addl.list"]], datalist = list(data),
+                                   covs.list = covs.list)
     
     #Process distance
-    distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
-                                  "covs.list",
-                                  treat.list,
-                                  covs.list,
-                                  list(data))
+    distance.list <- process_distance.list(A[["distance.list"]], datalist = list(data),
+                                           covs.list = covs.list)
     
     #Process focal
-    if (is_not_null(focal <- A$focal)) {
+    if (is_not_null(focal <- A[["focal"]])) {
         stop("focal is not allowed with longitudinal treatments.", call. = FALSE)
     }
     
     #Process subclass
-    if (is_not_null(subclass <- A$subclass)) {
+    if (is_not_null(subclass <- A[["subclass"]])) {
         stop("subclasses are not allowed with longitudinal treatments.", call. = FALSE)
     }
     
     #Process match.strata
-    if (is_not_null(match.strata <- A$match.strata)) {
+    if (is_not_null(match.strata <- A[["match.strata"]])) {
         stop("match.strata are not allowed with longitudinal treatments.", call. = FALSE)
     }
     
     #Process weights
-    weights <- process_weights(NULL, A, treat.list[[1]], covs.list[[1]], method, addl.data = list(data))
-    method <- attr(weights, "method")
+    if (is_not_null(weights <- A[["weights"]])) {
+        weights <- process_weights(NULL, A, treat.list[[1]], covs.list[[1]], method, addl.data = list(data))
+        method <- attr(weights, "method")
+    }
     
     #Process s.weights
-    if (is_not_null(s.weights <- A$s.weights)) {
+    if (is_not_null(s.weights <- A[["s.weights"]])) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data),
+                                    datalist = list(data),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -3200,9 +3184,9 @@ x2base.data.frame.list <- function(covs.list, ...) {
     }
     
     #Process cluster
-    if (is_not_null(cluster <- A$cluster)) {
+    if (is_not_null(cluster <- A[["cluster"]])) {
         cluster <- vector.process(cluster, 
-                                  data = list(data),
+                                  datalist = list(data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -3210,7 +3194,7 @@ x2base.data.frame.list <- function(covs.list, ...) {
     }
     
     #Process subset
-    if (is_not_null(subset <- A$subset)) {
+    if (is_not_null(subset <- A[["subset"]])) {
         subset <- process_subset(subset, min(lengths(treat.list)))
     }
     
@@ -3221,48 +3205,50 @@ x2base.data.frame.list <- function(covs.list, ...) {
                        data.frames = c("weights"),
                        lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
                        imp = imp)
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat.list)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat.list)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat.list)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
+        else if ("correlations" %in% stats){
+            s.d.denom <- get.s.d.denom.cont(A[["s.d.denom"]], weights = weights, subclass = subclass)
         }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
-    }
-    else if ("correlations" %in% stats){
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -3295,10 +3281,9 @@ x2base.formula.list <- function(formula.list, ...) {
     
     treat.list <- covs.list <- make_list(length(formula.list))
     for (i in seq_along(formula.list)) {
-        t.c <- get.covs.and.treat.from.formula(formula.list[[i]], A[["data"]])
-        covs.list[[i]] <- t.c[["reported.covs"]]
-        treat.list[[i]] <- t.c[["treat"]]
-        names(treat.list)[i] <- t.c[["treat.name"]]
+        treat.list[[i]] <- get_treat_from_formula(formula.list[[i]], A[["data"]])
+        covs.list[[i]] <- get_covs_from_formula(formula.list[[i]], A[["data"]])
+        names(treat.list)[i] <- attr(treat.list[[i]], "treat.name")
     }
     
     X <- do.call("x2base.data.frame.list", c(list(covs.list, treat.list = treat.list), A))
@@ -3310,9 +3295,10 @@ x2base.CBMSM <- function(cbmsm, ...) {
     #Process CBMSM
     ID <- sort(unique(cbmsm$id))
     times <- sort(unique(cbmsm$time))
+    cbmsm$data <- cbmsm$data[order(cbmsm$id, cbmsm$time),,drop = FALSE]
     
     #Process data and get imp
-    cbmsm.data <- cbmsm$data[cbmsm$time == 1, , drop = FALSE][ID, , drop = FALSE]
+    cbmsm.data <- cbmsm$data[cbmsm$time == 1, , drop = FALSE]
     imp <- A$imp
     if (is_not_null(data <- A$data)) {
         if (is_(data, "mids")) {
@@ -3328,30 +3314,32 @@ x2base.CBMSM <- function(cbmsm, ...) {
     
     #Process imp
     if (is_not_null(imp)) {
-        imp <- vector.process(imp, "imp", "imputation identifiers", data = list(data), missing.okay = FALSE)
+        imp <- vector.process(imp, "imp", "imputation identifiers", datalist = list(data), missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat.list
     treat.list <- process_treat.list(lapply(times, function(x) cbmsm$treat.hist[ID, x]), 
-                                     data = list(data, cbmsm.data))
+                                     datalist = list(data, cbmsm.data))
     
     #Process covs.list
-    covs <- cbmsm$data[names(cbmsm$data) %in% attributes(terms(cbmsm$model))$term.labels]
-    covs.list <- lapply(times, function(ti) {
-        if (ti == 1) {
-            out <- setNames(data.frame(covs[cbmsm$time == ti, , drop = FALSE][ID, , drop = FALSE]),
-                            paste0(names(covs), "0"))
+    covs.list <- make_list(times)
+    for (i in seq_along(times)) {
+        ti <- times[i]
+        cov_i <- get_covs_from_formula(cbmsm$formula, data = cbmsm$data[cbmsm$time == ti, , drop = FALSE])
+        for (co in seq_along(attr(cov_i, "co.names"))) {
+            attr(cov_i, "co.names")[[co]][["component"]][attr(cov_i, "co.names")[[co]][["type"]] == "base"] <-
+                paste0(attr(cov_i, "co.names")[[co]][["component"]][attr(cov_i, "co.names")[[co]][["type"]] == "base"], "_T", ti)
+        }
+        names(attr(cov_i, "co.names")) <- vapply(attr(cov_i, "co.names"), function(x) paste0(x[["component"]], collapse = ""), character(1L))
+        colnames(cov_i) <- names(attr(cov_i, "co.names"))
+        if (i == 1) {
+            covs.list[[i]] <- cov_i
         }
         else {
-            out <- cbind(covs.list[[ti - 1]], 
-                         setNames(data.frame(cbmsm$y[cbmsm$time == ti - 1][ID], 
-                                             covs[cbmsm$time == ti, , drop = FALSE][ID, , drop = FALSE]),
-                                  c(paste0("treat", ti - 1), paste0(names(covs), ti))))
+            covs.list[[i]] <- co.bind(covs.list[[i-1]], cov_i)
         }
-    })
-    all.covs <- unique(unlist(lapply(covs.list, names)))
-    covs.list <- lapply(covs.list, function(x) x[all.covs[all.covs %in% names(x)]])
+    }
     
     #Get estimand
     estimand <- NULL
@@ -3360,22 +3348,13 @@ x2base.CBMSM <- function(cbmsm, ...) {
     method <- "weighting"
     
     #Process addl.list 
-    ntimes <- length(times)
-    addl.list <- list.process("addl.list", A[["addl.list"]], ntimes, 
-                              "the original call to CBMSM()",
-                              treat.list,
-                              covs.list,
-                              list(data, cbmsm.data))
+    addl.list <- process_addl.list(A[["addl.list"]], datalist = list(data, cbmsm.data),
+                                   covs.list = covs.list)
     
     #Process distance
-    distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
-                                  "the original call to CBMSM()",
-                                  treat.list,
-                                  covs.list,
-                                  list(data, cbmsm.data))
-    if (is_not_null(distance.list)) distance.list <- lapply(times, function(x) data.frame(distance.list[[x]], prop.score = cbmsm$fitted.values))
-    else if (is_not_null(cbmsm$fitted.values)) distance.list <- lapply(times, function(x) data.frame(prop.score = cbmsm$fitted.values))
-    else distance.list <- NULL
+    distance.list <- process_distance.list(A[["distance.list"]], datalist = list(data, cbmsm.data),
+                                           covs.list = covs.list, obj.distance = cbmsm$fitted.values,
+                                           obj.distance.name = "prop.score")
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -3404,7 +3383,7 @@ x2base.CBMSM <- function(cbmsm, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, cbmsm.data),
+                                  datalist = list(data, cbmsm.data),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -3424,48 +3403,50 @@ x2base.CBMSM <- function(cbmsm, ...) {
                        lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
                        imp = imp,
                        original.call.to = "CBMSM()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat.list)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat.list)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat.list)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
+        else if ("correlations" %in% stats) {
+            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
-    }
-    else if ("correlations" %in% stats) {
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -3496,8 +3477,8 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     
     #Process data and get imp
     weightitMSM.data <- weightitMSM$data
-    d.e.in.w <- vapply(c("covs.list", "exact", "by", "moderator"), function(x) is_not_null(weightitMSM[[x]]), logical(1L))
-    if (any(d.e.in.w)) weightitMSM.data2 <- do.call("cbind", c(do.call(cbind, weightitMSM$covs.list), weightitMSM[c("exact", "by", "moderator")])[d.e.in.w])
+    d.e.in.w <- vapply(c("exact", "by", "moderator"), function(x) is_not_null(weightitMSM[[x]]), logical(1L))
+    if (any(d.e.in.w)) weightitMSM.data2 <- do.call("data.frame", unname(weightitMSM[c("exact", "by", "moderator")[d.e.in.w]]))
     else weightitMSM.data2 <- NULL
     
     imp <- A$imp
@@ -3515,17 +3496,15 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     
     #Process imp
     if (is_not_null(imp)) {
-        imp <- vector.process(imp, "imp", "imputation identifiers", data = list(data), missing.okay = FALSE)
+        imp <- vector.process(imp, "imp", "imputation identifiers", datalist = list(data), missing.okay = FALSE)
         imp <- factor(imp)
     }
     
     #Process treat.list
     treat.list <- process_treat.list(weightitMSM$treat.list,
-                                     data = list(data, weightitMSM.data, weightitMSM.data2))    
+                                     datalist = list(data, weightitMSM.data, weightitMSM.data2))    
     #Process covs.list
-    covs.list <- weightitMSM$covs.list
-    all.covs <- unique(unlist(lapply(covs.list, names)))
-    covs.list <- lapply(covs.list, function(x) x[all.covs[all.covs %in% names(x)]])
+    covs.list <- lapply(weightitMSM$covs.list, function(x) get_covs_from_formula(~x))
     
     #Get estimand
     estimand <- weightitMSM$estimand
@@ -3534,25 +3513,26 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     method <- "weighting"
     
     #Process addl.list 
-    ntimes <- length(covs.list)
-    addl.list <- list.process("addl.list", A[["addl.list"]], ntimes, 
-                              "the original call to weightitMSM()",
-                              treat.list,
-                              covs.list,
-                              list(data,  weightitMSM.data,
-                                   weightitMSM.data2))
+    addl.list <- process_addl.list(A[["addl.list"]], 
+                                   datalist = list(data, weightitMSM.data,
+                                                   weightitMSM.data2),
+                                   covs.list = covs.list)
     
     #Process distance
-    distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
-                                  "the original call to weightitMSM()",
-                                  treat.list,
-                                  covs.list,
-                                  list(data, weightitMSM.data,
-                                       weightitMSM.data2))
-    
-    if (is_not_null(distance.list)) distance.list <- lapply(seq_along(distance.list), function(x) data.frame(distance.list[[x]], prop.score = weightitMSM$ps.list[[x]]))
-    else if (is_not_null(weightitMSM$ps.list)) distance.list <- lapply(seq_along(weightitMSM$ps.list), function(x) data.frame(prop.score = weightitMSM$ps.list[[x]]))
-    else distance.list <- NULL
+    # ntimes <- length(covs.list)
+    # distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
+    #                               "the original call to weightitMSM()",
+    #                               treat.list,
+    #                               covs.list,
+    #                               list(data, weightitMSM.data,
+    #                                    weightitMSM.data2))
+    # if (is_not_null(distance.list)) distance.list <- lapply(seq_along(distance.list), function(x) data.frame(distance.list[[x]], prop.score = weightitMSM$ps.list[[x]]))
+    # else if (is_not_null(weightitMSM$ps.list)) distance.list <- lapply(seq_along(weightitMSM$ps.list), function(x) data.frame(prop.score = weightitMSM$ps.list[[x]]))
+    # else distance.list <- NULL
+    # if (is_not_null(distance.list)) distance.list <- lapply(distance.list, function(x) get_covs_from_formula(~x))
+    distance.list <- process_distance.list(A[["distance.list"]], datalist = list(data, weightitMSM.data, weightitMSM.data2),
+                                           covs.list = covs.list, obj.distance = weightitMSM$ps.list,
+                                           obj.distance.name = "prop.score")
     
     #Process focal
     if (is_not_null(focal <- A$focal)) {
@@ -3577,7 +3557,7 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     #Process s.weights
     if (is_not_null(s.weights <- if_null_then(A$s.weights, weightitMSM$s.weights))) {
         s.weights <- vector.process(s.weights, 
-                                    data = list(data, weightitMSM.data, weightitMSM.data2),
+                                    datalist = list(data, weightitMSM.data, weightitMSM.data2),
                                     name = "s.weights", 
                                     which = "sampling weights",
                                     missing.okay = FALSE)
@@ -3587,7 +3567,7 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     #Process cluster
     if (is_not_null(cluster <- A$cluster)) {
         cluster <- vector.process(cluster, 
-                                  data = list(data, weightitMSM.data, weightitMSM.data2),
+                                  datalist = list(data, weightitMSM.data, weightitMSM.data2),
                                   name = "cluster", 
                                   which = "cluster membership",
                                   missing.okay = FALSE)
@@ -3604,51 +3584,53 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     #Process length
     length_imp_process(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
                        data.frames = c("weights"),
-                       lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
+                       lists = c("treat.list", "covs.list", "addl.list", "distance.list"),
                        imp = imp,
                        original.call.to = "weightitMSM()")
-
+    
     #Process stats and thresholds
-    stats <- process_stats(A[["stats"]], treat = treat.list)
-    
-    if (is_not_null(thresholds <- A[["thresholds"]])) {
-        thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-        if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    else thresholds <- list()
-    
-    for (s in all_STATS()) {
-        #If disp.stat is TRUE, add stat to stats
-        if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- unique(c(stats, s))
+    if (!check_if_call_from_fun(bal.plot)) {
+        stats <- process_stats(A[["stats"]], treat = treat.list)
+        
+        if (is_not_null(thresholds <- A[["thresholds"]])) {
+            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
         }
-        else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
-            stats <- setdiff(stats, s)
+        else thresholds <- list()
+        
+        for (s in all_STATS()) {
+            #If disp.stat is TRUE, add stat to stats
+            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- unique(c(stats, s))
+            }
+            else if (isFALSE(A[[STATS[[s]]$disp_stat]])) {
+                stats <- setdiff(stats, s)
+            }
+            
+            #Process and check thresholds
+            if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            }
+            if (is_not_null(thresholds[[s]])) {
+                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                    thresholds[[s]] <- NULL
+                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                }
+                else stats <- unique(c(stats, s))
+            }
         }
         
-        #Process and check thresholds
-        if (is_not_null(A[[STATS[[s]]$threshold]])) {
-            thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+        stats <- process_stats(stats, treat = treat.list)
+        
+        #Get s.d.denom
+        if ("mean.diffs" %in% stats) {
+            s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
         }
-        if (is_not_null(thresholds[[s]])) {
-            thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-            if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                thresholds[[s]] <- NULL
-                warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                               "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-            }
-            else stats <- unique(c(stats, s))
+        else if ("correlations" %in% stats) {
+            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    if ("mean.diffs" %in% stats) {
-        s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
-    }
-    else if ("correlations" %in% stats) {
-        s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
     }
     
     #Missing values warning
@@ -3676,6 +3658,10 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
 x2base.default <- function(obj, ...) {
     
     A <- list(...)
+    
+    if (is_not_null(A) && (is_null(names(A)) || "" %in% names(A))) {
+        stop("All arguments to '...' must be named.", call. = FALSE)
+    }
     
     if (!is.list(obj)) stop("The input object must be an appropriate list, data.frame, formula, or the output of one of the supported packages.", call. = FALSE)
     
@@ -3716,7 +3702,7 @@ x2base.default <- function(obj, ...) {
     names(obj) <- tolower(names(obj))
     
     for (i in names(Q)) {
-        if (is_null(A[[i]])) {
+        if (i %nin% names(A)) {
             for (j in Q[[i]][["name"]]) {
                 if (is_null(P[[i]])) {
                     if (is_not_null(obj[[j]])) {
@@ -3733,7 +3719,6 @@ x2base.default <- function(obj, ...) {
                 A[[i]] <- P[[i]]
             }
         }
-        assign(i, A[[i]])
     }
     
     msm <- FALSE
@@ -3843,8 +3828,8 @@ x2base.default <- function(obj, ...) {
     if (!msm) {
         
         #Process data and get imp
-        imp <- A$imp
-        if (is_not_null(data <- A$data)) {
+        imp <- A[["imp"]]
+        if (is_not_null(data <- A[["data"]])) {
             if (is_(data, "mids")) {
                 data <- imp.complete(data)
                 if (is_null(imp)) imp <- data[[".imp"]]
@@ -3861,21 +3846,20 @@ x2base.default <- function(obj, ...) {
             imp <- vector.process(imp, 
                                   name = "imp", 
                                   which = "imputation identifiers", 
-                                  data = list(data), 
+                                  datalist = list(data), 
                                   missing.okay = FALSE)
             imp <- factor(imp)
         }
         
         #Process treat
         t.c <- use.tc.fd(A$formula, data, A$treat, A$covs)
-        treat <- process_treat(t.c[["treat"]], data = list(data))
+        treat <- process_treat(t.c[["treat"]], datalist = list(data))
         
         #Process covs
         covs <- t.c[["covs"]]
         if (is_null(covs)) {
-            stop("covs data.frame must be specified.", call. = FALSE)
+            stop("covariates must be specified using 'covs' or 'formula'.", call. = FALSE)
         }
-        is_(covs, "data.frame", stop = TRUE)
         
         #Get estimand
         estimand <- A$estimand
@@ -4004,15 +3988,15 @@ x2base.default <- function(obj, ...) {
         }
         
         #Process addl 
-        addl <- data.frame.process("addl", A[["addl"]], treat, covs, list(data))
+        addl <- process_addl(A[["addl"]], datalist = list(data, covs))
         
         #Process distance
-        distance <- data.frame.process("distance", A[["distance"]], treat, covs, list(data))
+        distance <- process_distance(A[["distance"]], datalist = list(data, covs))
         
         #Process subclass
         if (is_not_null(subclass <- A$subclass)) {
             subclass <- vector.process(subclass, 
-                                       data = list(data),
+                                       datalist = list(data),
                                        name = "subclass", 
                                        which = "subclass membership",
                                        missing.okay = TRUE)
@@ -4020,9 +4004,9 @@ x2base.default <- function(obj, ...) {
         }
         
         #Process match.strata
-        if (is_not_null(match.strata <- A$match.strata)) {
+        else if (is_not_null(match.strata <- A$match.strata)) {
             match.strata <- vector.process(match.strata, 
-                                           data = list(data),
+                                           datalist = list(data),
                                            name = "match.strata", 
                                            which = "matching strata membership",
                                            missing.okay = TRUE)
@@ -4031,13 +4015,18 @@ x2base.default <- function(obj, ...) {
         }
         
         #Process weights
-        weights <- process_weights(NULL, A, treat, covs, method, addl.data = list(data))
-        method <- attr(weights, "method")
-
+        else if (is_not_null(A[["weights"]])) {
+            weights <- process_weights(NULL, A, treat, covs, method, addl.data = list(data))
+            method <- attr(weights, "method")
+        }
+        else {
+            weights <- NULL
+        }
+        
         #Process s.weights
         if (is_not_null(s.weights <- A$s.weights)) {
             s.weights <- vector.process(s.weights, 
-                                        data = list(data),
+                                        datalist = list(data),
                                         name = "s.weights", 
                                         which = "sampling weights",
                                         missing.okay = FALSE)
@@ -4047,7 +4036,7 @@ x2base.default <- function(obj, ...) {
         #Process cluster
         if (is_not_null(cluster <- A$cluster)) {
             cluster <- vector.process(cluster, 
-                                      data = list(data),
+                                      datalist = list(data),
                                       name = "cluster", 
                                       which = "cluster membership",
                                       missing.okay = FALSE)
@@ -4073,45 +4062,47 @@ x2base.default <- function(obj, ...) {
         }
         
         #Process stats and thresholds
-        stats <- process_stats(A[["stats"]], treat = treat)
-        
-        if (is_not_null(thresholds <- A[["thresholds"]])) {
-            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-        }
-        else thresholds <- list()
-        
-        for (s in all_STATS()) {
-            #If disp.stat is TRUE, add stat to stats
-            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-                stats <- unique(c(stats, s))
+        if (!check_if_call_from_fun(bal.plot)) {
+            stats <- process_stats(A[["stats"]], treat = treat)
+            
+            if (is_not_null(thresholds <- A[["thresholds"]])) {
+                thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+                if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
+            }
+            else thresholds <- list()
+            
+            for (s in all_STATS()) {
+                #If disp.stat is TRUE, add stat to stats
+                if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                    stats <- unique(c(stats, s))
+                }
+                
+                #Process and check thresholds
+                if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                    thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+                }
+                if (is_not_null(thresholds[[s]])) {
+                    thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                    if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                        thresholds[[s]] <- NULL
+                        warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                       "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                    }
+                    else stats <- unique(c(stats, s))
+                }
             }
             
-            #Process and check thresholds
-            if (is_not_null(A[[STATS[[s]]$threshold]])) {
-                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            stats <- process_stats(stats, treat = treat)
+            
+            #Get s.d.denom
+            if ("mean.diffs" %in% stats) {
+                s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, 
+                                           weights = weights, subclass = subclass, 
+                                           treat = treat, focal = focal)
             }
-            if (is_not_null(thresholds[[s]])) {
-                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                    thresholds[[s]] <- NULL
-                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-                }
-                else stats <- unique(c(stats, s))
+            else if ("correlations" %in% stats) {
+                s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
             }
-        }
-        
-        stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-        if ("mean.diffs" %in% stats) {
-            s.d.denom <- get.s.d.denom(A$s.d.denom, estimand = estimand, 
-                                       weights = weights, subclass = subclass, 
-                                       treat = treat, focal = focal)
-        }
-        else if ("correlations" %in% stats) {
-            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
         
         #Missing values warning
@@ -4159,7 +4150,7 @@ x2base.default <- function(obj, ...) {
         
         #Process imp
         if (is_not_null(imp)) {
-            imp <- vector.process(imp, "imp", "imputation identifiers", data = list(data), missing.okay = FALSE)
+            imp <- vector.process(imp, "imp", "imputation identifiers", datalist = list(data), missing.okay = FALSE)
             imp <- factor(imp)
         }
         
@@ -4171,7 +4162,7 @@ x2base.default <- function(obj, ...) {
             A$covs.list[[i]]  <- t.c[["covs"]]
             if (is_not_null(t.c[["treat.name"]])) names(A$treat.list)[i] <- t.c[["treat.name"]]
         }
-        treat.list <- process_treat.list(A$treat.list, list(data))
+        treat.list <- process_treat.list(A$treat.list, datalist = list(data))
         
         #Process covs.list
         if (is_null(covs.list <- A$covs.list)) {
@@ -4183,9 +4174,6 @@ x2base.default <- function(obj, ...) {
         if (any(!vapply(covs.list, is.data.frame, logical(1L)))) {
             stop("Each item in covs.list must be a data frame.", call. = FALSE)
         }
-        all.covs <- unique(unlist(lapply(covs.list, names)))
-        covs.list <- lapply(covs.list, function(x) x[all.covs[all.covs %in% names(x)]])
-        
         if (length(treat.list) != length(covs.list)) {
             stop("treat.list must be a list of treatment statuses at each time point.", call. = FALSE)
         }
@@ -4251,20 +4239,20 @@ x2base.default <- function(obj, ...) {
         }
         
         #Process addl.list 
-        ntimes <- length(covs.list)
-        addl.list <- list.process("addl.list", A[["addl.list"]], ntimes, 
-                                  "covs.list",
-                                  treat.list,
-                                  covs.list,
-                                  list(data))
+        addl.list <- process_addl.list(A[["addl.list"]], 
+                                       datalist = list(data),
+                                       covs.list = covs.list)
         
         #Process distance
-        distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
-                                      "covs.list",
-                                      treat.list,
-                                      covs.list,
-                                      list(data))
-        
+        # ntimes <- length(covs.list)
+        # distance.list <- list.process("distance.list", A[["distance.list"]], ntimes, 
+        #                               "covs.list",
+        #                               treat.list,
+        #                               covs.list,
+        #                               list(data))
+        # if (is_not_null(distance.list)) distance.list <- lapply(distance.list, function(x) get_covs_from_formula(~x))
+        distance.list <- process_distance.list(A[["distance.list"]], datalist = list(data),
+                                               covs.list = covs.list)
         #Process focal
         if (is_not_null(focal <- A$focal)) {
             stop("focal is not allowed with longitudinal treatments.", call. = FALSE)
@@ -4283,11 +4271,11 @@ x2base.default <- function(obj, ...) {
         #Process weights
         weights <- process_weights(NULL, A, treat.list[[1]], covs.list[[1]], method, addl.data = list(data))
         method <- attr(weights, "method")
-
+        
         #Process s.weights
         if (is_not_null(s.weights <- A$s.weights)) {
             s.weights <- vector.process(s.weights, 
-                                        data = list(data),
+                                        datalist = list(data),
                                         name = "s.weights", 
                                         which = "sampling weights",
                                         missing.okay = FALSE)
@@ -4296,7 +4284,7 @@ x2base.default <- function(obj, ...) {
         #Process cluster
         if (is_not_null(cluster <- A$cluster)) {
             cluster <- vector.process(cluster, 
-                                      data = list(data),
+                                      datalist = list(data),
                                       name = "cluster", 
                                       which = "cluster membership",
                                       missing.okay = FALSE)
@@ -4315,45 +4303,47 @@ x2base.default <- function(obj, ...) {
                            data.frames = c("weights"),
                            lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
                            imp = imp)
-
+        
         #Process stats and thresholds
-        stats <- process_stats(A[["stats"]], treat = treat.list)
-        
-        if (is_not_null(thresholds <- A[["thresholds"]])) {
-            thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
-            if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
-        }
-        else thresholds <- list()
-        
-        for (s in all_STATS()) {
-            #If disp.stat is TRUE, add stat to stats
-            if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
-                stats <- unique(c(stats, s))
+        if (!check_if_call_from_fun(bal.plot)) {
+            stats <- process_stats(A[["stats"]], treat = treat.list)
+            
+            if (is_not_null(thresholds <- A[["thresholds"]])) {
+                thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(), stats)))
+                if (any(names(thresholds) %nin% stats)) stats <- unique(c(stats, names(thresholds)))
+            }
+            else thresholds <- list()
+            
+            for (s in all_STATS()) {
+                #If disp.stat is TRUE, add stat to stats
+                if (isTRUE(A[[STATS[[s]]$disp_stat]])) {
+                    stats <- unique(c(stats, s))
+                }
+                
+                #Process and check thresholds
+                if (is_not_null(A[[STATS[[s]]$threshold]])) {
+                    thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+                }
+                if (is_not_null(thresholds[[s]])) {
+                    thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
+                    if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
+                        thresholds[[s]] <- NULL
+                        warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
+                                       "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
+                    }
+                    else stats <- unique(c(stats, s))
+                }
             }
             
-            #Process and check thresholds
-            if (is_not_null(A[[STATS[[s]]$threshold]])) {
-                thresholds[[s]] <- A[[STATS[[s]]$threshold]]
+            stats <- process_stats(stats, treat = treat.list)
+            
+            #Get s.d.denom
+            if ("mean.diffs" %in% stats) {
+                s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
             }
-            if (is_not_null(thresholds[[s]])) {
-                thresholds[[s]] <- STATS[[s]]$abs(thresholds[[s]])
-                if (!between(thresholds[[s]], STATS[[s]]$threshold_range)) {
-                    thresholds[[s]] <- NULL
-                    warning(paste0(STATS[[s]]$threshold, " must be between ", word_list(STATS[[s]]$threshold_range),
-                                   "; ignoring ", STATS[[s]]$threshold, "."), call. = FALSE)
-                }
-                else stats <- unique(c(stats, s))
+            else if ("correlations" %in% stats) {
+                s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
             }
-        }
-        
-        stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-        if ("mean.diffs" %in% stats) {
-            s.d.denom <- get.s.d.denom("pooled", estimand = estimand, weights = weights, treat = treat.list[[1]], focal = focal)
-        }
-        else if ("correlations" %in% stats) {
-            s.d.denom <- get.s.d.denom.cont(A$s.d.denom, weights = weights, subclass = subclass)
         }
         
         #Missing values warning

@@ -4,6 +4,8 @@ base.bal.tab <- function(X, ...) {
 base.bal.tab.base <- function(X, type, int = FALSE, poly = 1, continuous, binary, imbalanced.only = getOption("cobalt_imbalanced.only", FALSE), un = getOption("cobalt_un", FALSE), disp = NULL, disp.bal.tab = getOption("cobalt_disp.bal.tab", TRUE), abs = FALSE, quick = TRUE, ...) {
     #Preparations
 
+    A <- clear_null(list(...))
+    
     X$treat <- process_treat(X$treat) 
     
     if (type == "bin") {
@@ -31,7 +33,7 @@ base.bal.tab.base <- function(X, type, int = FALSE, poly = 1, continuous, binary
         X$s.weights <- rep(1, length(X$treat))
     }
     
-    disp <- process_disp(disp, ...)
+    disp <- do.call("process_disp", c(list(disp), A), quote = TRUE)
     
     #Actions
     out.names <- c("Balance", 
@@ -41,17 +43,18 @@ base.bal.tab.base <- function(X, type, int = FALSE, poly = 1, continuous, binary
                    "Observations", "call")
     out <- make_list(out.names)
     
-    C <- get.C(covs = X$covs, addl = X$addl, distance = X$distance, int = int, poly = poly, ...)
+    C <- do.call("get.C2", c(X, A[names(A) %nin% names(X)]), quote = TRUE)
+    
     co.names <- attr(C, "co.names")
     
-    out[["Balance"]] <- balance.table(C, type = type, weights = X$weights, treat = X$treat, 
+    out[["Balance"]] <- do.call("balance.table", c(list(C, type = type, weights = X$weights, treat = X$treat, 
                                       s.d.denom = X$s.d.denom, s.weights = X$s.weights, 
                                       continuous = continuous, binary = binary, 
                                       thresholds = X$thresholds,
                                       un = un, disp = disp, 
                                       stats = X$stats, abs = abs, 
                                       no.adj = no.adj, quick = quick, 
-                                      s.d.denom.list = X$s.d.denom.list, ...)
+                                      s.d.denom.list = X$s.d.denom.list), A), quote = TRUE)
     
     #Reassign disp... and ...threshold based on balance table output
     compute <- attr(out[["Balance"]], "compute")
@@ -125,7 +128,7 @@ base.bal.tab.cont <- function(X, ...) {
 }
 
 base.bal.tab.imp <- function(X, which.imp = NA, imp.summary = getOption("cobalt_imp.summary", TRUE), imp.fun = getOption("cobalt_imp.fun", NULL), ...) {
-    A <- clear_null(list(...))
+    A <- list(...)
     
     X$treat <- process_treat(X$treat)
     
@@ -135,7 +138,7 @@ base.bal.tab.imp <- function(X, which.imp = NA, imp.summary = getOption("cobalt_
     
     imp <- factor(X$imp)
     
-    if (is_not_null(A[["agg.fun"]])) imp.fun <- A[["agg.fun"]]
+    imp.fun <- if_null_then(imp.fun, A[["agg.fun"]])
     
     #Setup output object
     out.names <- c("Imputation.Balance", 
@@ -149,7 +152,7 @@ base.bal.tab.imp <- function(X, which.imp = NA, imp.summary = getOption("cobalt_
     out[["Imputation.Balance"]] <- lapply(levels(imp), function(i) {
         X_i <- assign.X.class(subset_X(X, imp == i)) 
         X_i$call <- NULL
-        do.call(base.bal.tab, c(list(X_i), A[names(A) %nin% names(X_i)]), quote = TRUE)
+        do.call("base.bal.tab", c(list(X_i), A[names(A) %nin% names(X_i)]), quote = TRUE)
     })
     
     names(out[["Imputation.Balance"]]) <- levels(imp)
@@ -175,7 +178,7 @@ base.bal.tab.imp <- function(X, which.imp = NA, imp.summary = getOption("cobalt_
     return(out)
 }
 base.bal.tab.multi <- function(X, pairwise = TRUE, which.treat, multi.summary = getOption("cobalt_multi.summary", TRUE), ...) {
-    A <- clear_null(list(...))
+    A <- list(...)
     
     X$treat <- process_treat(X$treat)
     
@@ -213,9 +216,9 @@ base.bal.tab.multi <- function(X, pairwise = TRUE, which.treat, multi.summary = 
                    "call")
     out <- make_list(out.names)
     
-    C <- do.call(get.C, c(X, A), quote = TRUE)
-    bin.vars <- is_binary_col(C)
     if ("mean.diffs" %in% X$stats) {
+        C <- do.call("get.C2", c(X, A[names(A) %nin% names(X)]), quote = TRUE)
+        bin.vars <- is_binary_col(C)
         if (is_null(X$weights)) {
             X$s.d.denom.list <- list(compute_s.d.denom(C, X$treat, s.d.denom = X$s.d.denom, s.weights = X$s.weights, bin.vars = bin.vars))
         }
@@ -231,7 +234,7 @@ base.bal.tab.multi <- function(X, pairwise = TRUE, which.treat, multi.summary = 
         balance.tables <- lapply(treat.combinations, function(t) {
             X_t <- assign.X.class(subset_X(X, X$treat %in% t))
             X_t$call <- NULL
-            do.call(base.bal.tab, c(list(X_t), A[names(A) %nin% names(X_t)]), quote = TRUE)
+            do.call("base.bal.tab", c(list(X_t), A[names(A) %nin% names(X_t)]), quote = TRUE)
         })
     }
     else {
@@ -244,7 +247,7 @@ base.bal.tab.multi <- function(X, pairwise = TRUE, which.treat, multi.summary = 
             X_t$treat <- factor(c(rep("All", n), rep(t[1], sum(X$treat == t[1]))), nmax = 2,
                                 levels = c("All", t[1]))
             X_t <- assign.X.class(X_t)
-            do.call(base.bal.tab, c(list(X_t), A[names(A) %nin% names(X_t)]), quote = TRUE)
+            do.call("base.bal.tab", c(list(X_t), A[names(A) %nin% names(X_t)]), quote = TRUE)
         })
     }
     
@@ -289,7 +292,7 @@ base.bal.tab.msm <- function(X, which.time = NULL, msm.summary = getOption("coba
     #cov.list should be a list of covariate data.frames, one for each time period; 
     #   should include all covs from previous time points, but no treatment statuses
     
-    A <- clear_null(list(...))
+    A <- list(...)
     
     X$treat.list <- process_treat.list(X$treat)
     
@@ -321,7 +324,7 @@ base.bal.tab.msm <- function(X, which.time = NULL, msm.summary = getOption("coba
         X_ti$call <- NULL
         X_ti <- assign.X.class(X_ti)
         
-        do.call(base.bal.tab, c(list(X_ti), A[names(A) %nin% names(X_ti)]), quote = TRUE)
+        do.call("base.bal.tab", c(list(X_ti), A[names(A) %nin% names(X_ti)]), quote = TRUE)
     })
     
     if (length(names(X$treat.list)) == length(X$treat.list)) {
@@ -347,7 +350,7 @@ base.bal.tab.msm <- function(X, which.time = NULL, msm.summary = getOption("coba
     return(out)
 }
 base.bal.tab.cluster <- function(X, which.cluster = NULL, cluster.summary = getOption("cobalt_cluster.summary", TRUE), cluster.fun = getOption("cobalt_cluster.fun", NULL), ...) {
-    A <- clear_null(list(...))
+    A <- list(...)
     
     #Preparations
     
@@ -356,8 +359,8 @@ base.bal.tab.cluster <- function(X, which.cluster = NULL, cluster.summary = getO
     
     cluster <- factor(X$cluster)
     
-    if (is_not_null(A[["agg.fun"]])) cluster.fun <- A[["agg.fun"]]
-    
+    cluster.fun <- if_null_then(cluster.fun, A[["agg.fun"]])
+
     #Setup output object
     out.names <- c("Cluster.Balance", 
                    "Balance.Across.Clusters", 
@@ -366,11 +369,10 @@ base.bal.tab.cluster <- function(X, which.cluster = NULL, cluster.summary = getO
     out <- make_list(out.names)
     
     #Get list of bal.tabs for each imputation
-    
     out[["Cluster.Balance"]] <- lapply(levels(cluster), function(cl) {
         X_cl <- assign.X.class(subset_X(X, cluster == cl)) 
         X_cl$call <- NULL
-        do.call(base.bal.tab, c(list(X_cl), A[names(A) %nin% names(X_cl)]), quote = TRUE)
+        do.call("base.bal.tab", c(list(X_cl), A[names(A) %nin% names(X_cl)]), quote = TRUE)
     })
     
     names(out[["Cluster.Balance"]]) <- levels(cluster)
@@ -378,7 +380,7 @@ base.bal.tab.cluster <- function(X, which.cluster = NULL, cluster.summary = getO
     #Create summary of lists
     
     if ((cluster.summary || !A$quick) && is_null(X$covs.list) && get.treat.type(X$treat) != "multinomial" && is_null(X$imp)) {
-        out[["Cluster.Summary"]] <- balance.summary(out[["Cluster.Balance"]], 
+        out[["Balance.Across.Clusters"]] <- balance.summary(out[["Cluster.Balance"]], 
                                                     agg.funs = if_null_then(cluster.fun, c("min", "mean", "max")))
         observations <- lapply(out[["Cluster.Balance"]], function(x) x[["Observations"]])
         
@@ -428,7 +430,8 @@ base.bal.tab.subclass <- function(X, type, int = FALSE, poly = 1, continuous, bi
                    "Observations", "call")
     out <- make_list(out.names)
     
-    C <- get.C(covs = X$covs, addl = X$addl, distance = X$distance, int = int, poly = poly, ...)
+    C <- get.C2(covs = X$covs, addl = X$addl, distance = X$distance, int = int, poly = poly, 
+                treat = X$treat, cluster = X$cluster, ...)
     co.names <- attr(C, "co.names")
     
     out[["Observations"]] <- samplesize(treat = X$treat, 
@@ -496,7 +499,7 @@ base.bal.tab.subclass <- function(X, type, int = FALSE, poly = 1, continuous, bi
     
     for (s in compute) {
         if (is_not_null(thresholds[[s]])) {
-            out[[paste.("Balanced", s, "Subclass")]] <- setNames(do.call(data.frame, lapply(out[["Subclass.Balance"]], function(x) baltal(x[[STATS[[s]]$Threshold]]))),
+            out[[paste.("Balanced", s, "Subclass")]] <- setNames(do.call("data.frame", lapply(out[["Subclass.Balance"]], function(x) baltal(x[[STATS[[s]]$Threshold]]))),
                                                                  paste("Subclass", levels(X$subclass)))
             max.imbal.list <- lapply(out[["Subclass.Balance"]], function(x) {
                 return(max.imbal(x[x[["Type"]] != "Distance", , drop = FALSE], 
@@ -504,7 +507,7 @@ base.bal.tab.subclass <- function(X, type, int = FALSE, poly = 1, continuous, bi
                                  thresh.col.name = STATS[[s]]$Threshold, 
                                  abs_stat = STATS[[s]]$abs))
             } )
-            out[[paste.("Max.Imbalance", s, "Subclass")]] <- data.frame(do.call(rbind, max.imbal.list), 
+            out[[paste.("Max.Imbalance", s, "Subclass")]] <- data.frame(do.call("rbind", max.imbal.list), 
                                                                         row.names = paste("Subclass", levels(X$subclass)))
         }
         else {
@@ -537,5 +540,6 @@ base.bal.tab.subclass.binary <- function(X, ...) {
     base.bal.tab.subclass(X, type = "bin", ...)
 }
 base.bal.tab.subclass.cont <- function(X, ...) {
+    stop("Subclasses are not yet compatible with continuous treatments.", call. = FALSE)
     base.bal.tab.subclass(X, type = "cont", ...)
 }

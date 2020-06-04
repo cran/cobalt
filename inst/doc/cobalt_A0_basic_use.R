@@ -31,12 +31,14 @@ bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
 ## -----------------------------------------------------------------------------
 # Balance on all covariates in data set, including interactions and squares
 bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
-        addl = c("nodegree", "married"), int = TRUE, poly = 2)
+        addl = ~ nodegree + married, int = TRUE, poly = 2)
 
 ## -----------------------------------------------------------------------------
-# Balance tables with variance ratios and statistics for the unadjusted sample
+# Balance tables with mean differences, variance ratios, and 
+#  statistics for the unadjusted sample
 bal.tab(treat ~ covs, data = lalonde, weights = "att.weights",
-        un = TRUE, stats = c("mean.diffs", "variance.ratios"))
+        disp = c("means", "sds"), un = TRUE, 
+        stats = c("mean.diffs", "variance.ratios"))
 
 ## -----------------------------------------------------------------------------
 # Balance tables with thresholds for mean differences and variance ratios

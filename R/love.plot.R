@@ -6,9 +6,9 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                       position = "right", themes = NULL, ...) {
     
     #Replace .all and .none with NULL and NA respectively
-    .call <- match.call(expand.dots = TRUE)
-    .alls <- vapply(seq_along(.call), function(x) identical(.call[[x]], quote(.all)), logical(1L))
-    .nones <- vapply(seq_along(.call), function(x) identical(.call[[x]], quote(.none)), logical(1L))
+    .call <- match.call()
+    .alls <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.all)), logical(1L))
+    .nones <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.none)), logical(1L))
     if (any(c(.alls, .nones))) {
         .call[.alls] <- expression(NULL)
         .call[.nones] <- expression(NA)
@@ -18,50 +18,53 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     if (missing(stats)) stats <- NULL
     
     #Re-call bal.tab with disp.v.ratio or disp.ks if stats = "v" or "k".
-    if (!exists(deparse(substitute(x)))) { #if x is not an object (i.e., is a function call)
-        mc <- match.call()
+    if (typeof(.call[["x"]]) == "language") { #if x is not an object (i.e., is a function call)
+        
         replace.args <- function(m) {
-            #m_ is bal.tab call or list (for do.call)
+            #m is bal.tab call or list (for do.call)
             m[["un"]] <- TRUE
             if (is_not_null(stats)) m[["stats"]] <- stats
             
             if (any(names(m) == "agg.fun")) m[["agg.fun"]] <- NULL
             
-            if (any(names(mc) %pin% "abs")) m[["abs"]] <- abs
+            if (any(names(m) %pin% "abs")) m[["abs"]] <- abs
             
-            if (any(names(mc) %pin% "thresholds")) m["thresholds"] <- list(NULL)
+            if (any(names(m) %pin% "thresholds")) m["thresholds"] <- list(NULL)
             
             return(m)
         }
         
-        if (deparse(mc[["x"]][[1]]) %in% c("bal.tab", methods("bal.tab"))) { #if x i bal.tab call
-            mc[["x"]] <- replace.args(mc[["x"]])
-            x <- eval.parent(mc[["x"]])
+        if (deparse1(.call[["x"]][[1]]) %in% c("bal.tab", methods("bal.tab"))) { #if x i bal.tab call
+            .call[["x"]] <- replace.args(.call[["x"]])
+            x <- eval.parent(.call[["x"]])
             
         }
-        else if (deparse(mc[["x"]][[1]]) == "do.call") { #if x is do.call
-            d <- match.call(eval(mc[["x"]][[1]]), mc[["x"]])
-            if (deparse(d[["what"]]) %in% c("bal.tab", methods("bal.tab"))) {
+        else if (deparse1(.call[["x"]][[1]]) == "do.call") { #if x is do.call
+            d <- match.call(eval(.call[["x"]][[1]]), .call[["x"]])
+            if (deparse1(d[["what"]]) %in% c("bal.tab", methods("bal.tab"))) {
                 d[["args"]] <- replace.args(d[["args"]])
                 x <- eval.parent(d)
             }
         }
     }
     
+    tryCatch(force(x), error = function(e) stop(conditionMessage(e), call. = FALSE))
+    
     if ("bal.tab" %nin% class(x)) {
         #Use bal.tab on inputs first, then love.plot on that
-        m <- match.call()
-        m.b <- m; m.b[[1]] <- quote(bal.tab); names(m.b)[2] <- ''
-        m.b["thresholds"] <- list(NULL)
+        .call2 <- .call
+        .call2[[1]] <- quote(bal.tab)
+        .call2[["x"]] <- x
         
-        m.l <- m; 
-        m.l[["x"]] <- m.b
+        .call2["thresholds"] <- list(NULL)
         
-        return(eval.parent(m.l))
+        .call[["x"]] <- .call2
+        
+        return(eval.parent(.call))
     }
     
     args <- list(...)
-
+    
     #shape (deprecated)
     #un.color (deprecated)
     #adj.color (deprecated)
@@ -70,7 +73,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     
     p.ops <- c("which.cluster", "which.imp", "which.treat", "which.time", "disp.subclass")
     for (i in p.ops) {
-        if (i %in% names(args)) attr(x, "print.options")[[i]] <- args[[i]]
+        if (rlang::has_name(args, i)) attr(x, "print.options")[[i]] <- args[[i]]
     }
     
     #Using old argument names
@@ -82,14 +85,13 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     
     #Process abs
     if (missing(abs)) {
-        if (is_null(attr(x, "print.options")[["abs"]])) abs <- TRUE
-        else abs <- attr(x, "print.options")[["abs"]]
+        abs <- if_null_then(attr(x, "print.options")[["abs"]], TRUE)
     }
     
     #Process stats
     if (is_null(stats)) stats <- attr(x, "print.options")$stats
     stats <- match_arg(stats, all_STATS(attr(x, "print.options")$type), several.ok = TRUE)
-        
+    
     #Get B and config
     if ("bal.tab.subclass" %in% class(x)) {
         subclass.names <- names(x[["Subclass.Balance"]])
@@ -113,12 +115,12 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
             #Multiple layers present
             facet_mat <- as.matrix(do.call(rbind, strsplit(names(B_list), namesep, fixed = TRUE)))
             facet <- unname(vapply(class_sequence, switch, character(1L),
-                                          bal.tab.cluster = "cluster",
-                                          bal.tab.msm = "time",
-                                          bal.tab.multi = "treat",
-                                          bal.tab.imp = "imp", NULL))
+                                   bal.tab.cluster = "cluster",
+                                   bal.tab.msm = "time",
+                                   bal.tab.multi = "treat",
+                                   bal.tab.imp = "imp", NULL))
             dimnames(facet_mat) <- list(names(B_list), facet)
-
+            
             for (b in seq_along(B_list)) {
                 B_list[[b]][["variable.names"]] <- rownames(B_list[[b]])
                 for (i in facet) {
@@ -168,7 +170,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                         else stop(paste0("The argument to which.", i, " must be .none, .all, or the desired levels or indices of ", switch(i, time = "time points", i), "."), call. = FALSE)
                     }
                 }
-
+                
             }
             B_list <- B_list[rownames(facet_mat)]
             
@@ -207,7 +209,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                 if (agg.fun == "range") {
                     B <- Reduce(function(x, y) merge(x, y, by = c("variable.names", "Type", facet), 
                                                      sort = FALSE),
-                                      lapply(c("min", "mean", "max"), aggregate_B, B_stack))
+                                lapply(c("min", "mean", "max"), aggregate_B, B_stack))
                 }
                 else {
                     B <- aggregate_B(agg.fun, B_stack)
@@ -252,7 +254,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
             B <- data.frame(B_list, variable.names = rownames(B_list))
             
             facet <- one.level.facet <- agg.over <- NULL
-
+            
             stat.cols <- expand.grid_string(vapply(stats, function(s) STATS[[s]]$bal.tab_column_prefix, character(1L)),
                                             c("Un", attr(x, "print.options")[["weight.names"]]),
                                             collapse = ".")
@@ -281,34 +283,34 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                 if (is_not_null(row.names(var.names))) {
                     new.labels <- setNames(unlist(as.character(var.names[,1])), rownames(var.names))
                 }
-                else warning("var.names is a data.frame, but its rows are unnamed.", call. = FALSE)
+                else warning("'var.names' is a data frame, but its rows are unnamed.", call. = FALSE)
             }
             else {
                 if (all(c("old", "new") %in% names(var.names))) {
                     new.labels <- setNames(unlist(as.character(var.names[,"new"])), var.names[,"old"])
                 }
                 else {
-                    if (ncol(var.names)>2) warning("Only using first 2 columns of var.names", call. = FALSE)
+                    if (ncol(var.names)>2) warning("Only using first 2 columns of 'var.names'.", call. = FALSE)
                     new.labels <- setNames(unlist(as.character(var.names[,2])), var.names[,1])
                 }
             } 
         }
-        else if (is.atomic(var.names) || is.factor(var.names)) {
+        else if (is_(var.names, "atomic")) {
             if (is_not_null(names(var.names))) {
                 new.labels <- setNames(as.character(var.names), names(var.names))
             }
-            else warning("var.names is a vector, but its values are unnamed.", call. = FALSE)
+            else warning("'var.names' is a vector, but its values are unnamed.", call. = FALSE)
         }
-        else if (is.list(var.names)) {
-            if (all(sapply(var.names, function(x) is.character(x) || is.factor(x)))) {
+        else if (is_(var.names, "list")) {
+            if (all(sapply(var.names, function(x) is_(x, c("character", "factor"))))) {
                 if (is_not_null(names(var.names))) {
                     new.labels <- unlist(var.names) #already a list
                 }
-                else warning("var.names is a list, but its values are unnamed.", call. = FALSE)
+                else warning("'var.names' is a list, but its values are unnamed.", call. = FALSE)
             }
-            else warning("var.names is a list, but its values are not the new names of the variables.", call. = FALSE)
+            else warning("'var.names' is a list, but its values are not the new names of the variables.", call. = FALSE)
         }
-        else warning("Argument to var.names is not one of the accepted structures and will be ignored.\n  See help(love.plot) for details.", immediate.=TRUE, call. = FALSE)
+        else warning("Argument to 'var.names' is not one of the accepted structures and will be ignored.\n  See help(love.plot) for details.", immediate.=TRUE, call. = FALSE)
         
         co.names <- attr(x, "print.options")[["co.names"]]
         seps <- attr(co.names, "seps")
@@ -372,11 +374,11 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     ntypes <- if (is_null(subclass.names)) length(attr(x, "print.options")$weight.names) + 1 else 2
     if (!missing(sample.names)) {
         if (!is.vector(sample.names, "character")) {
-            warning("The argument to sample.names must be a character vector. Ignoring sample.names.", call. = FALSE)
+            warning("The argument to 'sample.names' must be a character vector. Ignoring 'sample.names'.", call. = FALSE)
             sample.names <- NULL
         }
         else if (length(sample.names) %nin% c(ntypes, ntypes - 1)) {
-            warning("The argument to sample.names must contain as many names as there are sample types, or one fewer. Ignoring sample.names.", call. = FALSE)
+            warning("The argument to 'sample.names' must contain as many names as there are sample types, or one fewer. Ignoring 'sample.names'.", call. = FALSE)
             sample.names <- NULL
         }
     }
@@ -384,13 +386,13 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     
     #Process limits
     if (is_not_null(limits)) {
-        if (!is.vector(limits, "list")) {
+        if (!is_(limits, "list")) {
             limits <- list(limits)
         }
         if (any(vapply(limits, 
-                       function(l) !is.vector(l, "numeric") || length(l) %nin% c(0L, 2L), 
+                       function(l) !is_(l, "numeric") || length(l) %nin% c(0L, 2L), 
                        logical(1L)))) {
-            warning("limits must be a list of numeric vectors of legnth 2. Ignoring limits.", call. = FALSE)
+            warning("'limits' must be a list of numeric vectors of legnth 2. Ignoring 'limits'.", call. = FALSE)
             limits <- NULL
         }
         
@@ -410,7 +412,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         !anyNA(alpha[1]) && 
         between(alpha[1], c(0,1))) alpha <- alpha[1]
     else {
-        warning("The argument to alpha must be a number between 0 and 1. Using 1 instead.", call. = FALSE)
+        warning("The argument to 'alpha' must be a number between 0 and 1. Using 1 instead.", call. = FALSE)
         alpha <- 1
     }
     
@@ -427,15 +429,15 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         if (length(colors) == 1) colors <- rep(colors, ntypes)
         else if (length(colors) > ntypes) {
             colors <- colors[seq_len(ntypes)]
-            warning(paste("Only using first", ntypes, "value", if (ntypes > 1) "s " else " ", "in colors."), call. = FALSE)
+            warning(paste("Only using first", ntypes, "value", if (ntypes > 1) "s " else " ", "in 'colors'."), call. = FALSE)
         }
         else if (length(colors) < ntypes) {
             warning("Not enough colors were specified. Using default colors instead.", call. = FALSE)
             colors <- gg_color_hue(ntypes)
         }
         
-        if (!all(sapply(colors, isColor))) {
-            warning("The argument to colors contains at least one value that is not a recognized color. Using default colors instead.", call. = FALSE)
+        if (!all(vapply(colors, isColor, logical(1L)))) {
+            warning("The argument to 'colors' contains at least one value that is not a recognized color. Using default colors instead.", call. = FALSE)
             colors <- gg_color_hue(ntypes)
         }
         
@@ -457,12 +459,13 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     }
     
     #Size
-    if (is.numeric(size[1])) size <- size[1]
+    if (is.numeric(size)) size <- size[1]
     else {
         warning("The argument to size must be a number. Using 3 instead.", call. = FALSE)
         size <- 3
     }
-    stroke0 <- stroke <- rep(0, ntypes)
+    
+    stroke <- rep(0, ntypes)
     size0 <- size <- rep(size, ntypes)
     
     shapes.with.fill <- grepl("filled", shapes, fixed = TRUE)
@@ -473,7 +476,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     
     if (is_not_null(facet)) {
         if (is_not_null(var.order) && "love.plot" %nin% class(var.order) && tolower(var.order) != "alphabetical") {
-            warning("var.order cannot be set with faceted plots (unless \"alphabetical\"). Ignoring var.order.", call. = FALSE)
+            warning("'var.order' cannot be set with faceted plots (unless \"alphabetical\"). Ignoring 'var.order'.", call. = FALSE)
             var.order <- NULL
         }
     }
@@ -481,10 +484,8 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     agg.range <- isTRUE(Agg.Fun == "Range")
     
     #Process thresholds
-    if (is_null(thresholds)) {
-        thresholds <- attr(x, "print.options")$thresholds[stats]
-    }
-    else thresholds <- process_thresholds(thresholds, stats)
+    thresholds <- if_null_then(attr(x, "print.options")$thresholds[stats], 
+                               process_thresholds(thresholds, stats))
     
     #Title
     if (missing(title)) title <- "Covariate Balance"
@@ -499,7 +500,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         if (any(vapply(themes, 
                        function(t) !all(c("theme", "gg") %in% class(t)), 
                        logical(1L)))) {
-            warning("themes must be a list of \"theme\" objects. Ignoring themes.", call. = FALSE)
+            warning("'themes' must be a list of \"theme\" objects. Ignoring 'themes'.", call. = FALSE)
             themes <- NULL
         }
         
@@ -559,7 +560,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                     old.vars <- levels(var.order$data$var)
                     old.vars[endsWith(old.vars, "*")] <- substr(old.vars[endsWith(old.vars, "*")], 1, nchar(old.vars[endsWith(old.vars, "*")])-1)
                     if (any(SS[["var"]] %nin% old.vars)) {
-                        warning("The love.plot object in var.order doesn't have the same variables as the current input. Ignoring var.order.", call. = FALSE)
+                        warning("The love.plot object in 'var.order' doesn't have the same variables as the current input. Ignoring 'var.order'.", call. = FALSE)
                         var.order <- NULL
                     }
                     else {
@@ -585,7 +586,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                 }
                 else if (var.order %in% ua) {
                     if (var.order %in% gone) {
-                        warning(paste0("var.order was set to \"", tolower(var.order), "\", but no ", tolower(var.order), " ", STATS[[s]]$balance_tally_for, " were calculated. Ignoring var.order."), call. = FALSE, immediate. = TRUE)
+                        warning(paste0("'var.order' was set to \"", tolower(var.order), "\", but no ", tolower(var.order), " ", STATS[[s]]$balance_tally_for, " were calculated. Ignoring 'var.order'."), call. = FALSE, immediate. = TRUE)
                         var.order <- NULL
                     }
                     else {
@@ -620,7 +621,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                                                                         "Adj" = "Adjusted", w),
                                                         B[facet],
                                                         row.names = NULL)
-                                 ))
+                          ))
             
             missing.stat <- all(is.na(SS[["stat"]]))
             if (missing.stat) stop(paste0(word_list(firstup(STATS[[s]]$balance_tally_for)), 
@@ -649,7 +650,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                     old.vars <- levels(var.order$data$var)
                     old.vars[endsWith(old.vars, "*")] <- substr(old.vars[endsWith(old.vars, "*")], 1, nchar(old.vars[endsWith(old.vars, "*")])-1)
                     if (any(SS[["var"]] %nin% old.vars)) {
-                        warning("The love.plot object in var.order doesn't have the same variables as the current input. Ignoring var.order.", call. = FALSE)
+                        warning("The love.plot object in 'var.order' doesn't have the same variables as the current input. Ignoring 'var.order'.", call. = FALSE)
                         var.order <- NULL
                     }
                     else {
@@ -708,7 +709,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         else threshold.xintercepts <- NULL
         xlab <- STATS[[s]]$love.plot_xlab(abs = abs, binary = attr(x, "print.options")$binary,
                                           continuous = attr(x, "print.options")$continuous,
-                                          var_type = B[["type"]],
+                                          var_type = B[["Type"]],
                                           stars = stars)
         SS[["var"]] <- STATS[[s]]$love.plot_add_stars(SS[["var"]], 
                                                       variable.names = variable.names,
@@ -729,7 +730,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
             if (limits[[s]][1] >= baseline.xintercept) limits[[s]][1] <- baseline.xintercept - .05*limits[[s]][2]
             if (limits[[s]][2] <= baseline.xintercept) limits[[s]][2] <- baseline.xintercept - .05*limits[[s]][1]
             
-            if (identical(scale_Statistics, scale_x_log10)) limits[[s]][limits[[s]] <= 1e-2] <- 1e-2
+            if (identical(scale_Statistics, ggplot2::scale_x_log10)) limits[[s]][limits[[s]] <= 1e-2] <- 1e-2
             
             if (agg.range) {
                 
@@ -772,79 +773,79 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
             }
         }
         
-        lp <- ggplot(aes(y = var, x = stat, group = Sample), data = SS) +
-            theme(panel.background = element_rect(fill = "white"),
-                  axis.text.x = element_text(color = "black"),
-                  axis.text.y = element_text(color = "black"),
-                  panel.border = element_rect(fill = NA, color = "black"),
-                  plot.background = element_blank(),
-                  legend.background = element_blank(),
-                  legend.key = element_blank()
+        lp <- ggplot2::ggplot(aes(y = .data$var, x = .data$stat, group = .data$Sample), data = SS) +
+            ggplot2::theme(panel.background = element_rect(fill = "white"),
+                           axis.text.x = element_text(color = "black"),
+                           axis.text.y = element_text(color = "black"),
+                           panel.border = element_rect(fill = NA, color = "black"),
+                           plot.background = element_blank(),
+                           legend.background = element_blank(),
+                           legend.key = element_blank()
             ) +
-            scale_shape_manual(values = shapes) +
-            scale_size_manual(values = size) +
-            scale_discrete_manual(aesthetics = "stroke", values = stroke) +
-            scale_fill_manual(values = fill) +
-            scale_color_manual(values = colors) +
-            labs(y = NULL, x = wrap(xlab, wrap))
+            ggplot2::scale_shape_manual(values = shapes) +
+            ggplot2::scale_size_manual(values = size) +
+            ggplot2::scale_discrete_manual(aesthetics = "stroke", values = stroke) +
+            ggplot2::scale_fill_manual(values = fill) +
+            ggplot2::scale_color_manual(values = colors) +
+            ggplot2::labs(y = NULL, x = wrap(xlab, wrap))
         
-        lp <- lp + geom_vline(xintercept = baseline.xintercept,
-                              linetype = 1, color = "gray5")
+        lp <- lp + ggplot2::geom_vline(xintercept = baseline.xintercept,
+                                       linetype = 1, color = "gray5")
         
         if (is_not_null(threshold.xintercepts)) {
-            lp <- lp + geom_vline(xintercept = threshold.xintercepts,
-                                  linetype = 2, color = "gray8")
+            lp <- lp + ggplot2::geom_vline(xintercept = threshold.xintercepts,
+                                           linetype = 2, color = "gray8")
         }
         
         if (agg.range) {
-            position.dodge <- position_dodge(.5*(size0[1]/3))
+            position.dodge <- ggplot2::position_dodge(.5*(size0[1]/3))
             if (line == TRUE) { #Add line except to distance
                 f <- function(q) {q[["stat"]][q$type == "Distance"] <- NA; q}
                 lp <- lp + ggplot2::layer(geom = "path", data = f, 
                                           position = position.dodge, 
                                           stat = "identity",
-                                          mapping = aes(x = mean.stat, color = Sample), 
+                                          mapping = aes(x = .data$mean.stat, color = .data$Sample), 
                                           params = list(size = size0[1]*.8/3, na.rm = TRUE,
                                                         alpha = alpha))
             }
             
             lp <- lp +
-                geom_linerange(aes(y = var, xmin = min.stat, xmax = max.stat,
-                                   color = Sample), position = position.dodge,
-                               size = size0[1]*.8/3,
-                               alpha = alpha, 
-                               orientation = "y",
-                               show.legend = FALSE,
-                               na.rm = TRUE) +
-                geom_point(aes(y = var, 
-                               x = mean.stat, 
-                               shape = Sample,
-                               size = Sample,
-                               stroke = Sample,
-                               color = Sample),
-                           fill = "white", na.rm = TRUE,
-                           alpha = alpha,
-                           position = position.dodge)
+                ggplot2::geom_linerange(aes(y = .data$var, xmin = .data$min.stat, xmax = .data$max.stat,
+                                            color = .data$Sample), position = position.dodge,
+                                        size = size0[1]*.8/3,
+                                        alpha = alpha, 
+                                        orientation = "y",
+                                        show.legend = FALSE,
+                                        na.rm = TRUE) +
+                ggplot2::geom_point(aes(y = .data$var, 
+                                        x = .data$mean.stat, 
+                                        shape = .data$Sample,
+                                        size = .data$Sample,
+                                        stroke = .data$Sample,
+                                        color = .data$Sample),
+                                    fill = "white", na.rm = TRUE,
+                                    alpha = alpha,
+                                    position = position.dodge)
             
         }
         else {
             if (is_null(subclass.names) || !attr(x, "print.options")$disp.subclass) {
-                if (line == TRUE) { #Add line except to distance
+                if (isTRUE(line)) { #Add line except to distance
                     f <- function(q) {q[["stat"]][q$type == "Distance"] <- NA; q}
                     lp <- lp + ggplot2::layer(geom = "path", data = f(SS),
                                               position = "identity", stat = "identity",
-                                              mapping = aes(color = Sample),
+                                              mapping = aes(color = .data$Sample),
                                               params = list(size = size0[1]*.8/3,
                                                             na.rm = TRUE,
                                                             alpha = alpha))
                 }
-                lp <- lp + geom_point(data = SS, aes(shape = Sample,
-                                                     size = Sample,
-                                                     stroke = Sample,
-                                                     color = Sample),
-                                      fill = "white", 
-                                      na.rm = TRUE,
-                                      alpha = alpha)
+                lp <- lp + ggplot2::geom_point(data = SS, aes(shape = .data$Sample,
+                                                              size = .data$Sample,
+                                                              stroke = .data$Sample,
+                                                              color = .data$Sample),
+                                               fill = "white", 
+                                               na.rm = TRUE,
+                                               alpha = alpha)
                 
             }
             else {
@@ -854,29 +855,29 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
                     f <- function(q) {q[["stat"]][q$type == "Distance"] <- NA; q}
                     lp <- lp + ggplot2::layer(geom = "path", data = f(SS.u.a),
                                               position = "identity", stat = "identity",
-                                              mapping = aes(color = Sample),
+                                              mapping = aes(color = .data$Sample),
                                               params = list(size = size*.8,
                                                             na.rm = TRUE,
                                                             alpha = alpha))
                 }
-                lp <- lp + geom_point(data = SS.u.a,
-                                      aes(shape = Sample,
-                                          size = Sample,
-                                          stroke = Sample,
-                                          color = Sample),
-                                      fill = "white",
-                                      na.rm = TRUE)
-                lp <- lp + geom_text(data = SS[SS$Sample %nin% c("Unadjusted", "Adjusted"),],
-                                     mapping = aes(label = gsub("Subclass ", "", Sample)),
-                                     size = 2.5*size0[1]/3, na.rm = TRUE)
+                lp <- lp + ggplot2::geom_point(data = SS.u.a,
+                                               aes(shape = .data$Sample,
+                                                   size = .data$Sample,
+                                                   stroke = .data$Sample,
+                                                   color = .data$Sample),
+                                               fill = "white",
+                                               na.rm = TRUE)
+                lp <- lp + ggplot2::geom_text(data = SS[SS$Sample %nin% c("Unadjusted", "Adjusted"),],
+                                              mapping = aes(label = gsub("Subclass ", "", .data$Sample)),
+                                              size = 2.5*size0[1]/3, na.rm = TRUE)
             }
             
             
         }
         
         if (!drop.distance && is_not_null(distance.names)) {
-            lp <- lp + geom_hline(linetype = 1, color = "black",
-                                  yintercept = nunique(SS[["var"]]) - length(distance.names) + .5)
+            lp <- lp + ggplot2::geom_hline(linetype = 1, color = "black",
+                                           yintercept = nunique(SS[["var"]]) - length(distance.names) + .5)
         }
         if (apply.limits) {
             lp <- lp + scale_Statistics(limits = limits[[s]], expand = c(0, 0))
@@ -886,16 +887,16 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         }
         
         if (isFALSE(grid)) {
-            lp <- lp + theme(panel.grid.major = element_blank(),
-                             panel.grid.minor = element_blank())
+            lp <- lp + ggplot2::theme(panel.grid.major = element_blank(),
+                                      panel.grid.minor = element_blank())
         }
         else {
-            lp <- lp + theme(panel.grid.major = element_line(color = "gray87"),
-                             panel.grid.minor = element_line(color = "gray90"))
+            lp <- lp + ggplot2::theme(panel.grid.major = element_line(color = "gray87"),
+                                      panel.grid.minor = element_line(color = "gray90"))
         }
         
         if (is_not_null(facet)) {
-            lp <- lp + facet_grid(f.build(".", facet), drop = FALSE) + labs(x = xlab)
+            lp <- lp + ggplot2::facet_grid(f.build(".", facet), drop = FALSE) + ggplot2::labs(x = xlab)
         }
         
         class(lp) <- c(class(lp), "love.plot")
@@ -914,7 +915,7 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         if (isTRUE(labels)) labels <- LETTERS[seq_along(plot.list)]
         else if (is_null(labels) || isFALSE(labels)) labels <- NULL
         else if (!is.atomic(labels) || length(labels) != length(plot.list)) {
-            warning("labels must be TRUE or a string with the same length as stats. Ignoring labels.", call. = FALSE)
+            warning("'labels' must be TRUE or a string with the same length as 'stats'. Ignoring 'labels'.", call. = FALSE)
             labels <- NULL
         }
         else labels <- as.character(labels)
@@ -932,16 +933,16 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         for (i in seq_along(plots.to.combine)) {
             if (i > 1) {
                 plots.to.combine[[i]] <- plots.to.combine[[i]] + 
-                    theme(axis.text.y=element_blank(),
-                          axis.ticks.y=element_blank(),
-                          legend.position = "none")
+                    ggplot2::theme(axis.text.y=element_blank(),
+                                   axis.ticks.y=element_blank(),
+                                   legend.position = "none")
             }
             else {
-                plots.to.combine[[i]] <- plots.to.combine[[i]] + theme(legend.position = "none")
+                plots.to.combine[[i]] <- plots.to.combine[[i]] + ggplot2::theme(legend.position = "none")
             }
             
             if (is_not_null(labels)) {
-                plots.to.combine[[i]] <- plots.to.combine[[i]] + labs(title = labels[i])
+                plots.to.combine[[i]] <- plots.to.combine[[i]] + ggplot2::labs(title = labels[i])
             }
             
             if (is_not_null(themes[[stats[i]]])) {
@@ -950,14 +951,14 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
         }
         
         g <- ggarrange_simple(plots = plots.to.combine, nrow = 1)
-        title.grob <- grid::textGrob(title, gp=grid::gpar(fontsize=13.2))
-        subtitle.grob <- grid::textGrob(subtitle, gp=grid::gpar(fontsize=13.2))
+        title.grob <- grid::textGrob(title, gp = grid::gpar(fontsize=13.2))
+        subtitle.grob <- grid::textGrob(subtitle, gp = grid::gpar(fontsize=13.2))
         
         if (position == "none") {
             p <- gridExtra::arrangeGrob(grobs = list(g), nrow = 1)
         }
         else {
-            legg <- ggplot2::ggplotGrob(plots.to.combine[[1]] + theme(legend.position = position))
+            legg <- ggplot2::ggplotGrob(plots.to.combine[[1]] + ggplot2::theme(legend.position = position))
             leg <- legg$grobs[[which(legg$layout$name == "guide-box")]]
             
             if (position == "left") {
@@ -994,10 +995,10 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     else {
         
         p <- plot.list[[1]] + 
-            labs(title = title, subtitle = subtitle) +
-            theme(plot.title = element_text(hjust = 0.5),
-                  plot.subtitle = element_text(hjust = 0.5),
-                  legend.position = position)
+            ggplot2::labs(title = title, subtitle = subtitle) +
+            ggplot2::theme(plot.title = element_text(hjust = 0.5),
+                           plot.subtitle = element_text(hjust = 0.5),
+                           legend.position = position)
         
         if (is_not_null(themes[[1]])) {
             p <- p + themes[[1]]
@@ -1008,4 +1009,5 @@ love.plot <- function(x, stats, abs, agg.fun = NULL,
     }
     
 }
-plot.bal.tab <- love.plot
+autoplot.bal.tab <- love.plot
+plot.bal.tab <- autoplot.bal.tab
