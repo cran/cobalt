@@ -160,20 +160,17 @@ W.out.mn <- weightit(race ~ cov.mn, data = lalonde,
                      method = "ps")
 
 ## -----------------------------------------------------------------------------
-#Assessing balance numerically
-bal.tab(W.out.mn, un = TRUE, which.treat = .all)
+#Balance summary across treatment pairs
+bal.tab(W.out.mn, un = TRUE)
 
-#Just black vs. white
-bal.tab(W.out.mn, un = TRUE, disp.means = TRUE,
-        which.treat = c("black", "white"),
-        multi.summary = FALSE)
+#Assessing balance for each pair of treatments
+bal.tab(W.out.mn, un = TRUE, disp.means = TRUE, which.treat = .all)
 
 ## ---- fig.width = 5-----------------------------------------------------------
 #Assessing balance graphically
 bal.plot(W.out.mn, "age", which = "both")
 
-bal.plot(W.out.mn, "married", which = "both",
-         which.treat = c("black", "white"))
+bal.plot(W.out.mn, "married", which = "both")
 
 ## ---- fig.width = 7-----------------------------------------------------------
 #Summarizing balance in a Love plot

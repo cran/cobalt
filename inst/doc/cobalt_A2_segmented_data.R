@@ -14,9 +14,11 @@ m.out <- matchit(treat ~ race*(age + educ + married + nodegree + re74 + re75),
 bal.tab(m.out, cluster = "race")
 
 ## -----------------------------------------------------------------------------
-#Just for black and hispan
-bal.tab(m.out, cluster = "race", which.cluster = c("black", "hispan"),
-        cluster.summary = FALSE)
+bal.tab(m.out, cluster = "race", which.cluster = .none)
+
+## -----------------------------------------------------------------------------
+#Just for black
+bal.tab(m.out, cluster = "race", which.cluster = "black")
 
 #Just the balance summary across clusters with only the mean
 bal.tab(m.out, cluster = "race", which.cluster = .none, cluster.fun = "mean")
@@ -52,7 +54,7 @@ wt.out <- weightthem(educ ~ age + race + married +
 bal.tab(wt.out)
 
 ## -----------------------------------------------------------------------------
-bal.tab(wt.out, which.imp = 1, imp.summary = FALSE)
+bal.tab(wt.out, which.imp = 1)
 
 ## -----------------------------------------------------------------------------
 bal.plot(wt.out, which.imp = 1, var.name = "age", which = "both")
@@ -63,9 +65,9 @@ love.plot(wt.out, threshold = .05)
 ## -----------------------------------------------------------------------------
 #Estimate weights within each imputation using propensity scores
 wt3.out <- weightthem(race ~ age + educ + married + 
-                      nodegree + re74 + re75, 
-                     datasets = imp.out, approach = "within", 
-                     method = "ps", estimand = "ATE")
+                        nodegree + re74 + re75, 
+                      datasets = imp.out, approach = "within", 
+                      method = "ps", estimand = "ATE")
 
 ## -----------------------------------------------------------------------------
 bal.tab(wt3.out)

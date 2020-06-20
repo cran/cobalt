@@ -21,10 +21,14 @@ bal.tab(list(iptwExWide[c("use0", "gender", "age")],
         treat.list = iptwExWide[c("tx1", "tx2", "tx3")])
 
 ## -----------------------------------------------------------------------------
-bal.tab(Wmsm, un = TRUE)
+bal.tab(list(iptwExWide[c("use0", "gender", "age")],
+             iptwExWide[c("use0", "gender", "age", "use1", "tx1")],
+             iptwExWide[c("use0", "gender", "age", "use1", "tx1", "use2", "tx2")]),
+        treat.list = iptwExWide[c("tx1", "tx2", "tx3")],
+        which.time = .all)
 
 ## -----------------------------------------------------------------------------
-bal.tab(Wmsm, which.time = 1:2, msm.summary = FALSE)
+bal.tab(Wmsm, un = TRUE, which.time = .all, msm.summary = TRUE)
 
 ## ---- fig.height=4------------------------------------------------------------
 bal.plot(Wmsm, var.name = "age", which = "both")

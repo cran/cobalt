@@ -1,6 +1,24 @@
 `cobalt` News and Updates
 ======
 
+Version 4.2.1
+
+* Fixed a bug where `int` and `poly` were ignored with binary and continuous treatments.
+
+* Fixed a bug where subclass balance statistics were incorrectly computed. Thanks to Mario Lawes.
+
+* Improved processing of inappropriately given S4 objects.
+
+* Removed `bal.tab` methods for atomic vectors (which were undocumented). The errors they would provide when inappropriately supplied were unhelpful.
+
+* Fixed a bug with `backports` 1.1.7 not running correctly.
+
+* Fixed a bug with `str2expression` for R versions below 3.6.0. Thanks to @kthohr and @jimmyg909.
+
+* When data is segmented (i.e., with a multi-category or longitudinal treatment or when clusters or multiple imputations are specified), the balance summary across segments will not be computed or displayed when individual segment balance is requested. See `?display_options` to see the defaults for the different segment types, some of which have changed. 
+
+* Updated some warnings.
+
 Version 4.2.0
 
 * Added support for `Matchby` objects resulting from a call to `Matchby()` in the `Matching` package. These function identically to `Match` objects.
