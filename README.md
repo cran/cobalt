@@ -1,33 +1,33 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# cobalt
+# cobalt <img src="man/figures/logo.png" align="right" width="150"/>
 
-[![CRAN\_Status\_Badge](http://r-pkg.org/badges/version-last-release/cobalt?color=0047ab)](https://cran.r-project.org/package=cobalt)
-[![CRAN\_Downloads\_Badge](http://cranlogs.r-pkg.org/badges/cobalt?color=0047ab)](https://cran.r-project.org/package=cobalt)
+## [![CRAN\_Status\_Badge](https://img.shields.io/cran/v/cobalt?color=%230047ab)](https://cran.r-project.org/package=cobalt) [![CRAN\_Downloads\_Badge](https://cranlogs.r-pkg.org/badges/cobalt?color=%230047ab)](https://cran.r-project.org/package=cobalt)
+
+### Overview
 
 Welcome to `cobalt`, which stands for **Co**variate **Bal**ance
 **T**ables (and Plots). `cobalt` allows users to assess balance on
 covariate distributions in preprocessed groups generated through
 weighting, matching, or subclassification, such as by using the
 propensity score. `cobalt`’s primary function is `bal.tab()`, which
-stands for “balance table”, and essentially replaces (or supplements)
-the balance assessment tools found in the R packages `twang`, `MatchIt`,
-`CBPS`, and `Matching`. To examine how `bal.tab()` integrates with these
-packages and others, see the help file for `bal.tab()` with `?bal.tab`,
-which links to the methods used for each package. Each page has examples
-of how `bal.tab()` is used with the package. There are also five
-vignettes detailing the use of `cobalt`, which can be accessed with
-`browseVignettes("cobalt")`: one for basic uses of `cobalt`, one for the
-use of `cobalt` with additional packages, one for the use of `cobalt`
-with multiply imputed and/or clustered data, one for the use of `cobalt`
-with longitudinal treatments, and one for the use of `cobalt` to
-generate publication-ready plots. Currently, `cobalt` is compatible with
-output from `MatchIt`, `twang`, `Matching`, `optmatch`, `CBPS`, `ebal`,
-`WeightIt`, `designmatch`, `sbw`, `MatchThem`, and `cem` as well as data
-not processed through these packages.
+stands for “balance table”, and is meant to replace (or supplement) the
+balance assessment tools found in other R packages. To examine how
+`bal.tab()` integrates with these packages and others, see the help file
+for `bal.tab()` with `?bal.tab`, which links to the methods used for
+each package. Each page has examples of how `bal.tab()` is used with the
+package. There are also five vignettes detailing the use of `cobalt`,
+which can be accessed at `vignette("cobalt")`: one for basic uses of
+`cobalt`, one for the use of `cobalt` with additional packages, one for
+the use of `cobalt` with multiply imputed and/or clustered data, one for
+the use of `cobalt` with longitudinal treatments, and one for the use of
+`cobalt` to generate publication-ready plots. Currently, `cobalt` is
+compatible with output from `MatchIt`, `twang`, `Matching`, `optmatch`,
+`CBPS`, `ebal`, `WeightIt`, `designmatch`, `sbw`, `MatchThem`, and `cem`
+as well as data not processed through these packages.
 
-# Why cobalt?
+### Why cobalt?
 
 Most of the major conditioning packages contain functions to assess
 balance; so why use `cobalt` at all? `cobalt` arose out of several
@@ -64,6 +64,8 @@ New features are being added all the time, following the cutting edge of
 methodological work on balance assessment. As new packages and methods
 are developed, `cobalt` will be ready to integrate them to further our
 goal of simple, unified balance assessment.
+
+### Examples
 
 Below are examples of `cobalt`’s primary functions:
 
@@ -117,8 +119,8 @@ bal.plot(m.out, var.name = "educ")
 bal.plot(m.out, var.name = "distance", mirror = TRUE, type = "histogram")
 ```
 
-![](inst/figures/README-unnamed-chunk-3-1.png)
-![](inst/figures/README-unnamed-chunk-3-2.png)
+![](man/figures/README-unnamed-chunk-3-1.png)
+![](man/figures/README-unnamed-chunk-3-2.png)
 
 ``` r
 # Generating a Love plot to report balance:
@@ -126,13 +128,13 @@ love.plot(m.out, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 
     v = 2), abs = TRUE, binary = "std", var.order = "unadjusted")
 ```
 
-<img src="inst/figures/README-unnamed-chunk-4-1.png" style="display: block; margin: auto;" />
+<img src="man/figures/README-unnamed-chunk-4-1.png" style="display: block; margin: auto;" />
 
 Please remember to cite this package when using it to analyze data. For
 example, in a manuscript, you could write: “Matching was performed using
-the Matching package (Sekhon, 2011), and covariate balance was assessed
-using cobalt (Greifer, 2020), both in R (R Core Team, 2019).” Use
-`citation("cobalt")` to generate a bibliographic reference for the
+the *Matching* package (Sekhon, 2011), and covariate balance was
+assessed using *cobalt* (Greifer, 2020), both in R (R Core Team, 2020).”
+Use `citation("cobalt")` to generate a bibliographic reference for the
 `cobalt` package.
 
 Bugs appear in `cobalt` occasionally, often found by users. Please

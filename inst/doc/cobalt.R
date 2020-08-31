@@ -89,7 +89,7 @@ W.out <- weightit(treat ~ covs, data = lalonde,
 
 bal.tab(W.out)
 
-## ---- fig.show = "hold"-------------------------------------------------------
+## ---- fig.show = "hold", fig.width = 3.25-------------------------------------
 bal.plot(W.out, var.name = "age")
 bal.plot(W.out, var.name = "race")
 
@@ -209,16 +209,4 @@ ctrl.fit <- glm(re78 ~ age + educ + race +
 lalonde$prog.score <- predict(ctrl.fit, lalonde)
 
 bal.tab(m.out, distance = lalonde["prog.score"])
-
-## ---- echo = FALSE, fig.show = 'hold', fig.width = 5, warning=FALSE-----------
-library("MatchIt")
-data("lalonde", package = "cobalt") ##If not yet loaded
-covs <- subset(lalonde, select = -c(treat, re78))
-m.out <- matchit(f.build("treat", covs), data = lalonde)
-plot(summary(m.out, standardize = TRUE), interactive = FALSE)
-love.plot(m.out, thresholds = c(m = .1), 
-          abs = TRUE, var.order = "u", 
-          color = c("red", "blue"), line = TRUE,
-          binary = "std",
-          drop.distance = TRUE)
 

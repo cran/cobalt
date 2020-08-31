@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2020-06-25" />
+<meta name="date" content="2020-08-31" />
 
 <title>Appendix 3: Using cobalt with Longitudinal Treatments</title>
 
@@ -319,7 +319,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Appendix 3: Using cobalt with Longitudinal Treatments</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2020-06-25</h4>
+<h4 class="date">2020-08-31</h4>
 
 
 
@@ -512,7 +512,9 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <p>We can use <code>bal.tab()</code> with the <code>weightitMSM</code> object generated above. Setting <code>un = TRUE</code> would produce balance statistics before adjustment, like we did before. We’ll set <code>which.time = .all</code> and <code>msm.summary = TRUE</code> to see balance for each time point and across time points.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a><span class="kw">bal.tab</span>(Wmsm, <span class="dt">un =</span> <span class="ot">TRUE</span>, <span class="dt">which.time =</span> .all, <span class="dt">msm.summary =</span> <span class="ot">TRUE</span>)</span></code></pre></div>
 <pre><code>## Call
-##  weightitMSM(formula.list = list(tx1 ~ use0 + gender + age, tx2 ~ use0 + gender + age + use1 + tx1, tx3 ~ use0 + gender + age + use1 + tx1 + use2 + tx2), data = iptwExWide, method = &quot;ps&quot;)
+##  weightitMSM(formula.list = list(tx1 ~ use0 + gender + age, tx2 ~ 
+##     use0 + gender + age + use1 + tx1, tx3 ~ use0 + gender + age + 
+##     use1 + tx1 + use2 + tx2), data = iptwExWide, method = &quot;ps&quot;)
 ## 
 ## Balance by Time Point
 ## 
@@ -526,8 +528,8 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 ## 
 ## Effective sample sizes
 ##            Control Treated
-## Unadjusted  294.00 706.000
-## Adjusted    185.18 573.598
+## Unadjusted  294.     706. 
+## Adjusted    185.18   573.6
 ## 
 ##  - - - Time: 2 - - - 
 ## Balance Measures
@@ -541,8 +543,8 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 ## 
 ## Effective sample sizes
 ##            Control Treated
-## Unadjusted 492.000 508.000
-## Adjusted   318.903 264.487
+## Unadjusted   492.   508.  
+## Adjusted     318.9  264.49
 ## 
 ##  - - - Time: 3 - - - 
 ## Balance Measures
@@ -558,8 +560,8 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 ## 
 ## Effective sample sizes
 ##            Control Treated
-## Unadjusted 415.000 585.000
-## Adjusted   235.672 366.399
+## Unadjusted  415.     585. 
+## Adjusted    235.67   366.4
 ##  - - - - - - - - - - - 
 ## 
 ## Balance summary across all time points
@@ -576,16 +578,16 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 ## Effective sample sizes
 ##  - Time 1
 ##            Control Treated
-## Unadjusted  294.00 706.000
-## Adjusted    185.18 573.598
+## Unadjusted  294.     706. 
+## Adjusted    185.18   573.6
 ##  - Time 2
 ##            Control Treated
-## Unadjusted 492.000 508.000
-## Adjusted   318.903 264.487
+## Unadjusted   492.   508.  
+## Adjusted     318.9  264.49
 ##  - Time 3
 ##            Control Treated
-## Unadjusted 415.000 585.000
-## Adjusted   235.672 366.399</code></pre>
+## Unadjusted  415.     585. 
+## Adjusted    235.67   366.4</code></pre>
 <p>Note that to add covariates, we must use <code>addl.list</code> (which can be abbreviated as <code>addl</code>), which functions like <code>addl</code> in point treatments. The input to <code>addl.list</code> must be a list of covariates for each time point, or a single data data frame of variables to be assessed at all time points. The same goes for adding distance variables, which must be done with <code>distance.list</code> (which can be abbreviated as <code>distance</code>).</p>
 <p>Next we’ll use <code>bal.plot()</code> to more finely examine covariate balance.</p>
 </div>

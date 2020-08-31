@@ -28,15 +28,15 @@ head(lalonde.unsplit)
 ## ---- include=FALSE-----------------------------------------------------------
 if (!"twang" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
 
-## ---- warning = FALSE, eval = FALSE-------------------------------------------
-#  library("twang")
-#  data("lalonde", package = "cobalt") ##If not yet loaded
-#  covs0 <- subset(lalonde, select = -c(treat, re78))
-#  
-#  ps.out <- ps(f.build("treat", covs0), data = lalonde,
-#               stop.method = c("es.mean", "es.max"),
-#               estimand = "ATT", n.trees = 1000, verbose = FALSE)
-#  bal.tab(ps.out, stop.method = "es.mean")
+## ---- warning = FALSE, eval = TRUE--------------------------------------------
+library("twang")
+data("lalonde", package = "cobalt") ##If not yet loaded
+covs0 <- subset(lalonde, select = -c(treat, re78))
+
+ps.out <- ps(f.build("treat", covs0), data = lalonde, 
+             stop.method = c("es.mean", "es.max"), 
+             estimand = "ATT", n.trees = 1000, verbose = FALSE)
+bal.tab(ps.out, stop.method = "es.mean")
 
 ## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)

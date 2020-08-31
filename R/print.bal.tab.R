@@ -138,7 +138,7 @@ print.bal.tab <- function(x, imbalanced.only = "as.is", un = "as.is", disp.bal.t
     else p.ops$imbalanced.only <- FALSE
     
     if (is_not_null(call)) {
-        cat(underline("Call") %+% "\n " %+% paste(deparse1(call), collapse = "\n") %+% "\n\n")
+        cat(underline("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
     }
     
     if (p.ops$disp.bal.tab) {
@@ -204,7 +204,7 @@ print.bal.tab <- function(x, imbalanced.only = "as.is", un = "as.is", disp.bal.t
             nn <- setNames(cbind(nn, ess), c(names(nn), ""))
             print.warning <- TRUE
         }
-        print.data.frame_(round_df_char(nn, digits = max(0, digits-1)))
+        print.data.frame_(round_df_char(nn, digits = min(2, digits), pad = " "))
         if (print.warning) cat(italic("* indicates effective sample size"))
     }
     invisible(x)
@@ -410,7 +410,7 @@ print.bal.tab.cluster <- function(x, imbalanced.only = "as.is", un = "as.is", di
     
     #Printing
     if (is_not_null(call)) {
-        cat(underline("Call") %+% "\n " %+% paste(deparse1(call), collapse = "\n") %+% "\n\n")
+        cat(underline("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
     }
     
     if (is_not_null(which.cluster)) {
@@ -464,7 +464,7 @@ print.bal.tab.cluster <- function(x, imbalanced.only = "as.is", un = "as.is", di
                 nn <- setNames(cbind(nn, ess), c(names(nn), ""))
                 print.warning <- TRUE
             }
-            print.data.frame_(round_df_char(nn, digits = max(0, digits-1)))
+            print.data.frame_(round_df_char(nn, digits = min(2, digits), pad = " "))
             if (print.warning) cat(italic("* indicates effective sample size"))
         }
     }
@@ -667,7 +667,7 @@ print.bal.tab.imp <- function(x, imbalanced.only = "as.is", un = "as.is", disp.b
     
     #Printing output
     if (is_not_null(call)) {
-        cat(underline("Call") %+% "\n " %+% paste(deparse1(call), collapse = "\n") %+% "\n\n")
+        cat(underline("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
     }
     
     if (is_not_null(which.imp)) {
@@ -720,7 +720,7 @@ print.bal.tab.imp <- function(x, imbalanced.only = "as.is", un = "as.is", disp.b
                 nn <- setNames(cbind(nn, ess), c(names(nn), ""))
                 print.warning <- TRUE
             }
-            print.data.frame_(round_df_char(nn, digits = max(0, digits-1)))
+            print.data.frame_(round_df_char(nn, digits = min(2, digits), pad = " "))
             if (print.warning) cat(italic("* indicates effective sample size"))
         }
     }
@@ -948,7 +948,7 @@ print.bal.tab.multi <- function(x, imbalanced.only = "as.is", un = "as.is", disp
     
     #Printing output
     if (is_not_null(call)) {
-        cat(underline("Call") %+% "\n " %+% paste(deparse1(call), collapse = "\n") %+% "\n\n")
+        cat(underline("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
     }
     
     if (is_not_null(disp.treat.pairs)) {
@@ -1009,7 +1009,7 @@ print.bal.tab.multi <- function(x, imbalanced.only = "as.is", un = "as.is", disp
                 nn <- setNames(cbind(nn, ess), c(names(nn), ""))
                 print.warning <- TRUE
             }
-            print.data.frame_(round_df_char(nn, digits = max(0, digits-1)))
+            print.data.frame_(round_df_char(nn, digits = min(2, digits), pad = " "))
             if (print.warning) cat(italic("* indicates effective sample size"))
         }
     }
@@ -1213,7 +1213,7 @@ print.bal.tab.msm <- function(x, imbalanced.only = "as.is", un = "as.is", disp.b
     
     #Printing output
     if (is_not_null(call)) {
-        cat(underline("Call") %+% "\n " %+% paste(deparse1(call), collapse = "\n") %+% "\n\n")
+        cat(underline("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
     }
     
     if (is_not_null(which.time)) {
@@ -1273,7 +1273,7 @@ print.bal.tab.msm <- function(x, imbalanced.only = "as.is", un = "as.is", disp.b
                     nn[[ti]] <- setNames(cbind(nn[[ti]], ess), c(names(nn[[ti]]), ""))
                     print.warning <- TRUE
                 }
-                print.data.frame_(round_df_char(nn[[ti]], digits = max(0, digits-1)))
+                print.data.frame_(round_df_char(nn[[ti]], digits = min(2, digits), pad = " "))
             }
             
             if (print.warning) cat(italic("* indicates effective sample size"))
@@ -1426,7 +1426,7 @@ print.bal.tab.subclass <- function(x, imbalanced.only = "as.is", un = "as.is", d
     }
     
     if (is_not_null(call)) {
-        cat(underline("Call") %+% "\n " %+% paste(deparse1(call), collapse = "\n") %+% "\n\n")
+        cat(underline("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
     }
     
     if (p.ops$disp.bal.tab) {
@@ -1502,7 +1502,7 @@ print.bal.tab.subclass <- function(x, imbalanced.only = "as.is", un = "as.is", d
     
     if (is_not_null(s.nn)) {
         cat(underline(attr(s.nn, "tag")) %+% "\n")
-        print.data.frame_(round_df_char(s.nn, digits = max(0, digits-1)))
+        print.data.frame_(round_df_char(s.nn, digits = min(2, digits), pad = " "))
     }
     
     invisible(x)

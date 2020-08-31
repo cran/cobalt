@@ -36,7 +36,10 @@ x2base.matchit <- function(m, ...) {
     treat <- process_treat(m[["treat"]], datalist = list(data, m.data), pairwise = A$pairwise)
     
     #Process covs
-    if (is_not_null(m$model$model)) {
+    if (is.data.frame(m$X)) {
+        covs <- get_covs_from_formula(~m$X)
+    }
+    else if (is_not_null(m$model$model)) {
         if (nrow(m$model$model) == length(treat)) {
             covs <- get_covs_from_formula(m$formula, data = m$model$model)
         }
@@ -84,7 +87,9 @@ x2base.matchit <- function(m, ...) {
     }
     
     #Get estimand
-    estimand <- A$estimand
+    if (is_null(estimand <- A[["estimand"]])) {
+        estimand <- m$estimand
+    }
     
     #Get method
     if (any(class(m) == "matchit.subclass")) {
@@ -197,7 +202,7 @@ x2base.matchit <- function(m, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -394,7 +399,7 @@ x2base.ps <- function(ps, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -587,7 +592,7 @@ x2base.mnps <- function(mnps, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -781,7 +786,7 @@ x2base.ps.cont <- function(ps.cont, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -944,7 +949,7 @@ x2base.Match <- function(Match, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -1185,7 +1190,7 @@ x2base.data.frame <- function(covs, ...) {
                                        missing.okay = TRUE)
         weights <- data.frame(weights = strata2weights(match.strata,
                                                        treat = treat,
-                                                       focal = focal))
+                                                       estimand = estimand))
     }
     #Process weights
     else if (is_not_null(A[["weights"]])) {
@@ -1277,7 +1282,7 @@ x2base.data.frame <- function(covs, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -1449,7 +1454,7 @@ x2base.CBPS <- function(cbps.fit, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -1612,7 +1617,7 @@ x2base.ebalance <- function(ebalance, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -1774,7 +1779,7 @@ x2base.optmatch <- function(optmatch, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -1946,7 +1951,7 @@ x2base.cem.match <- function(cem.match, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -2117,7 +2122,7 @@ x2base.weightit <- function(weightit, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -2278,7 +2283,7 @@ x2base.designmatch <- function(dm, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -2449,7 +2454,7 @@ x2base.mimids <- function(mimids, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -2626,7 +2631,7 @@ x2base.wimids <- function(wimids, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -2792,7 +2797,7 @@ x2base.sbwcau <- function(sbwcau, ...) {
     }
     
     #Missing values warning
-    if (any(c(anyNA(covs), anyNA(addl)))) {
+    if (anyNA(covs) || anyNA(addl)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -3017,7 +3022,7 @@ x2base.iptw <- function(iptw, ...) {
     }
     
     #Missing values warning
-    if (any(c(any(vapply(covs.list, anyNA, logical(1L))), any(vapply(addl.list, anyNA, logical(1L)))))) {
+    if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -3251,7 +3256,7 @@ x2base.data.frame.list <- function(covs.list, ...) {
     }
     
     #Missing values warning
-    if (any(c(any(vapply(covs.list, anyNA, logical(1L))), any(vapply(addl.list, anyNA, logical(1L)))))) {
+    if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -3449,7 +3454,7 @@ x2base.CBMSM <- function(cbmsm, ...) {
     }
     
     #Missing values warning
-    if (any(c(any(vapply(covs.list, anyNA, logical(1L))), any(vapply(addl.list, anyNA, logical(1L)))))) {
+    if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -3633,7 +3638,7 @@ x2base.weightitMSM <- function(weightitMSM, ...) {
     }
     
     #Missing values warning
-    if (any(c(any(vapply(covs.list, anyNA, logical(1L))), any(vapply(addl.list, anyNA, logical(1L)))))) {
+    if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
         warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
     }
     
@@ -3733,7 +3738,7 @@ x2base.default <- function(obj, ...) {
     }
     
     #covs 
-    if (is_not_null(covs)) A[["covs"]] <- as.data.frame(A[["covs"]])
+    if (is_not_null(A[["covs"]])) A[["covs"]] <- as.data.frame(A[["covs"]])
     
     #covs.list
     if (is_not_null(A[["covs.list"]])) {
@@ -4010,7 +4015,8 @@ x2base.default <- function(obj, ...) {
                                            which = "matching strata membership",
                                            missing.okay = TRUE)
             weights <- data.frame(weights = strata2weights(match.strata,
-                                                           treat = treat))
+                                                           treat = treat,
+                                                           estimand = estimand))
         }
         
         #Process weights
@@ -4105,7 +4111,7 @@ x2base.default <- function(obj, ...) {
         }
         
         #Missing values warning
-        if (any(c(anyNA(covs), anyNA(addl)))) {
+        if (anyNA(covs) || anyNA(addl)) {
             warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
         }
         
@@ -4346,7 +4352,7 @@ x2base.default <- function(obj, ...) {
         }
         
         #Missing values warning
-        if (any(c(any(vapply(covs.list, anyNA, logical(1L))), any(vapply(addl.list, anyNA, logical(1L)))))) {
+        if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
             warning("Missing values exist in the covariates. Displayed values omit these observations.", call. = FALSE)
         }
         
