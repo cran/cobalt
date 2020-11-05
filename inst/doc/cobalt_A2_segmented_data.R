@@ -1,6 +1,6 @@
 ## ---- include = FALSE---------------------------------------------------------
   knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.width = 5)
-#knitr::opts_chunk$set(eval = FALSE)
+  if (any(!sapply(c("MatchIt", "MatchThem", "mice"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("MatchIt"); library("cobalt")

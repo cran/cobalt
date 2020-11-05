@@ -26,9 +26,9 @@ lalonde.unsplit <- unsplitfactor(lalonde.split, "race",
 head(lalonde.unsplit)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"twang" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("twang", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
-## ---- warning = FALSE, eval = TRUE--------------------------------------------
+## ---- warning = FALSE---------------------------------------------------------
 library("twang")
 data("lalonde", package = "cobalt") ##If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78))
@@ -42,7 +42,7 @@ bal.tab(ps.out, stop.method = "es.mean")
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"Matching" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("Matching", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("Matching")
@@ -64,7 +64,7 @@ bal.tab(match.out, formula = f.build("treat", covs0), data = lalonde,
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"optmatch" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("optmatch", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 #Optimal full matching on the propensity score
@@ -78,11 +78,11 @@ fm <- fullmatch(treat ~ p.score, data = lalonde)
 
 bal.tab(fm, covs = covs0, distance = ~ p.score)
 
-## ---- include=FALSE-----------------------------------------------------------
+## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"CBPS" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("CBPS", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("CBPS")
@@ -98,7 +98,7 @@ bal.tab(cbps.out)
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"ebal" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("ebal", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("ebal")
@@ -110,11 +110,11 @@ e.out <- ebalance(lalonde$treat, covs0)
 
 bal.tab(e.out, treat = lalonde$treat, covs = covs0)
 
-## ---- include=FALSE-----------------------------------------------------------
+## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"designmatch" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("designmatch", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("designmatch")
@@ -132,11 +132,11 @@ dmout <- bmatch(lalonde$treat,
 
 bal.tab(dmout, treat = lalonde$treat, covs = covs0)
 
-## ---- include=FALSE-----------------------------------------------------------
+## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"sbw" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("sbw", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("sbw")
@@ -155,11 +155,11 @@ sbw.out <- sbw(lalonde_split,
                par = list(par_est = "att"))
 bal.tab(sbw.out, un = TRUE, disp.means = TRUE)
 
-## ---- include=FALSE-----------------------------------------------------------
+## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"MatchThem" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("MatchThem", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("mice"); library("MatchThem")
@@ -179,41 +179,41 @@ wt.out <- weightthem(treat ~ age + educ + married +
 
 bal.tab(wt.out)
 
-## ---- include=FALSE-----------------------------------------------------------
+## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"cem" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (any(!sapply(c("cem", "mice"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
-library("cem")
-data("lalonde", package = "cobalt") #If not yet loaded
-
-#Matching for balance on covariates
-cem.out <- cem("treat", data = lalonde, drop = "re78")
-
-bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
+#  library("cem")
+#  data("lalonde", package = "cobalt") #If not yet loaded
+#  
+#  #Matching for balance on covariates
+#  cem.out <- cem("treat", data = lalonde, drop = "re78")
+#  
+#  bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
 
 ## -----------------------------------------------------------------------------
-library("mice"); library("cem")
-data("lalonde_mis", package = "cobalt")
+#  library("mice"); library("cem")
+#  data("lalonde_mis", package = "cobalt")
+#  
+#  #Generate imputed data sets
+#  m <- 10 #number of imputed data sets
+#  imp.out <- mice(lalonde_mis, m = m, print = FALSE)
+#  imp.data.list <- lapply(1:m, complete, data = imp.out)
+#  
+#  #Match within each imputed dataset
+#  cem.out.imp <- cem("treat", datalist = imp.data.list, drop = "re78")
+#  
+#  bal.tab(cem.out.imp, data = imp.out)
+#  
 
-#Generate imputed data sets
-m <- 10 #number of imputed data sets
-imp.out <- mice(lalonde_mis, m = m, print = FALSE) 
-imp.data.list <- lapply(1:m, complete, data = imp.out)
-
-#Match within each imputed dataset
-cem.out.imp <- cem("treat", datalist = imp.data.list, drop = "re78")
-
-bal.tab(cem.out.imp, data = imp.out)
-
-
-## ---- include=FALSE-----------------------------------------------------------
+## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!"optweight" %in% rownames(installed.packages())) knitr::opts_chunk$set(eval = FALSE)
+if (!requireNamespace("optweight", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("optweight")
@@ -229,6 +229,6 @@ names(ow.out)
 #Use bal.tab() directly on the output
 bal.tab(ow.out)
 
-## ---- include=FALSE-----------------------------------------------------------
+## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
 

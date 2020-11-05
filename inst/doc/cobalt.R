@@ -1,5 +1,6 @@
 ## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE)
+if (any(!sapply(c("WeightIt", "MatchIt"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## ---- include = F-------------------------------------------------------------
 library("cobalt")

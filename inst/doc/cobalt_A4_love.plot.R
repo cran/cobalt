@@ -1,5 +1,6 @@
 ## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE, fig.width=6, fig.height = 4)
+if (any(!sapply(c("WeightIt", "CBPS"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library(cobalt)
