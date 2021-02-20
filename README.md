@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# cobalt <img src="man/figures/logo.png" align="right" width="150"/>
+# cobalt: Covariate Balance Tables and Plots <img src="man/figures/logo.png" align="right" width="150"/>
 
 ## [![CRAN\_Status\_Badge](https://img.shields.io/cran/v/cobalt?color=%230047ab)](https://cran.r-project.org/package=cobalt) [![CRAN\_Downloads\_Badge](https://cranlogs.r-pkg.org/badges/cobalt?color=%230047ab)](https://cran.r-project.org/package=cobalt)
 
@@ -119,8 +119,8 @@ bal.plot(m.out, var.name = "educ")
 bal.plot(m.out, var.name = "distance", mirror = TRUE, type = "histogram")
 ```
 
-![](man/figures/README-unnamed-chunk-3-1.png)
-![](man/figures/README-unnamed-chunk-3-2.png)
+<img src="man/figures/README-unnamed-chunk-3-1.png" data-display="inline" />
+<img src="man/figures/README-unnamed-chunk-3-2.png" data-display="inline" />
 
 ``` r
 # Generating a Love plot to report balance:
@@ -133,7 +133,7 @@ love.plot(m.out, stats = c("mean.diffs", "variance.ratios"), thresholds = c(m = 
 Please remember to cite this package when using it to analyze data. For
 example, in a manuscript, you could write: “Matching was performed using
 the *Matching* package (Sekhon, 2011), and covariate balance was
-assessed using *cobalt* (Greifer, 2020), both in R (R Core Team, 2020).”
+assessed using *cobalt* (Greifer, 2021), both in R (R Core Team, 2020).”
 Use `citation("cobalt")` to generate a bibliographic reference for the
 `cobalt` package.
 

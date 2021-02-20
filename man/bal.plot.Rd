@@ -43,19 +43,19 @@ other arguments to define the variable, treatment, and weights. Some inputs are 
 whether to display distributional balance for the adjusted (\code{"adjusted"}) or unadjusted sample (\code{"unadjusted"}) or both at the same time (\code{"both"}). When multiple weights are present, the names of the weights can be supplied, too. The default is to display balance for the adjusted sample only unless no weights, subclasses, or matching strata are specified. Multiple values and abbreviations allowed.
  }
   \item{which.sub}{
-\code{numeric}; if subclassification is used, a vector corresponding to the subclass(es) for which the distributions are to be displayed. If \code{NULL} (the default), distributions from all subclasses are displayed in a grid.
+\code{numeric}; if subclassification is used, a vector corresponding to the subclass(es) for which the distributions are to be displayed. If \code{.all} (the default), distributions from all subclasses are displayed in a grid.
 }
   \item{cluster}{
 optional; a vector of cluster membership, or the name of a variable in an available data set passed to \code{bal.plot()} that contains cluster membership.
 }
   \item{which.cluster}{
-if clusters are used, which cluster(s) to display. Can be cluster names or numerical indices for which to display balance. Indices correspond to the alphabetical order of cluster names. If \code{NULL} (the default) or \code{NA}, all clusters are displayed.
+if clusters are used, which cluster(s) to display. Can be cluster names or numerical indices for which to display balance. Indices correspond to the alphabetical order of cluster names. If \code{.all} (the default), all clusters are displayed. If \code{.none}, cluster information is ignored and the marginal distribution of the covariates is displayed.
 }
   \item{imp}{
 optional; a vector of imputation indices, or the name of a variable in an available data set passed to \code{bal.plot()} that contains imputation indices.
 }
   \item{which.imp}{
-if imputations are used, which imputations(s) to display. Must be numerical indices for which to display balance. If \code{NULL} (the default) or \code{NA}, all imputations are displayed.
+if imputations are used, which imputations(s) to display. Must be numerical indices for which to display balance. If \code{.all} (the default), all imputations are displayed. If \code{.none}, data from all imputations are combined into one distribution.
 }
   \item{which.treat}{
 which treatment groups to display. If \code{NULL} (the default) or \code{NA}, all treatment groups are displayed.
@@ -82,7 +82,7 @@ a vector of colors for the plotted densities/histograms. See 'Color Specificatio
 the position of the legend. This can be any value that would be appropriate as an argument to \code{legend.position} in \pkgfun{ggplot2}{theme}.
 }
   \item{facet.formula}{
-a \code{formula} designating which facets should be on the rows and columns. This should be of the "historical" formula interface to \pkgfun{ggplot2}{facet_grid}. If of the form \code{a ~ b}, \code{a} will be faceted on the rows and \code{b} on the columns. To only facet on the rows, provide a one-sided formula with an empty left-hand side. To only facet on the columns, the formula should be of the form \code{a ~ .} (i.e., with only \code{.} on the right-hand side). The allowable facets depend on which arguments have been supplied to \code{bal.plot}; possible values include \code{which}, \code{cluster}, \code{imp}, and (for longitudinal treatments) \code{time}. If \code{NULL}, \code{bal.plot} will decide what looks best; this argument exists in case you disagree with its choice.
+a \code{formula} designating which facets should be on the rows and columns. This should be of the "historical" formula interface to \pkgfun{ggplot2}{facet_grid}. If of the form \code{a ~ b}, \code{a} will be faceted on the rows and \code{b} on the columns. To only facet on the rows, provide a one-sided formula with an empty left-hand side. To only facet on the columns, the formula should be of the form \code{a ~ .} (i.e., with only \code{.} on the right-hand side). The allowable facets depend on which arguments have been supplied to \code{bal.plot}; possible values include \code{which}, \code{cluster}, \code{imp}, and (for longitudinal treatments) \code{time}. If \code{NULL}, \code{bal.plot()} will decide what looks best; this argument exists in case you disagree with its choice.
 }
   \item{disp.means}{
 \code{logical}; for a categorical treatment with a continuous covariate, whether a line should be drawn for each treatment level denoting the (weighted) mean of the covariate. Ignored if \code{type} is not "density" or "histogram". Default is \code{FALSE}.
@@ -93,7 +93,7 @@ a \code{formula} designating which facets should be on the rows and columns. Thi
 
 }
 \section{Additional Arguments}{
-\code{bal.plot()} works like \code{bal.tab()} in that it can take a variety of types of inputs and yield the same output for each. Depending on what kind of input is given, different additional parameters are required in \code{\dots}. For details on what is required and allowed for each additional input and their defaults, see the help file for the \code{\link{bal.tab}} method associated with the input. The following are the required additional arguments based on each input type:
+\code{bal.plot()} works like \fun{bal.tab} in that it can take a variety of types of inputs and yield the same output for each. Depending on what kind of input is given, different additional parameters are required in \code{\dots}. For details on what is required and allowed for each additional input and their defaults, see the help file for the \fun{bal.tab} method associated with the input. The following are the required additional arguments based on each input type:
 \itemize{
 \item For \code{matchit} objects: None
 
@@ -119,11 +119,11 @@ a \code{formula} designating which facets should be on the rows and columns. Thi
 
 \item For \code{mimids} and \code{wimids} objects: None, but an argument to \code{which.imp} should be specified.
 
-\item For other objects processed through \code{bal.tab}'s default method, whichever arguments are required to identify treatment, variables, and a conditioning method (if any).
+\item For other objects processed through \code{bal.tab()}'s default method, whichever arguments are required to identify treatment, variables, and a conditioning method (if any).
 }
 }
 \details{
-\code{bal.plot()} uses \code{ggplot()} from the \pkg{ggplot2} package, and (invisibly) returns a \code{"ggplot"} object. For categorical treatments with continuous covariates or continuous treatments with categorical covariates, density plots are created using \pkgfun{ggplot2}{geom_density}, histograms are created using \pkgfun{ggplot2}{geom_histogram}, and empirical CDF plots are created using \pkgfun2{ggplot2}{geom_path}{geom_step}; for categorical treatments with categorical covariates, bar graphs are created using \pkgfun{ggplot2}{geom_bar}; for continuous treatments with continuous covariates, scatterplots are created using \pkgfun{ggplot2}{geom_point}.
+\code{bal.plot()} uses \pkgfun{ggplot2}{ggplot} from the \pkg{ggplot2} package, and (invisibly) returns a \code{"ggplot"} object. For categorical treatments with continuous covariates or continuous treatments with categorical covariates, density plots are created using \pkgfun{ggplot2}{geom_density}, histograms are created using \pkgfun{ggplot2}{geom_histogram}, and empirical CDF plots are created using \pkgfun2{ggplot2}{geom_path}{geom_step}; for categorical treatments with categorical covariates, bar graphs are created using \pkgfun{ggplot2}{geom_bar}; for continuous treatments with continuous covariates, scatterplots are created using \pkgfun{ggplot2}{geom_point}.
 
 For continuous treatments with continuous covariates, four additional lines are presented for aid in balance assessment. The red line is the linear fit line. The blue line is a smoothing curve generated with \pkg{ggplot2}'s \pkgfun{ggplot2}{geom_smooth} with \code{method = "auto"}. The horizontal black line is a horizontal reference line intercepting the (unweighted) treatment mean. The vertical black line is a reference line intercepting the (unweighted) treatment mean. Balance is indicated by the flatness of both fit lines and whether they pass through the intersection of the two black reference lines.
 
@@ -141,7 +141,7 @@ Noah Greifer
 
 
 \seealso{
-\code{\link{bal.tab}}
+\fun{bal.tab}
 }
 \examples{\dontshow{if (requireNamespace("MatchIt", quietly = TRUE)) \{}
 data("lalonde", package = "cobalt")

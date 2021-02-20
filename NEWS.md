@@ -1,5 +1,44 @@
 `cobalt` News and Updates
 ======
+
+# cobalt 4.3.0
+
+* Returned `cem` to Suggests.
+
+* Added ability to display threshold summaries with multiply imputed datasets, clustered datasets, multi-category treatments, and longitudinal treatments.
+
+* Added `pairwise` argument for binary treatments. When set to `FALSE`, `bal.tab()` will display balance between each treatment group and the full sample (i.e., the target population). This functionality already existed for multi-category treatments; indeed, for binary treatments, it works by treating the treatment as multi-category.
+
+* Added two new `stats` options in `bal.tab()` and `love.plot()` for continuous treatments: `"mean.diffs.target"` (abbreviated as `"m"`) and `"ks.statistics.target"` (abbreviated as `"ks"`). These compute (standardized) mean differences and KS statistics between the weighted and unweighted samples to ensure the weighted sample is representative of the original population. These statistics are only computed for the adjusted sample (i.e., they will not appear in the absence of adjustment).
+
+* With subclassification methods, the arguments `which.subclass` and `subclass.summary` have been added to display balance on individual subclasses and control output of the balance across subclasses summary. These arguments replace the `disp.subclass` argument, which can still be used.
+
+* When using `bal.plot()` with clustered or multiply imputed data, the `which.cluster` and `which.imp` arguments can be set to `.none` to display balance ignoring cluster membership and combining across imputations.
+
+* Changed processing of the `print()` method. Now there is only one `print()` method (`print.bal.tab()`) for all `bal.tab` objects. Processing is a little smoother and some printing bugs have been fixed. `"as.is"` can no longer be supplied to keep the print setting as-is; simply omit the corresponding argument to use the options as specified in the call to `bal.tab()`.
+
+* An additional argument, `disp.call`, can be supplied to `bal.tab()` and `print.bal.tab()` to control printing of the `call` component of the input object, which contains the original function call. Set to `FALSE` to hide the call. This option is documented in `?display_options` and can also be set using `set.cobalt.options()`.
+
+* The balance table component of `bal.tab` objects is smaller because some extraneous columns are no longer produced. In particular, if no threshold is requested, no threshold columns will be produced. This does not affect display, but makes it easier to extract balance statistics from `bal.tab` objects (e.g., for exporting as a table). This does mean that previously saved `bal.tab` objects produced by earlier versions of `cobalt` will not be able to be printed correctly.
+
+* Fixed a bug where `bal.plot()` would incorrectly process 2-level factor variables (#48).
+
+* Fixed a bug where `love.plot()` would not display variables in the correct order when using aggregation and setting `var.order = NULL`. Thanks to Florian Kaiser.
+
+* Fixed a bug in `love.plot()` where the color of points could be incorrect.
+
+* Fixed a bug in `love.plot()` where samples were not always displayed in the right order. Now they are displayed in the same order they are in `bal.tab()`.
+
+* Fixed a bug in `love.plot()` when the weight names had spaces in them.
+
+* Added an error message when not all clusters contain all treatment levels. Thanks to Rachel Visontay.
+
+* Fixed a bug when supplying the `weights` argument as a list of supported objects (e..g, `weightit` objects) if they were unnamed. Samples are more conveniently named.
+
+* Fixed a bug in `col_w_mean()`, `col_w_smd()`, and friends that occurred when few nonzero weights were present. Now an informative error is thrown.
+
+* Updates to documentation.
+
 # cobalt 4.2.4
 
 * Sampling weights now function correctly with subclassification.

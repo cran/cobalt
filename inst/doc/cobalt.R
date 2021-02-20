@@ -66,7 +66,7 @@ lalonde$subclass <- findInterval(lalonde$p.score,
                                  all.inside = TRUE)
 
 bal.tab(treat ~ covs, data = lalonde, subclass = "subclass", 
-        disp.subclass = TRUE)
+        which.subclass = .all, subclass.summary = TRUE)
 
 ## -----------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
@@ -137,8 +137,8 @@ W.out.c <- weightit(re75 ~ age + educ + race + married + nodegree +
 
 ## -----------------------------------------------------------------------------
 #Assessing balance numerically
-bal.tab(W.out.c, un = TRUE, thresholds = c(cor = .1), int = TRUE,
-        poly = 2, imbalanced.only = TRUE)
+bal.tab(W.out.c, stats = c("c", "m"), un = TRUE, 
+        thresholds = c(cor = .1), poly = 3)
 
 ## ---- fig.width = 5-----------------------------------------------------------
 #Assessing balance graphically
@@ -147,7 +147,8 @@ bal.plot(W.out.c, "married", which = "both")
 
 ## ---- fig.width = 5-----------------------------------------------------------
 #Summarizing balance in a Love plot
-love.plot(W.out.c, thresholds = c(cor = .1), abs = TRUE,
+love.plot(W.out.c, stats = c("c", "ks"), thresholds = c(cor = .1), 
+          abs = TRUE, wrap = 20,
           var.order = "unadjusted", line = TRUE)
 
 ## -----------------------------------------------------------------------------

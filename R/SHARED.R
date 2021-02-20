@@ -1001,6 +1001,12 @@ check_if_call_from_fun <- function(fun) {
     }
     FALSE
 }
+has_method <- function(class, fun) {
+    if (!is.character(fun) || length(fun) != 1) stop("'fun' must be a string of length 1.")
+    if (!is.character(class)) stop("'class' must be a character vector.")
+    
+    vapply(class, function(cl) fun %in% attr(methods(class = cl), "info")$generic, logical(1L))
+}
 
 #Not used cobalt; replaced with rlang
 is.formula <- function(f, sides = NULL) {

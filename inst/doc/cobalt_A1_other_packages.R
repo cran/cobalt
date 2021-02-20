@@ -186,28 +186,28 @@ knitr::opts_chunk$set(eval = TRUE)
 if (any(!sapply(c("cem", "mice"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
-#  library("cem")
-#  data("lalonde", package = "cobalt") #If not yet loaded
-#  
-#  #Matching for balance on covariates
-#  cem.out <- cem("treat", data = lalonde, drop = "re78")
-#  
-#  bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
+library("cem")
+data("lalonde", package = "cobalt") #If not yet loaded
+
+#Matching for balance on covariates
+cem.out <- cem("treat", data = lalonde, drop = "re78")
+
+bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
 
 ## -----------------------------------------------------------------------------
-#  library("mice"); library("cem")
-#  data("lalonde_mis", package = "cobalt")
-#  
-#  #Generate imputed data sets
-#  m <- 10 #number of imputed data sets
-#  imp.out <- mice(lalonde_mis, m = m, print = FALSE)
-#  imp.data.list <- lapply(1:m, complete, data = imp.out)
-#  
-#  #Match within each imputed dataset
-#  cem.out.imp <- cem("treat", datalist = imp.data.list, drop = "re78")
-#  
-#  bal.tab(cem.out.imp, data = imp.out)
-#  
+library("mice"); library("cem")
+data("lalonde_mis", package = "cobalt")
+
+#Generate imputed data sets
+m <- 10 #number of imputed data sets
+imp.out <- mice(lalonde_mis, m = m, print = FALSE) 
+imp.data.list <- lapply(1:m, complete, data = imp.out)
+
+#Match within each imputed dataset
+cem.out.imp <- cem("treat", datalist = imp.data.list, drop = "re78")
+
+bal.tab(cem.out.imp, data = imp.out)
+
 
 ## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
