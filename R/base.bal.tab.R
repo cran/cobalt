@@ -126,7 +126,7 @@ base.bal.tab.imp <- function(X, which.imp = NA, imp.summary = getOption("cobalt_
     out <- make_list(out.names)
     
     #Get list of bal.tabs for each imputation
-    
+
     out[["Imputation.Balance"]] <- lapply(levels(imp), function(i) {
         X_i <- assign.X.class(subset_X(X, imp == i)) 
         X_i$call <- NULL
@@ -506,7 +506,7 @@ base.bal.tab.subclass <- function(X, type, int = FALSE, poly = 1, continuous, bi
             out[["Balance.Across.Subclass"]] <- do.call("balance.table", 
                                                         c(list(C, 
                                                                type = type, 
-                                                               weights = data.frame(Adj = strata2weights(X$subclass, X$treat, X$estimand)), 
+                                                               weights = data.frame(Adj = strata2weights(X$subclass, X$treat, X$estimand, X$focal)), 
                                                                treat = X$treat, 
                                                                s.d.denom = X$s.d.denom[1], 
                                                                s.weights = X$s.weights, 

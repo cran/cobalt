@@ -210,65 +210,73 @@ cluster.check <- function(cluster, treat) {
   if (stop_warn["bs"]) stop("Not all treatment levels are present in all clusters.", call. = FALSE)
   
 }
-strata2weights <- function(strata, treat, estimand = NULL) {
+strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
   #Process strata into weights (similar to weight.subclass from MatchIt)
   
   #Checks
-  if (!is_(strata, "atomic")) {
+  if (!is_(strata, "atomic") || is_not_null(dim(strata))) {
     stop("'strata' must be an atomic vector or factor.", call. = FALSE)
   }
   #Process treat
   treat <- process_treat(treat)
   
-  matched <- !is.na(strata)
-  strata <- factor(strata)
-  strata.matched <- factor(strata[matched])
-  
-  weights <- rep(0, length(treat))
-  
   if (get.treat.type(treat) == "continuous") {
     stop("'strata' cannot be turned into weights for continuous treatments.", call. = FALSE)
   }
-  else {
-    sub.tab <- table(treat[matched], strata.matched)[treat_vals(treat), levels(strata.matched)]
-    totals <- colSums(sub.tab)
-    
-    # estimand <- get.estimand(subclass = strata, treat = treat)
-    s.d.denom <- as.character(get.s.d.denom(NULL, estimand = estimand, subclass = strata, treat = treat, quietly = TRUE))
-    
-    if (s.d.denom %in% treat_vals(treat)) {
-      sub.weights <- setNames(sub.tab[treat_vals(treat) == s.d.denom, levels(strata.matched)] / sub.tab[treat_vals(treat) != s.d.denom, levels(strata.matched)],
-                              levels(strata.matched))
-      weights[matched & treat == s.d.denom] <- 1
-      weights[matched & treat != s.d.denom] <- sub.weights[strata[matched & treat != s.d.denom]]
-    }
-    
-    else {
-      for (tn in treat_vals(treat)) {
-        sub.weights <- setNames(totals[levels(strata.matched)]/sub.tab[tn, levels(strata.matched)], 
-                                levels(strata.matched))
-        weights[matched & treat == tn] <- sub.weights[strata[matched & treat == tn]]
-        
-      }
-    }
-    
-    if (any(na.w <- !is.finite(weights))) {
-      weights[na.w] <- 0
-      warning("Some units were given weights of zero due to zeros in stratum membership.", call. = FALSE)
-    }
-    
-    if (all(check_if_zero(weights))) 
-      stop("No units were stratified", call. = FALSE)
-    else {
-      for (tnn in names(treat_names(treat))) {
-        if (all(check_if_zero(weights[treat == treat_vals(treat)[treat_names(treat)[tnn]]])))
-          stop(paste("No", tnn, "units were stratified."), call. = FALSE)
-      }
+  
+  s.d.denom <- get.s.d.denom(NULL, estimand = estimand, subclass = strata, treat = treat, focal = focal, quietly = TRUE)
+  if (s.d.denom %in% treat_vals(treat)) focal <- process_focal(s.d.denom, treat)
+  else focal <- NULL
+  
+  NAsub <- is.na(strata)
+  imat <- do.call("cbind", lapply(treat_vals(treat), function(t) treat == t & !NAsub))
+  colnames(imat) <- treat_vals(treat)
+  
+  weights <- rep(0, length(treat))
+  
+  if (!is.factor(strata)) {
+    strata <- factor(strata, nmax = min(colSums(imat)))
+    levels(strata) <- seq_len(nlevels(strata))
+  }
+  
+  t_by_sub <- do.call("rbind", lapply(treat_vals(treat), function(t) tabulate(strata[imat[,t]], nlevels(strata))))
+  dimnames(t_by_sub) <- list(treat_vals(treat), levels(strata))
+  
+  total_by_sub <- colSums(t_by_sub)
+  
+  strata.c <- as.character(strata)
+  
+  if (is_not_null(focal)) {
+    focal <- process_focal(focal, treat)
+    for (t in treat_vals(treat)) {
+      if (t == focal) weights[imat[,t]] <- 1
+      else weights[imat[,t]] <- (t_by_sub[focal,]/t_by_sub[t,])[strata.c[imat[,t]]]
     }
   }
+  else {
+    for (t in treat_vals(treat)) {
+      weights[imat[,t]] <- (total_by_sub/t_by_sub[t,])[strata.c[imat[,t]]]
+    }
+  }
+  
+  if (any(na.w <- !is.finite(weights))) {
+    weights[na.w] <- 0
+    warning("Some units were given weights of zero due to zeros in stratum membership.", call. = FALSE)
+  }
+  
+  if (all(check_if_zero(weights))) 
+    stop("No units were stratified", call. = FALSE)
+  else {
+    for (tnn in names(treat_names(treat))) {
+      if (all(check_if_zero(weights[treat == treat_vals(treat)[treat_names(treat)[tnn]]])))
+        stop(paste("No", tnn, "units were stratified."), call. = FALSE)
+    }
+  }
+  
   attr(weights, "match.strata") <- strata
   return(weights)
 }
+
 use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, needs.treat = TRUE, needs.covs = TRUE) {
   if (is_(formula, "formula")) {
     D <- NULL
@@ -284,7 +292,7 @@ use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, ne
   }
   else {
     if (is_not_null(covs)) {
-      if (is_(covs, c("data.frame", "matrix"))) covs <- get_covs_from_formula(~covs)
+      if (is_(covs, c("data.frame", "matrix"))) covs <- get_covs_from_formula(data = covs)
       else if (is.character(covs)) {
         if (is_not_null(data) && is_(data, c("data.frame", "matrix"))) {
           if (any(covs %nin% colnames(data))) {
@@ -478,7 +486,7 @@ vector.process <- function(vec, name = deparse1(substitute(vec)), which = name, 
   
   return(vec)
 } 
-get.s.d.denom <- function(s.d.denom, estimand = NULL, weights = NULL, subclass = NULL, treat = NULL, focal = NULL, quietly = FALSE) {
+get.s.d.denom <- function(s.d.denom = NULL, estimand = NULL, weights = NULL, subclass = NULL, treat = NULL, focal = NULL, quietly = FALSE) {
   check.estimand <- check.weights <- check.focal <- bad.s.d.denom <- bad.estimand <- FALSE
   s.d.denom.specified <- !missing(s.d.denom) && is_not_null(s.d.denom)
   estimand.specified <- is_not_null(estimand)
@@ -516,7 +524,7 @@ get.s.d.denom <- function(s.d.denom, estimand = NULL, weights = NULL, subclass =
       if (!treat.is.processed) treat <- process_treat(treat)
       try.estimand <- tryCatch(match_arg(toupper(estimand), c("ATT", "ATC", "ATE", "ATO", "ATM"), several.ok = TRUE),
                                error = function(cond) NA_character_)
-      if (anyNA(try.estimand) || any(try.estimand %in% c("ATC", "ATT"))) {
+      if (anyNA(try.estimand) || any(try.estimand %in% c("ATC", "ATT")) && get.treat.type(treat) != "binary") {
         check.focal <- TRUE
       }
       else {
@@ -1240,8 +1248,8 @@ process_distance <- function(distance = NULL, datalist = list(), obj.distance = 
   
   if (is_not_null(obj.distance) && !all(is.na(obj.distance))) {
     obj.distance <- setNames(data.frame(obj.distance), obj.distance.name)
-    obj.distance <- get_covs_from_formula(~obj.distance)
-    distance <- co.bind(if_null_then(distance, NULL), obj.distance)
+    obj.distance <- get_covs_from_formula(data = obj.distance)
+    distance <- co.cbind(if_null_then(distance, NULL), obj.distance)
   }
   
   return(distance)
@@ -1382,27 +1390,28 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     }
   }
   
-  if (!rlang::is_formula(f)) stop("'f' must be a formula.")
   
-  env <- rlang::f_env(f)
-  
-  rlang::f_lhs(f) <- NULL
   
   #Check if data exists
+  data.specified <- FALSE
   if (is_not_null(data)) {
     if (is.matrix(data)) data <- as.data.frame.matrix(data)
+    
     if (is.data.frame(data)) {
       data.specified <- TRUE
     }
     else {
       warning("The argument supplied to 'data' is not a data.frame object. Ignoring 'data'.", call. = FALSE)
-      data <- env
-      data.specified <- FALSE
     }
-  } else {
-    data <- env
-    data.specified <- FALSE
   }
+  
+  if (missing(f) && data.specified) f <- f.build(data)
+  else if (!rlang::is_formula(f)) stop("'f' must be a formula.")
+  
+  env <- rlang::f_env(f)
+  if (!data.specified) data <- env
+  
+  rlang::f_lhs(f) <- NULL
   
   tryCatch(tt <- terms(f, data = data),
            error = function(e) {
@@ -1959,7 +1968,7 @@ int.poly.f2 <- function(mat, ex = NULL, int = FALSE, poly = 1, center = FALSE, s
   
   return(out)
 }
-co.bind <- function(..., deparse.level = 1) {
+co.cbind <- function(..., deparse.level = 1) {
   args <- clear_null(list(...))
   if (length(args) <= 1) return(args[[1]])
   
@@ -1971,6 +1980,19 @@ co.bind <- function(..., deparse.level = 1) {
   
   attr(out, "co.names") <- do.call("c", co.names.list)
   attr(attr(out, "co.names"), "seps") <- seps
+  colnames(out) <- names(attr(out, "co.names")) <- vapply(attr(out, "co.names"), function(x) paste0(x[["component"]], collapse = ""), character(1L))
+  
+  out
+}
+co.rbind <- function(..., deparse.level = 1) {
+  args <- clear_null(list(...))
+  if (length(args) <= 1) return(args[[1]])
+  
+  co.names <- attr(args[[1]], "co.names")
+  
+  out <- do.call("rbind", args)
+  
+  attr(out, "co.names") <- co.names
   colnames(out) <- names(attr(out, "co.names")) <- vapply(attr(out, "co.names"), function(x) paste0(x[["component"]], collapse = ""), character(1L))
   
   out

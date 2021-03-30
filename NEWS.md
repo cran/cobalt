@@ -1,6 +1,12 @@
 `cobalt` News and Updates
 ======
 
+# cobalt 4.3.1
+
+* Added support for objects from the new version of `MatchThem`.
+
+* Fixed a bug and improved speed when using `match.strata`.
+
 # cobalt 4.3.0
 
 * Returned `cem` to Suggests.

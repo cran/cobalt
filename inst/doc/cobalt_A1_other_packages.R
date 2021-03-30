@@ -136,24 +136,25 @@ bal.tab(dmout, treat = lalonde$treat, covs = covs0)
 knitr::opts_chunk$set(eval = TRUE)
 
 ## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("sbw", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
+# if (!requireNamespace("sbw", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
+knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
-library("sbw")
-data("lalonde", package = "cobalt") #If not yet loaded
-lalonde_split <- splitfactor(lalonde, drop.first = "if2")
-cov.names <- c("age", "educ", "race_black", "race_hispan", 
-               "race_white", "married", "nodegree", 
-               "re74", "re75")
-
-#Estimating balancing weights for the ATT
-sbw.out <- sbw(lalonde_split,
-               ind = "treat",
-               bal = list(bal_cov = cov.names,
-                          bal_alg = FALSE, 
-                          bal_tol = .001),
-               par = list(par_est = "att"))
-bal.tab(sbw.out, un = TRUE, disp.means = TRUE)
+#  library("sbw")
+#  data("lalonde", package = "cobalt") #If not yet loaded
+#  lalonde_split <- splitfactor(lalonde, drop.first = "if2")
+#  cov.names <- c("age", "educ", "race_black", "race_hispan",
+#                 "race_white", "married", "nodegree",
+#                 "re74", "re75")
+#  
+#  #Estimating balancing weights for the ATT
+#  sbw.out <- sbw(lalonde_split,
+#                 ind = "treat",
+#                 bal = list(bal_cov = cov.names,
+#                            bal_alg = FALSE,
+#                            bal_tol = .001),
+#                 par = list(par_est = "att"))
+#  bal.tab(sbw.out, un = TRUE, disp.means = TRUE)
 
 ## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
