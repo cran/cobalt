@@ -77,7 +77,7 @@ process_treat <- function(treat, datalist = list()) {
       treat_vals(treat) <- setNames(original_values, treat_names(treat))
     }
     else if (treat.type == "multinomial") {
-      treat <- factor(treat)
+      treat <- factor(treat, ordered = FALSE)
       treat_names(treat) <- setNames(levels(treat), levels(treat))
       treat_vals(treat) <- setNames(levels(treat), treat_names(treat))
     }
@@ -182,10 +182,10 @@ weight.check <- function(w) {
   if (anyNA(w, recursive = TRUE)) stop(paste0("NAs are not allowed in the ", wname, "."), call. = FALSE)
   for (x in w) {if (!all(is.numeric(x))) stop(paste0("All ", wname, " must be numeric."), call. = FALSE)}
   for (x in w) {if (!all(is.finite(x))) stop(paste0("Infinite ", wname, " are not allowed."), call. = FALSE)}
-  for (x in w) {if (any(x < 0)) {
-    warning(paste0("Negative ", wname, " found. This may yield nonsensical results and errors as the square root of negative weights is encountered."), call. = FALSE)
-    break
-  }}
+  # for (x in w) {if (any(x < 0)) {
+  #   warning(paste0("Negative ", wname, " found. This may yield nonsensical results and errors as the square root of negative weights is encountered."), call. = FALSE)
+  #   break
+  # }}
 }
 cluster.check <- function(cluster, treat) {
   if (!is.list(treat)) treat <- list(treat)
@@ -277,11 +277,11 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
   return(weights)
 }
 
-use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, needs.treat = TRUE, needs.covs = TRUE) {
+.use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, needs.treat = TRUE, needs.covs = TRUE) {
   if (is_(formula, "formula")) {
     D <- NULL
     if (is_not_null(data)) D <- data
-    if (is_not_null(covs) && is_(covs, c("data.frame", "matrix"))) {
+    if (is_mat_like(covs)) {
       if (is_not_null(D)) D <- cbind(D, as.data.frame(covs)) 
       else D <- as.data.frame(covs)
     }
@@ -292,9 +292,9 @@ use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, ne
   }
   else {
     if (is_not_null(covs)) {
-      if (is_(covs, c("data.frame", "matrix"))) covs <- get_covs_from_formula(data = covs)
+      if (is_mat_like(covs)) covs <- get_covs_from_formula(data = covs)
       else if (is.character(covs)) {
-        if (is_not_null(data) && is_(data, c("data.frame", "matrix"))) {
+        if (is_mat_like(data)) {
           if (any(covs %nin% colnames(data))) {
             stop("All entries in 'covs' must be names of variables in 'data'.", call. = FALSE)
           }
@@ -322,6 +322,99 @@ use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, ne
   
   return(t.c)
 }
+use.tc.fd <- function(formula = NULL, data = NULL, treat = NULL, covs = NULL, needs.treat = TRUE, needs.covs = TRUE) {
+  
+  treat_f <- treat_c <- covs_f <- covs_c <- NULL
+  
+  if (is_(formula, "formula")) {
+    D <- NULL
+    if (is_not_null(data)) D <- data
+    if (is_mat_like(covs)) {
+      if (is_not_null(D)) D <- cbind(D, as.data.frame(covs)) 
+      else D <- as.data.frame(covs)
+    }
+    treat_f <- try(get_treat_from_formula(formula, D, treat = treat), silent = TRUE)
+    covs_f <- try(get_covs_from_formula(formula, D), silent = TRUE)
+  }
+  if (is_not_null(covs)) {
+    covs_c <- try({
+      if (is_mat_like(covs)) get_covs_from_formula(data = covs)
+      else if (is.character(covs)) {
+        if (is_mat_like(data)) {
+          if (any(covs %nin% colnames(data))) {
+            stop("All entries in 'covs' must be names of variables in 'data'.", call. = FALSE)
+          }
+          get_covs_from_formula(f.build(covs), data = as.data.frame(data))
+        }
+        else {
+          stop("If 'covs' is a character vector, 'data' must be specified as a data.frame.", call. = FALSE)
+        }
+      }
+      else stop("'covs' must be a data.frame of covariates.", call. = FALSE)
+    }, silent = TRUE) 
+  }
+  
+  if (is_not_null(treat)) {
+    treat_c <- try({
+      if (!is_(treat, "atomic")) stop("'treat' must be an vector of treatment statuses.", call. = FALSE)
+      if (is.character(treat) && length(treat) == 1) get_treat_from_formula(f.build(treat, "."), data = data)
+      else get_treat_from_formula(treat ~ ., treat = treat)
+    }, silent = TRUE)
+  }
+  
+  covs_to_use <- treat_to_use <- ""
+  if (is_error(covs_c)) {
+    if (null_or_error(covs_f) && needs.covs) {
+      stop(attr(covs_c, "condition")$message, call. = FALSE)
+    }
+    else {
+      covs_to_use <- "f"
+    }
+  }
+  else if (is_null(covs_c)) {
+    if (is_error(covs_f) && needs.covs) {
+      stop(attr(covs_f, "condition")$message, call. = FALSE)
+    }
+    else if (is_null(covs_f) && needs.covs) {
+      stop("No covariates were specified.", call. = FALSE)
+    }
+    else {
+      covs_to_use <- "f"
+    }
+  }
+  else {
+    covs_to_use <- "c"
+  }
+  
+  if (is_error(treat_c)) {
+    if (null_or_error(treat_f) && needs.treat) {
+      stop(attr(treat_c, "condition")$message, call. = FALSE)
+    }
+    else {
+      treat_to_use <- "f"
+    }
+  }
+  else if (is_null(treat_c)) {
+    if (is_error(treat_f) && needs.treat) {
+      stop(attr(treat_f, "condition")$message, call. = FALSE)
+    }
+    else if (is_null(treat_f) && needs.treat) {
+      stop("No treatment variable was specified.", call. = FALSE)
+    }
+    else {
+      treat_to_use <- "f"
+    }
+  }
+  else {
+    treat_to_use <- "c"
+  }
+  
+  t.c <- list(treat = switch(treat_to_use, "f" = treat_f, "c" = treat_c), 
+              covs = switch(covs_to_use, "f" = covs_f, "c" = covs_c))
+  t.c$treat.name <- attr(t.c$treat, "treat.name")
+  
+  return(t.c)
+}
 process.val <- function(val, i, treat = NULL, covs = NULL, addl.data = list(), ...) {
   if (is.numeric(val)) {
     val.df <- setNames(data.frame(val), i)
@@ -339,7 +432,7 @@ process.val <- function(val, i, treat = NULL, covs = NULL, addl.data = list(), .
         for (v in val) {
           found <- FALSE
           k <- 1
-          while (found == FALSE && k <= length(addl.data)) {
+          while (!found && k <= length(addl.data)) {
             if (v %in% names(addl.data[[k]])) {
               val.df[[v]] <- addl.data[[k]][[v]]
               found <- TRUE
@@ -1011,7 +1104,7 @@ length_imp_process <- function(vectors = NULL, data.frames = NULL, lists = NULL,
                 if (unsorted.imp) {for (i_ in levels(imp)) newj[imp == i_] <- j}
                 return(newj)
               }
-              else if (is_(j, c("data.frame", "matrix"))) {
+              else if (is_mat_like(j)) {
                 newj <- j[rep(seq_len(nrow(j)), length(imp.lengths)), , drop = FALSE]
                 if (unsorted.imp) {for (i_ in levels(imp)) newj[imp == i_,] <- j}
                 return(newj)
@@ -1137,8 +1230,8 @@ process_weights <- function(obj = NULL, A = NULL, treat = NULL, covs = NULL, met
     weights <- get.w(obj, treat = treat, ...)
     
     if (is_not_null(weights)) {
-      if (is_(weights, c("data.frame", "matrix"))) {
-        weights <- data.frame(weights)
+      if (is_mat_like(weights)) {
+        weights <- as.data.frame(weights)
       }
       else {
         weights <- setNames(data.frame(weights), class(obj)[has_method(class(obj), "get.w")][1])
@@ -1322,7 +1415,6 @@ get_treat_from_formula <- function(f, data = NULL, treat = NULL) {
     data.specified <- FALSE
   }
   
-  
   tryCatch(tt <- terms(f, data = data),
            error = function(e) {
              stop(conditionMessage(e), call. = FALSE)
@@ -1401,7 +1493,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
       data.specified <- TRUE
     }
     else {
-      warning("The argument supplied to 'data' is not a data.frame object. Ignoring 'data'.", call. = FALSE)
+      stop("The argument supplied to 'data' must be a data.frame object.", call. = FALSE)
     }
   }
   
@@ -1429,16 +1521,14 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
   ttvars <- setNames(vapply(attr(tt.covs, "variables"), deparse1, character(1L))[-1], rownames(ttfactors))
   
   rhs.df.type <- setNames(vapply(ttvars, function(v) {
-    if (is_(try(eval(str2expression(paste0("`", v, "`")), data, env), silent = TRUE),
-            c("data.frame", "matrix", "rms"))) "lit"
-    else if (is_(try(eval(str2expression(v), data, env), silent = TRUE),
-                 c("data.frame", "matrix", "rms"))) "exp"
+    if (length(dim(try(eval(str2expression(paste0("`", v, "`")), data, env), silent = TRUE))) == 2) "lit"
+    else if (length(dim(try(eval(str2expression(v), data, env), silent = TRUE))) == 2) "exp"
     else "not.a.df"
   }, character(1L)), ttvars)
   
   rhs.df <- setNames(rhs.df.type != "not.a.df", ttvars)
   
-  while (any(rhs.df)) {
+  if (any(rhs.df)) {
     term_is_interaction <- apply(ttfactors, 2, function(x) sum(x != 0) > 1)
     if (any(vapply(seq_along(ttvars)[rhs.df], function(x) any(ttfactors[x,] != 0 & term_is_interaction), logical(1L)))) {
       stop("Interactions with data.frames are not allowed in the input formula.", call. = FALSE)
@@ -1446,10 +1536,32 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     addl.dfs <- setNames(lapply(ttvars[rhs.df], function(v) {
       if (rhs.df.type[v] == "lit") df <- eval(str2expression(paste0("`", v, "`")), data, env)
       else df <- eval(str2expression(v), data, env)
+      
       if (is_(df, "rms")) {
         df <- setNames(as.data.frame.matrix(as.matrix(df)), colnames(df))
         return(df)
       }
+      if (is.data.frame(df)) {
+        #Deal with the fact that data.frames may contain matrices and data.frames, which
+        #may contain data/frames, and so on
+        non.vec.col <- which(vapply(df, function(x) is_not_null(dim(x)), logical(1L)))
+        while (is_not_null(non.vec.col)) {
+          for (i in non.vec.col) {
+            if (NCOL(df[[i]]) == 1 && is_null(colnames(df[[i]]))) colnames(df[[i]]) <- names(df)[i]
+            else if (can_str2num(colnames(df[[i]]))) colnames(df[[i]]) <- paste(names(df)[i], colnames(df[[i]]), sep = "_")
+          }
+          names(df)[non.vec.col] <- ""
+          
+          df <- as.data.frame(do.call("cbind", df))
+          non.vec.col <- which(vapply(df, function(x) is_not_null(dim(x)), logical(1L)))
+        }
+        
+        if (ncol(df) == 1 && is_null(colnames(df))) colnames(df) <- v
+        else if (can_str2num(colnames(df))) colnames(df) <- paste(v, colnames(df), sep = "_")
+        return(df)
+      }
+      
+      if (ncol(df) == 1 && is_null(colnames(df))) colnames(df) <- v
       else if (can_str2num(colnames(df))) colnames(df) <- paste(v, colnames(df), sep = "_")
       return(as.data.frame(df))
     }),
@@ -1479,16 +1591,6 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     
     ttfactors <- attr(tt.covs, "factors")
     ttvars <- setNames(vapply(attr(tt.covs, "variables"), deparse1, character(1L))[-1], rownames(ttfactors))
-    
-    rhs.df.type <- setNames(vapply(ttvars, function(v) {
-      if (is_(try(eval(str2expression(paste0("`", v, "`")), data, env), silent = TRUE),
-              c("data.frame", "matrix", "rms"))) "lit"
-      else if (is_(try(eval(str2expression(v), data, env), silent = TRUE),
-                   c("data.frame", "matrix", "rms"))) "exp"
-      else "not.a.df"
-    }, character(1L)), ttvars)
-    
-    rhs.df <- setNames(rhs.df.type != "not.a.df", ttvars)
   }
   
   #Check to make sure variables are valid
@@ -1725,7 +1827,7 @@ get.C2 <- function(covs, int = FALSE, poly = 1, addl = NULL, distance = NULL, tr
                           # else if (test.cluster && equivalent.factors2(C[,i], cluster)) return(TRUE) #Note: doesn't work with multi-cat cluster vars due to splitting
                           else return(FALSE)
                         }, logical(1L))
-
+    
     if (all(drop_vars)) stop("There are no variables for which to display balance.", call. = FALSE)
     C <- C[,!drop_vars, drop = FALSE]
     co.names[drop_vars] <- NULL
@@ -2056,18 +2158,18 @@ find_perfect_col <- function(C1, C2 = NULL, fun = stats::cor) {
 check_if_zero_weights <- function(weights.df, treat = NULL) {
   #Checks if all weights are zero in each treat group for each set of weights
   if (is_not_null(treat)) {
-    w.t.mat <- expand.grid(colnames(weights.df), treat_vals(treat), stringsAsFactors = TRUE)
-    names(w.t.mat) <- c("weight_names", "treat_vals")
-    
+    w.t.mat <- expand.grid(weight_names = colnames(weights.df), 
+                           treat_vals = treat_vals(treat), 
+                           stringsAsFactors = FALSE)
     if (NROW(w.t.mat) > 0) {
       problems <- vapply(seq_len(NROW(w.t.mat)), function(x) all(check_if_zero(weights.df[treat == w.t.mat[x, "treat_vals"], w.t.mat[x, "weight_names"]])), logical(1L))
       if (any(problems)) {
-        prob.w.t.mat <- droplevels(w.t.mat[problems,])
+        prob.w.t.mat <- w.t.mat[problems,]
         if (NCOL(weights.df) == 1) {
           error <- paste0("All weights are zero when treat is ", word_list(prob.w.t.mat[, "treat_vals"], "or"), ".")
         }
         else {
-          errors <- vapply(levels(prob.w.t.mat[,"weight_names"]), function(i) {
+          errors <- vapply(unique(prob.w.t.mat[,"weight_names"]), function(i) {
             paste0("\"", i, "\" weights are zero when treat is ", word_list(prob.w.t.mat[prob.w.t.mat[,"weight_names"] == i, "treat_vals"], "or"))
           }, character(1L))
           errors <- paste(c("All", rep("all", length(errors)-1)), errors)
@@ -2351,9 +2453,13 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
     if (length(method) == 1 && method == "subclassification") {
       if (is_null(subclass)) stop("'subclass' must be a vector of subclasses.")
       
-      nn <- make_df(c(levels(subclass), "All"), c(treat_names(treat), "Total"))
+      nn <- make_df(c(levels(subclass), "Discarded", "All"), c(treat_names(treat), "Total"))
       
       nn[["All"]] <- c(vapply(treat_vals(treat), function(tn) sum(treat==tn), numeric(1L)), length(treat))
+      nn[["Discarded"]] <- {
+        if (any(discarded)) c(vapply(treat_vals(treat), function(tn) sum(treat[discarded]==tn), numeric(1L)), length(treat))
+        else NULL
+      }
       
       matched <- !is.na(subclass)
       for (k in levels(subclass)) {
@@ -2763,7 +2869,7 @@ balance.table.across.subclass.cont <- function(balance.table, balance.table.subc
     }
   }
   B.A.df <- cbind(balance.table[c("Type", "M.Un", "SD.Un", "Corr.Un", "R.Threshold.Un")], 
-                       B.A, R.Threshold = NA_character_)
+                  B.A, R.Threshold = NA_character_)
   if (is_not_null(r.threshold)) B.A.df[["R.Threshold"]] <- ifelse(B.A.df[["Type"]]=="Distance", "", paste0(ifelse(is.finite(B.A.df[["Corr.Adj"]]) & abs_(B.A.df[["Corr.Adj"]]) < r.threshold, "Balanced, <", "Not Balanced, >"), r.threshold))
   return(B.A.df)
 }
@@ -3021,16 +3127,3 @@ acceptable.options <- function() {
   else ggplot2::`%+%`(...)
 }
 
-#On attach
-.onAttach <- function(...) {
-  cobaltLib <- dirname(system.file(package = "cobalt"))
-  version <- packageDescription("cobalt", lib.loc = cobaltLib)$Version
-  BuildDate <- packageDescription("cobalt", lib.loc = cobaltLib)$Date
-  
-  foo <- paste0(" cobalt (Version ", version, ", Build Date: ", BuildDate, ")")
-  packageStartupMessage(foo)
-}
-
-.onLoad <- function(libname, pkgname) {
-  backports::import(pkgname)
-}
