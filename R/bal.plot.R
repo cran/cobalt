@@ -430,16 +430,10 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     treat.type <- get.treat.type(assign.treat.type(D$treat))
     
     D <- na.omit(D[order(D$var),])
-    D <- D[D$weights > 0,]
+    # D <- D[D$weights > 0,]
     
     if (treat.type == "continuous") { #Continuous treatments
-        
-        if (is.categorical.var) {
-            D$weights <- ave(D[["weights"]], 
-                             D[c("var", facet)], 
-                             FUN = function(x) x/sum(x))
-        }
-        
+
         D$treat <- as.numeric(D$treat)
         
         if (is.categorical.var) { #Categorical vars
@@ -486,8 +480,13 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
                 
             }
             
+            D$weights <- ave(D[["weights"]], 
+                             D[c("var", facet)], 
+                             FUN = function(x) x/sum(x))
+            
             bp <- ggplot2::ggplot(D, mapping = aes(x = .data$treat, fill = .data$var, weight = .data$weights)) + 
-                ggplot2::geom_density(alpha = .4, bw = bw, adjust = adjust, kernel = kernel, n = n, trim = TRUE, outline.type = "full") + 
+                ggplot2::geom_density(alpha = .4, bw = bw, adjust = adjust, kernel = kernel, 
+                                      n = n, trim = TRUE, outline.type = "full", stat = StatDensity2) + 
                 ggplot2::labs(fill = var.name, y = "Density", x = "Treat", title = title, subtitle = subtitle) +
                 ggplot2::scale_fill_manual(values = colors) + 
                 ggplot2::geom_hline(yintercept = 0) +
@@ -574,7 +573,7 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
         }
         names(colors) <- levels(D$treat)
         
-        if (is_binary(D$var) || is.factor(D$var) || is.character(D$var)) { #Categorical vars
+        if (is.categorical.var) { #Categorical vars
             D$var <- factor(D$var)
             bp <- ggplot2::ggplot(D, mapping = aes(x = .data$var, fill = .data$treat, weight = .data$weights)) + 
                 ggplot2::geom_bar(position = "dodge", alpha = .8, color = "black") + 
@@ -686,11 +685,11 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
                 geom_fun <- function(t) {
                     out <- list(
                         ggplot2::geom_density(data = D[D$treat == levels(D$treat)[t],],
-                                              mapping = aes(x = .data$var, y = posneg[t]*ggplot2::after_stat(!!sym("density")), 
+                                              mapping = aes(x = .data$var, y = posneg[t]*ggplot2::after_stat(!!sym("density")),
                                                             weight = .data$weights, fill = names(colors)[t]),
                                               alpha = alpha, bw = bw, adjust = adjust,
                                               kernel = kernel, n = n, trim = TRUE,
-                                              outline.type = "full"),
+                                              outline.type = "full", stat = StatDensity2),
                         NULL)
                     if (isTRUE(disp.means)) out[[2]] <-
                             ggplot2::geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
@@ -745,10 +744,10 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
         }
         else if (length(facet) >= 2) {
             if ("which" %in% facet) {
-                facet.formula <- f.build(facet[facet %nin% "which"], "which")
+                facet.formula <- reformulate("which", facet[facet %nin% "which"])
             }
             else if ("imp" %in% facet) {
-                facet.formula <- f.build("imp", facet[facet %nin% "imp"])
+                facet.formula <- reformulate(facet[facet %nin% "imp"], "imp")
             }
             else {
                 facets <- data.frame(facet = facet, length = vapply(facet, function(x) nlevels(D[[x]]), numeric(1L)),
@@ -757,7 +756,7 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
                 facet.formula <- formula(facets)
             }
         }
-        else facet.formula <- f.build(".", facet)
+        else facet.formula <- reformulate(facet, ".")
         bp <- bp + ggplot2::facet_grid(facet.formula, drop = FALSE, scales = ifelse("subclass" %in% facet, "free_x", "fixed"))
     }
     

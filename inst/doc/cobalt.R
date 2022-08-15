@@ -73,20 +73,19 @@ data("lalonde", package = "cobalt")
 covs <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 # Nearest neighbor 2:1 matching with replacement
-library("MatchIt") #if not yet loaded
-m.out <- matchit(f.build("treat", covs), data = lalonde, method = "nearest", 
-                 ratio = 1,  replace = TRUE)
+m.out <- MatchIt::matchit(f.build("treat", covs), 
+                          data = lalonde, method = "nearest", 
+                          ratio = 1,  replace = TRUE)
 
 bal.tab(m.out)
 
 ## -----------------------------------------------------------------------------
-library("WeightIt")
 data("lalonde", package = "cobalt") #If not yet loaded
 covs <- subset(lalonde, select = -c(treat, re78, nodegree, married))
 
 #Generating propensity score weights for the ATT
-W.out <- weightit(treat ~ covs, data = lalonde,
-                  method = "ps", estimand = "ATT")
+W.out <- WeightIt::weightit(treat ~ covs, data = lalonde,
+                            method = "ps", estimand = "ATT")
 
 bal.tab(W.out)
 
@@ -104,9 +103,8 @@ data("lalonde", package = "cobalt")
 covs <- subset(lalonde, select = -c(treat, re78))
 
 # Nearest neighbor 1:1 matching with replacement
-library("MatchIt") #if not yet loaded
-m.out <- matchit(f.build("treat", covs), data = lalonde, 
-                 method = "nearest", replace = TRUE)
+m.out <- MatchIt::matchit(f.build("treat", covs), data = lalonde, 
+                          method = "nearest", replace = TRUE)
 
 love.plot(m.out, binary = "std", thresholds = c(m = .1))
 
@@ -128,12 +126,11 @@ love.plot(m.out, stats = c("mean.diffs", "ks.statistics"),
 
 ## -----------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
-library("WeightIt")
 
 #Generating weights with re75 as the continuous treatment
-W.out.c <- weightit(re75 ~ age + educ + race + married + nodegree + 
-                        re74 + I(re74^2), 
-                    data = lalonde, method = "ps")
+W.out.c <- WeightIt::weightit(re75 ~ age + educ + race + married + nodegree + 
+                                  re74 + I(re74^2), 
+                              data = lalonde, method = "ps")
 
 ## -----------------------------------------------------------------------------
 #Assessing balance numerically
@@ -153,13 +150,12 @@ love.plot(W.out.c, stats = c("c", "ks"), thresholds = c(cor = .1),
 
 ## -----------------------------------------------------------------------------
 data("lalonde", package = "cobalt")
-library("WeightIt")
 cov.mn <- subset(lalonde, select = -c(treat, re78, race))
 
 #Using WeightIt to generate weights with multinomial
 #logistic regression
-W.out.mn <- weightit(race ~ cov.mn, data = lalonde,
-                     method = "ps")
+W.out.mn <- WeightIt::weightit(race ~ cov.mn, data = lalonde,
+                               method = "ps", use.mlogit = FALSE)
 
 ## -----------------------------------------------------------------------------
 #Balance summary across treatment pairs

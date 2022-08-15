@@ -1,6 +1,30 @@
 `cobalt` News and Updates
 ======
 
+# cobalt 4.4.0
+
+* Added support in `bal.plot()` for negative weights with `type = "density"`.
+
+* Added support for `ps.cont()` objects from the `twangContinuous` package. `ps.cont` objects from `WeightIt` are no longer supported.
+
+* Major documentation overhaul. More arguments are explained at `help("bal.tab")` and a new package help page can be found at `help("cobalt-package")`.
+
+* The function call is no longer included in the `bal.tab()` results for objects from `twang`.
+
+* Fixed a bug when some predictors were binary in some clusters and continuous in others. Variables now have a stable type across partitions.
+
+* Fixed a bug where binary variables were not being correctly processed when using the `formula` interface.
+
+* When using `poly`, orthogonal polynomials can be requested by setting `orth = TRUE`.
+
+* Improved appearance of conditional examples in `pkgdown` site.
+
+* Removed `mlogit` from Suggests.
+
+* Returned `sbw` to Suggests.
+
+* Updated the logo, thanks to [Ben Stillerman](https://stillben.com).
+
 # cobalt 4.3.2
 
 * When `pairwise = FALSE` with binary or multi-category treatments, the balance statistics now refer to the difference between each group and the original full sample, unadjusted except possibly by `s.weights`. Previously, they referred to the difference between each group and the combined adjusted sample.
@@ -57,7 +81,7 @@
 
 * Added an error message when not all clusters contain all treatment levels. Thanks to Rachel Visontay.
 
-* Fixed a bug when supplying the `weights` argument as a list of supported objects (e..g, `weightit` objects) if they were unnamed. Samples are more conveniently named.
+* Fixed a bug when supplying the `weights` argument as a list of supported objects (e.g., `weightit` objects) if they were unnamed. Samples are more conveniently named.
 
 * Fixed a bug in `col_w_mean()`, `col_w_smd()`, and friends that occurred when few nonzero weights were present. Now an informative error is thrown.
 

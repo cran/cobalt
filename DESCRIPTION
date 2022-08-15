@@ -1,19 +1,25 @@
 Package: cobalt
 Title: Covariate Balance Tables and Plots
-Version: 4.3.2
+Version: 4.4.0
 Authors@R: c(
     person("Noah", "Greifer", role=c("aut", "cre"), 
            email = "noah.greifer@gmail.com",
 	       comment=c(ORCID="0000-0003-3067-7154"))
     )
-Description: Generate balance tables and plots for covariates of groups preprocessed through matching, weighting or subclassification, for example, using propensity scores. Includes integration with 'MatchIt', 'twang', 'Matching', 'optmatch', 'CBPS', 'ebal', 'WeightIt', 'cem', 'sbw', and 'designmatch' for assessing balance on the output of their preprocessing functions. Users can also specify data for balance assessment not generated through the above packages. Also included are methods for assessing balance in clustered or multiply imputed data sets or data sets with longitudinal treatments.
+Description: Generate balance tables and plots for covariates of groups preprocessed through 
+             matching, weighting or subclassification, for example, using propensity scores. Includes 
+             integration with 'MatchIt', 'twang', 'Matching', 'optmatch', 'CBPS', 'ebal', 'WeightIt', 
+             'cem', 'sbw', and 'designmatch' for assessing balance on the output of their preprocessing 
+             functions. Users can also specify data for balance assessment not generated through 
+             the above packages. Also included are methods for assessing balance in clustered or 
+             multiply imputed data sets or data sets with longitudinal treatments.
 Depends: R (>= 3.3.0)
 Imports: ggplot2 (>= 3.3.0), grid, gtable (>= 0.3.0), gridExtra (>=
         2.3), rlang (>= 0.4.0), crayon, backports (>= 1.1.9)
-Suggests: MatchIt, WeightIt (>= 0.5.0), twang (>= 1.6), Matching,
-        optmatch, ebal, CBPS (>= 0.17), designmatch, optweight, mice
-        (>= 3.8.0), MatchThem (>= 0.9.3), cem (>= 1.1.27), mlogit,
-        knitr, rmarkdown
+Suggests: MatchIt (>= 4.0.0), WeightIt (>= 0.12.0), twang (>= 1.6),
+        twangContinuous, Matching, optmatch, ebal, CBPS (>= 0.17),
+        designmatch, optweight, mice (>= 3.8.0), MatchThem (>= 0.9.3),
+        cem (>= 1.1.30), sbw (>= 1.1.5), knitr, rmarkdown
 License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
@@ -22,8 +28,8 @@ URL: https://ngreifer.github.io/cobalt/,
         https://github.com/ngreifer/cobalt
 BugReports: https://github.com/ngreifer/cobalt/issues
 NeedsCompilation: no
-Packaged: 2022-01-19 19:33:11 UTC; NoahGreifer
+Packaged: 2022-08-13 18:51:36 UTC; NoahGreifer
 Author: Noah Greifer [aut, cre] (<https://orcid.org/0000-0003-3067-7154>)
 Maintainer: Noah Greifer <noah.greifer@gmail.com>
 Repository: CRAN
-Date/Publication: 2022-01-19 22:22:41 UTC
+Date/Publication: 2022-08-15 08:30:05 UTC

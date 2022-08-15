@@ -3,12 +3,12 @@
   if (any(!sapply(c("MatchIt", "MatchThem", "mice"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
-library("MatchIt"); library("cobalt")
+library("cobalt")
 data("lalonde", package = "cobalt")
 
-m.out <- matchit(treat ~ race*(age + educ + married + nodegree + re74 + re75), 
-                 data = lalonde, method = "nearest", exact = "race", 
-                 replace = TRUE, ratio = 2)
+m.out <- MatchIt::matchit(treat ~ race*(age + educ + married + nodegree + re74 + re75), 
+                          data = lalonde, method = "nearest", exact = "race", 
+                          replace = TRUE, ratio = 2)
 
 ## -----------------------------------------------------------------------------
 bal.tab(m.out, cluster = "race")
@@ -36,18 +36,17 @@ love.plot(m.out, cluster = "race", which.cluster = .none, agg.fun = "mean")
 love.plot(m.out, cluster = "race", which.cluster = .none, agg.fun = "range")
 
 ## -----------------------------------------------------------------------------
-library("mice"); library("MatchThem"); library("cobalt")
 data("lalonde_mis", package = "cobalt")
 
 #Generate imputed data sets
 m <- 10 #number of imputed data sets
-imp.out <- mice(lalonde_mis, m = m, print = FALSE) 
+imp.out <- mice::mice(lalonde_mis, m = m, print = FALSE) 
 
 
 #Performing generalized propensity score weighting in each imputation
-wt.out <- weightthem(educ ~ age + race + married + 
-                      re74 + re75, datasets = imp.out, 
-                     approach = "within", method = "ps")
+wt.out <- MatchThem::weightthem(educ ~ age + race + married + 
+                                    re74 + re75, datasets = imp.out, 
+                                approach = "within", method = "ps")
 
 ## -----------------------------------------------------------------------------
 #Checking balance on the output object
@@ -64,10 +63,11 @@ love.plot(wt.out, threshold = .05)
 
 ## -----------------------------------------------------------------------------
 #Estimate weights within each imputation using propensity scores
-wt3.out <- weightthem(race ~ age + educ + married + 
-                        nodegree + re74 + re75, 
-                      datasets = imp.out, approach = "within", 
-                      method = "ps", estimand = "ATE")
+wt3.out <- MatchThem::weightthem(race ~ age + educ + married + 
+                                     nodegree + re74 + re75, 
+                                 datasets = imp.out, approach = "within", 
+                                 method = "ps", estimand = "ATE",
+                                 use.mlogit = FALSE)
 
 ## -----------------------------------------------------------------------------
 bal.tab(wt3.out)

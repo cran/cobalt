@@ -6,9 +6,9 @@ if (any(!sapply(c("WeightIt", "CBPS"), requireNamespace, quietly = TRUE))) knitr
 library(cobalt)
 data("lalonde", package = "cobalt")
 
-library(WeightIt)
-w.out1 <- weightit(treat ~ age + educ + married + nodegree + race + re74 + re75,
-                   data = lalonde, estimand = "ATE", method = "ps")
+w.out1 <- WeightIt::weightit(
+    treat ~ age + educ + married + nodegree + race + re74 + re75,
+    data = lalonde, estimand = "ATE", method = "ps")
 
 ## -----------------------------------------------------------------------------
 set.cobalt.options(binary = "std")
@@ -73,8 +73,9 @@ love.plot(w.out1,
         legend.box.margin = margin(1, 1, 1, 1))
 
 ## -----------------------------------------------------------------------------
-w.out2 <- weightit(treat ~ age + educ + married + nodegree + race + re74 + re75,
-                   data = lalonde, estimand = "ATE", method = "cbps")
+w.out2 <- WeightIt::weightit(
+    treat ~ age + educ + married + nodegree + race + re74 + re75,
+    data = lalonde, estimand = "ATE", method = "cbps")
 
 love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75,
           data = lalonde, estimand = "ATE",
