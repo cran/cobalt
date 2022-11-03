@@ -1,6 +1,18 @@
 `cobalt` News and Updates
 ======
 
+# cobalt 4.4.1
+
+* Fixed a bug when covariates with nonstandard names are extracted from model objects (#63). Thanks to @markdanese.
+
+* Fixed a bug when "0" and "1" are the names of two of the treatment levels in a multinomial treatment.
+
+* Fixed a bug with the default method of `bal.tab()` which was ignoring components of the supplied object.
+
+* Fixed a bug where `bal.plot()` would ignore `s.weights`. They are now included correctly.
+
+* The call to the original balancing function is now hidden by default. To request it be displayed, set `disp.call = TRUE` in the call to `bal.tab()` or `print.bal.tab()` or use `set.cobalt.options(disp.call = TRUE)` to display it for the session.
+
 # cobalt 4.4.0
 
 * Added support in `bal.plot()` for negative weights with `type = "density"`.

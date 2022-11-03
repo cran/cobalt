@@ -1,6 +1,6 @@
 Package: cobalt
 Title: Covariate Balance Tables and Plots
-Version: 4.4.0
+Version: 4.4.1
 Authors@R: c(
     person("Noah", "Greifer", role=c("aut", "cre"), 
            email = "noah.greifer@gmail.com",
@@ -19,7 +19,8 @@ Imports: ggplot2 (>= 3.3.0), grid, gtable (>= 0.3.0), gridExtra (>=
 Suggests: MatchIt (>= 4.0.0), WeightIt (>= 0.12.0), twang (>= 1.6),
         twangContinuous, Matching, optmatch, ebal, CBPS (>= 0.17),
         designmatch, optweight, mice (>= 3.8.0), MatchThem (>= 0.9.3),
-        cem (>= 1.1.30), sbw (>= 1.1.5), knitr, rmarkdown
+        cem (>= 1.1.30), sbw (>= 1.1.5), knitr, rmarkdown, testthat (>=
+        3.0.0)
 License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
@@ -27,9 +28,10 @@ VignetteBuilder: knitr
 URL: https://ngreifer.github.io/cobalt/,
         https://github.com/ngreifer/cobalt
 BugReports: https://github.com/ngreifer/cobalt/issues
+Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2022-08-13 18:51:36 UTC; NoahGreifer
+Packaged: 2022-11-03 06:51:00 UTC; NoahGreifer
 Author: Noah Greifer [aut, cre] (<https://orcid.org/0000-0003-3067-7154>)
 Maintainer: Noah Greifer <noah.greifer@gmail.com>
 Repository: CRAN
-Date/Publication: 2022-08-15 08:30:05 UTC
+Date/Publication: 2022-11-03 17:30:02 UTC

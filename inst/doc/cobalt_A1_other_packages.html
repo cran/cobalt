@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2022-08-13" />
+<meta name="date" content="2022-11-03" />
 
 <title>Appendix 1: Using cobalt with Other Preprocessing Packages</title>
 
@@ -31,23 +31,23 @@ document.addEventListener('DOMContentLoaded', function(e) {
 </script>
 
 <style type="text/css">
-  code{white-space: pre-wrap;}
-  span.smallcaps{font-variant: small-caps;}
-  span.underline{text-decoration: underline;}
-  div.column{display: inline-block; vertical-align: top; width: 50%;}
-  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-  ul.task-list{list-style: none;}
-    </style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
 
 
 
 <style type="text/css">
-  code {
-    white-space: pre;
-  }
-  .sourceCode {
-    overflow: visible;
-  }
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
@@ -65,55 +65,54 @@ pre > code.sourceCode { white-space: pre-wrap; }
 pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
-  { counter-reset: source-line 0; }
+{ counter-reset: source-line 0; }
 pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
+{ position: relative; left: -4em; counter-increment: source-line; }
 pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-    color: #aaaaaa;
-  }
-pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
 div.sourceCode
-  {   }
+{ }
 @media screen {
 pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
-code span.al { color: #ff0000; font-weight: bold; } /* Alert */
-code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-code span.at { color: #7d9029; } /* Attribute */
-code span.bn { color: #40a070; } /* BaseN */
-code span.bu { } /* BuiltIn */
-code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-code span.ch { color: #4070a0; } /* Char */
-code span.cn { color: #880000; } /* Constant */
-code span.co { color: #60a0b0; font-style: italic; } /* Comment */
-code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
-code span.do { color: #ba2121; font-style: italic; } /* Documentation */
-code span.dt { color: #902000; } /* DataType */
-code span.dv { color: #40a070; } /* DecVal */
-code span.er { color: #ff0000; font-weight: bold; } /* Error */
-code span.ex { } /* Extension */
-code span.fl { color: #40a070; } /* Float */
-code span.fu { color: #06287e; } /* Function */
-code span.im { } /* Import */
-code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
-code span.kw { color: #007020; font-weight: bold; } /* Keyword */
-code span.op { color: #666666; } /* Operator */
-code span.ot { color: #007020; } /* Other */
-code span.pp { color: #bc7a00; } /* Preprocessor */
-code span.sc { color: #4070a0; } /* SpecialChar */
-code span.ss { color: #bb6688; } /* SpecialString */
-code span.st { color: #4070a0; } /* String */
-code span.va { color: #19177c; } /* Variable */
-code span.vs { color: #4070a0; } /* VerbatimString */
-code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
-
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
 </style>
 <script>
 // apply pandoc div.sourceCode style to pre.sourceCode instead
@@ -122,13 +121,20 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   for (var i = 0; i < sheets.length; i++) {
     if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
     try { var rules = sheets[i].cssRules; } catch (e) { continue; }
-    for (var j = 0; j < rules.length; j++) {
+    var j = 0;
+    while (j < rules.length) {
       var rule = rules[j];
       // check if there is a div.sourceCode rule
-      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
       var style = rule.style.cssText;
       // check if color or background-color is set
-      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
       // replace div.sourceCode by a pre.sourceCode rule
       sheets[i].deleteRule(j);
       sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
@@ -335,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Appendix 1: Using cobalt with Other
 Preprocessing Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2022-08-13</h4>
+<h4 class="date">2022-11-03</h4>
 
 
 <div id="TOC">
@@ -958,10 +964,7 @@ in each.</p>
 <span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>fm <span class="ot">&lt;-</span> optmatch<span class="sc">::</span><span class="fu">fullmatch</span>(treat <span class="sc">~</span> p.score, <span class="at">data =</span> lalonde)</span>
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(fm, <span class="at">covs =</span> covs0, <span class="at">distance =</span> <span class="sc">~</span> p.score)</span></code></pre></div>
-<pre><code>## Call
-##  optmatch::fullmatch(x = treat ~ p.score, data = lalonde)
-## 
-## Balance Measures
+<pre><code>## Balance Measures
 ##                 Type Diff.Adj
 ## p.score     Distance   0.0058
 ## age          Contin.   0.1522
@@ -1007,10 +1010,7 @@ example of its use with a binary treatment:</p>
 <span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>cbps.out <span class="ot">&lt;-</span> CBPS<span class="sc">::</span><span class="fu">CBPS</span>(f, <span class="at">data =</span> lalonde)</span></code></pre></div>
 <pre><code>## [1] &quot;Finding ATT with T=1 as the treatment.  Set ATT=2 to find ATT with T=0 as the treatment&quot;</code></pre>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(cbps.out)</span></code></pre></div>
-<pre><code>## Call
-##  CBPS::CBPS(formula = f, data = lalonde)
-## 
-## Balance Measures
+<pre><code>## Balance Measures
 ##                 Type Diff.Adj
 ## prop.score  Distance  -0.0057
 ## age          Contin.  -0.0052
@@ -1233,20 +1233,20 @@ example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
 <span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## prop.score  Distance       0.1433        0.1536       0.1621
-## age          Contin.      -0.1927       -0.1864      -0.1815
-## educ         Contin.       0.0761        0.0843       0.0954
-## married       Binary      -0.1126       -0.1013      -0.0832
-## race_black    Binary       0.0516        0.0557       0.0598
-## race_hispan   Binary       0.0064        0.0096       0.0125
-## race_white    Binary      -0.0716       -0.0653      -0.0580
-## re74         Contin.      -0.2997       -0.2834      -0.2516
-## re75         Contin.      -0.1771       -0.1646      -0.1433
+## prop.score  Distance       0.1474        0.1578       0.1663
+## age          Contin.      -0.1961       -0.1887      -0.1825
+## educ         Contin.       0.0712        0.0824       0.0939
+## married       Binary      -0.1129       -0.1038      -0.0940
+## race_black    Binary       0.0527        0.0575       0.0619
+## race_hispan   Binary       0.0085        0.0108       0.0127
+## race_white    Binary      -0.0729       -0.0683      -0.0612
+## re74         Contin.      -0.2983       -0.2823      -0.2525
+## re75         Contin.      -0.1694       -0.1624      -0.1568
 ## 
 ## Average effective sample sizes across imputations
-##            Control Treated
-## Unadjusted   429.   185.  
-## Adjusted     331.4   66.29</code></pre>
+##                 0      1
+## Unadjusted 429.   185.  
+## Adjusted   331.07  66.44</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <code>MatchIt</code> or <code>WeightIt</code>.</p>
 </div>
@@ -1333,22 +1333,22 @@ with multiply imputed data from <code>mice</code>:</p>
 <div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(cem.out.imp, <span class="at">data =</span> imp.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## age         Contin.       0.0415        0.0475       0.0505
-## educ        Contin.      -0.0386       -0.0347      -0.0165
+## age         Contin.       0.0424        0.0479       0.0512
+## educ        Contin.      -0.0441       -0.0343      -0.0165
 ## race_black   Binary      -0.0000       -0.0000       0.0000
-## race_hispan  Binary      -0.0000       -0.0000       0.0000
+## race_hispan  Binary       0.0000        0.0000       0.0000
 ## race_white   Binary      -0.0000       -0.0000       0.0000
-## married      Binary      -0.0000       -0.0000       0.0000
+## married      Binary      -0.0000        0.0000       0.0000
 ## nodegree     Binary       0.0000        0.0000       0.0000
-## re74        Contin.      -0.0399       -0.0359      -0.0332
-## re75        Contin.      -0.0820       -0.0568      -0.0454
+## re74        Contin.      -0.0432       -0.0362      -0.0331
+## re75        Contin.      -0.0753       -0.0584      -0.0498
 ## 
 ## Average sample sizes across imputations
-##                      Control Treated
-## All                   429.     185. 
-## Matched (ESS)          35.57    66.1
-## Matched (Unweighted)   77.9     66.1
-## Unmatched             351.1    118.9</code></pre>
+##                           0     1
+## All                  429.   185. 
+## Matched (ESS)         35.59  66.4
+## Matched (Unweighted)  77.8   66.4
+## Unmatched            351.2  118.6</code></pre>
 </div>
 <div id="using-bal.tab-with-other-packages" class="section level3">
 <h3>Using <code>bal.tab()</code> with other packages</h3>
@@ -1393,24 +1393,21 @@ output compatible with the <code>default</code> method of
 ##  [7] &quot;focal&quot;     &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
 <div class="sourceCode" id="cb39"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Use bal.tab() directly on the output</span></span>
 <span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(ow.out)</span></code></pre></div>
-<pre><code>## Call
-##  optweight::optweight(formula = treat ~ age + educ + married + 
-##     race + re74 + re75, data = lalonde, tols = 0.01, estimand = &quot;ATE&quot;)
+<pre><code>## Balance Measures
+##                Type Diff.Adj
+## age         Contin.  -0.0000
+## educ        Contin.   0.0100
+## married      Binary  -0.0100
+## race_black   Binary   0.0100
+## race_hispan  Binary  -0.0000
+## race_white   Binary  -0.0100
+## re74        Contin.  -0.0100
+## re75        Contin.   0.0085
 ## 
-## Balance Measures
-##                Type Diff.Un
-## age         Contin. -0.2419
-## educ        Contin.  0.0448
-## married      Binary -0.3236
-## race_black   Binary  0.6404
-## race_hispan  Binary -0.0827
-## race_white   Binary -0.5577
-## re74        Contin. -0.5958
-## re75        Contin. -0.2870
-## 
-## Sample sizes
-##     Control Treated
-## All     429     185</code></pre>
+## Effective sample sizes
+##            Control Treated
+## Unadjusted  429.    185.  
+## Adjusted    349.42   52.04</code></pre>
 <p>The output is treated as output from a specifically supported
 package. See <code>?bal.tab.default</code> for more details and another
 example.</p>
