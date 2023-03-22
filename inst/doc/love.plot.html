@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Noah Greifer" />
+
+<meta name="date" content="2023-03-21" />
+
+<title>Using love.plot() To Generate Love Plots</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
+</style>
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Using <code>love.plot()</code> To Generate
+Love Plots</h1>
+<h4 class="author">Noah Greifer</h4>
+<h4 class="date">2023-03-21</h4>
+
+
+
+<p>This is a guide on how to use <code>love.plot()</code> to its fullest
+potential, taking advantage of all of its many options and features.
+Other vignettes have described the basics of <code>love.plot()</code>,
+but this guide goes more in depth. See the help file for
+<code>love.plot()</code> with <code>?love.plot</code> for the full
+documentation.</p>
+<p>This document will only go over the options for
+<code>love.plot()</code> with binary treatments. Many of the options
+apply to continuous and multi-category treatments and clustered and
+multiply imputed data as well. I’ll use the Lalonde data and
+<code>WeightIt</code> for all examples. <code>WeightIt</code> performs a
+variety of weighting methods, including propensity score weighting,
+which, for simplicity, will be the focus here.</p>
+<p>First, let’s load in the data set and estimate the weights.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(cobalt)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>w.out1 <span class="ot">&lt;-</span> WeightIt<span class="sc">::</span><span class="fu">weightit</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span> race <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> lalonde, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>, <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>)</span></code></pre></div>
+<p>Next, because in this example we want to display standardized mean
+difference for all of the covariates, let’s set the global
+<code>binary</code> option to <code>&quot;std&quot;</code> so we don’t have to
+type it every time.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.cobalt.options</span>(<span class="at">binary =</span> <span class="st">&quot;std&quot;</span>)</span></code></pre></div>
+<p>The most basic way to use <code>love.plot()</code> is simply to call
+it as you would <code>bal.tab()</code> on the output of the
+preprocessing function (in this case, <code>weightit</code>).</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(w.out1)</span></code></pre></div>
+<p>We could also have supplied other arguments that would normally go in
+<code>bal.tab()</code><a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">#This produces the same output as the prior block but with </span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">#the additional covariates included in the formula.</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span> race <span class="sc">+</span> re74 <span class="sc">+</span> re75 <span class="sc">+</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>            <span class="fu">I</span>(age<span class="sc">^</span><span class="dv">2</span>) <span class="sc">+</span> <span class="fu">I</span>(educ<span class="sc">^</span><span class="dv">2</span>), <span class="at">data =</span> lalonde, <span class="at">weights =</span> <span class="fu">get.w</span>(w.out1),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>          <span class="at">method =</span> <span class="st">&quot;weighting&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>)</span></code></pre></div>
+<p>Let’s start with some basic customizations. First, we’ll remove the
+propensity score from the balance display by setting
+<code>drop.distance = TRUE</code>. We’ll change the order the covariates
+so they are displayed in descending order of their unadjusted mean
+differences by setting <code>var.order = &quot;unadjusted&quot;</code>. We’ll
+display the absolute mean difference by setting <code>abs = TRUE</code>.
+We’ll also add some lines to make the change in balance clearer by
+setting <code>line = TRUE</code>. Finally, we’ll add a threshold line at
+0.1 by setting <code>thresholds = c(m = .1)</code>.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(w.out1, </span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>          <span class="at">drop.distance =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.order =</span> <span class="st">&quot;unadjusted&quot;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">abs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>          <span class="at">line =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">m =</span> .<span class="dv">1</span>))</span></code></pre></div>
+<p>The plot is already looking much better and more informative, but
+let’s change a few things to make it more professional. First, we’ll
+change the names of the variables so they are easier to read. We can
+create a vector of new variable names and then supply that to the
+<code>var.names</code> argument in <code>love.plot()</code>. If it would
+be a burden to type out all the names, you can use the
+<code>var.names()</code> function to create a CSV file (i.e.,
+spreadsheet) that can be customized and loaded back into R to be used
+with <code>love.plot()</code>. See <code>?var.names</code> for more
+information. Because we only have a few variable names, we’ll just
+manually create a vector of names.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>new.names <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">age =</span> <span class="st">&quot;Age (Years)&quot;</span>,</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>               <span class="at">educ =</span> <span class="st">&quot;Education (Years)&quot;</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>               <span class="at">married =</span> <span class="st">&quot;Married (Y/N)&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>               <span class="at">nodegree =</span> <span class="st">&quot;Degree Earned (Y/N)&quot;</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>               <span class="at">race_white =</span> <span class="st">&quot;Race: White&quot;</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>               <span class="at">race_black =</span> <span class="st">&quot;Race: Black&quot;</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>               <span class="at">race_hispan =</span> <span class="st">&quot;Race: Hispanic&quot;</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>               <span class="at">re74 =</span> <span class="st">&quot;Earnings in 1974 ($)&quot;</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>               <span class="at">re75 =</span> <span class="st">&quot;Earnings in 1975 ($)&quot;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<p>We’ll change the colors of the points and lines with the
+<code>colors</code> argument so they aren’t the <code>ggplot2</code>
+defaults. We’ll also change the shape of the points to further clarify
+the different samples using the <code>shapes</code> argument.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(w.out1, </span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>          <span class="at">drop.distance =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.order =</span> <span class="st">&quot;unadjusted&quot;</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">abs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>          <span class="at">line =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">m =</span> .<span class="dv">1</span>),</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.names =</span> new.names,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>          <span class="at">colors =</span> <span class="fu">c</span>(<span class="st">&quot;red&quot;</span>, <span class="st">&quot;blue&quot;</span>),</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>          <span class="at">shapes =</span> <span class="fu">c</span>(<span class="st">&quot;triangle filled&quot;</span>, <span class="st">&quot;circle filled&quot;</span>))</span></code></pre></div>
+<p>Finally, let’s makes some changed to the legend. First, we’ll rename
+the samples to be “Unweighted” and “PS Weighted” using the
+<code>sample.names</code> argument. Second, we’ll change the plot limits
+to give more padding on the right side using the <code>limits</code>
+argument. Third, to save some space, we’ll move the legend into the plot
+using the <code>position</code> argument, and we’ll give it a border. We
+can do this last step using <code>ggplot2</code> syntax because the
+<code>love.plot</code> output is a <code>ggplot</code> object. We need
+to load in <code>ggplot2</code> first to do this.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(w.out1, </span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">drop.distance =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.order =</span> <span class="st">&quot;unadjusted&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">abs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>          <span class="at">line =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>          <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">m =</span> .<span class="dv">1</span>),</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.names =</span> new.names,</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>          <span class="at">colors =</span> <span class="fu">c</span>(<span class="st">&quot;red&quot;</span>, <span class="st">&quot;blue&quot;</span>),</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>          <span class="at">shapes =</span> <span class="fu">c</span>(<span class="st">&quot;triangle filled&quot;</span>, <span class="st">&quot;circle filled&quot;</span>),</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>          <span class="at">sample.names =</span> <span class="fu">c</span>(<span class="st">&quot;Unweighted&quot;</span>, <span class="st">&quot;PS Weighted&quot;</span>),</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>          <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, .<span class="dv">82</span>),</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>          <span class="at">position =</span> <span class="fu">c</span>(.<span class="dv">75</span>, .<span class="dv">25</span>)) <span class="sc">+</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.box.background =</span> <span class="fu">element_rect</span>(), </span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.box.margin =</span> <span class="fu">margin</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>))</span></code></pre></div>
+<p>This is starting to look like a publication-ready plot. There are
+still other options you can change, such as the title, subtitle, and
+axis names, some of which can be done using <code>love.plot</code>
+arguments and others which require <code>ggplot2</code> code. Sizing the
+plot and making sure everything still looks good will be its own
+challenge, but that’s true of all plots in R.</p>
+<p>Perhaps we want to display balance for a second set of weights, maybe
+using a different method to estimate them, like the covariate balancing
+propensity score [CBPS; <span class="citation">Imai and Ratkovic (<a href="#ref-imaiCovariateBalancingPropensity2014" role="doc-biblioref">2014</a>)</span>] that is popular in political
+science. These can be easily added (but we’ll have to use the formula
+interface to set multiple weights).</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>w.out2 <span class="ot">&lt;-</span> WeightIt<span class="sc">::</span><span class="fu">weightit</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span> race <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> lalonde, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>, <span class="at">method =</span> <span class="st">&quot;cbps&quot;</span>)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span> race <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">data =</span> lalonde, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>          <span class="at">weights =</span> <span class="fu">list</span>(<span class="at">w1 =</span> <span class="fu">get.w</span>(w.out1),</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>                         <span class="at">w2 =</span> <span class="fu">get.w</span>(w.out2)),</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.order =</span> <span class="st">&quot;unadjusted&quot;</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>          <span class="at">abs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>          <span class="at">line =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>          <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">m =</span> .<span class="dv">1</span>),</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.names =</span> new.names,</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>          <span class="at">colors =</span> <span class="fu">c</span>(<span class="st">&quot;red&quot;</span>, <span class="st">&quot;blue&quot;</span>, <span class="st">&quot;darkgreen&quot;</span>),</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>          <span class="at">shapes =</span> <span class="fu">c</span>(<span class="st">&quot;triangle filled&quot;</span>, <span class="st">&quot;circle filled&quot;</span>, <span class="st">&quot;square filled&quot;</span>),</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>          <span class="at">sample.names =</span> <span class="fu">c</span>(<span class="st">&quot;Unweighted&quot;</span>, <span class="st">&quot;PS Weighted&quot;</span>, <span class="st">&quot;CBPS Weighted&quot;</span>),</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>          <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, .<span class="dv">82</span>)) <span class="sc">+</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="fu">c</span>(.<span class="dv">75</span>, .<span class="dv">3</span>),</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.box.background =</span> <span class="fu">element_rect</span>(), </span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.box.margin =</span> <span class="fu">margin</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>))</span></code></pre></div>
+<p>We can see there is little benefit to using these weights over
+standard logistic regression weights, although significant imbalance
+remains for both sets of weights. (Try using entropy balancing by
+setting <code>method = &quot;ebal&quot;</code> in <code>weightit()</code> if you
+want to see the power of modern weighting methods.)</p>
+<p>Perhaps balance on mean differences is not enough, and you want to
+display balance on KS statistics. In general, this is good practice;
+mean differences don’t tell the whole story. We can simply request
+<code>stats = ks.statistics&quot;</code> in <code>love.plot()</code>. We
+could also request <code>&quot;variance.ratios&quot;</code> to get variance
+ratios, another potentially useful balance measure. Below we’ll use
+similar formatting to request KS statistics:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span> race <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>          <span class="at">data =</span> lalonde, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">stats =</span> <span class="st">&quot;ks.statistics&quot;</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">weights =</span> <span class="fu">list</span>(<span class="at">w1 =</span> <span class="fu">get.w</span>(w.out1),</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>                         <span class="at">w2 =</span> <span class="fu">get.w</span>(w.out2)),</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.order =</span> <span class="st">&quot;unadjusted&quot;</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>          <span class="at">abs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>          <span class="at">line =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>          <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">m =</span> .<span class="dv">1</span>),</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.names =</span> new.names,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>          <span class="at">colors =</span> <span class="fu">c</span>(<span class="st">&quot;red&quot;</span>, <span class="st">&quot;blue&quot;</span>, <span class="st">&quot;darkgreen&quot;</span>),</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>          <span class="at">shapes =</span> <span class="fu">c</span>(<span class="st">&quot;triangle filled&quot;</span>, <span class="st">&quot;circle filled&quot;</span>, <span class="st">&quot;square filled&quot;</span>),</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>          <span class="at">sample.names =</span> <span class="fu">c</span>(<span class="st">&quot;Unweighted&quot;</span>, <span class="st">&quot;PS Weighted&quot;</span>, <span class="st">&quot;CBPS Weighted&quot;</span>),</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>          <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, .<span class="dv">45</span>)) <span class="sc">+</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="fu">c</span>(.<span class="dv">75</span>, .<span class="dv">25</span>),</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.box.background =</span> <span class="fu">element_rect</span>(), </span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.box.margin =</span> <span class="fu">margin</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>))</span></code></pre></div>
+<p>Below, we’ll put two plots side-by-side, one for mean differences and
+one for KS statistics. This can be done by requesting multiple values
+for the <code>stats</code> argument (e.g., with
+<code>stats = c(&quot;mean.diffs&quot;, &quot;ks.statistics&quot;)</code>). To reduce
+clutter, we’ll remove the lines by setting <code>lines = FALSE</code>.
+To prevent the axis titles from bumping into each other, we’ll set
+<code>wrap = 20</code>, where 20 is the number of characters at which to
+wrap to the next line. When <code>stats</code> has length greater than
+1, the output is not longer a <code>ggplot</code> object and can’t be
+manipulated using <code>ggplot2</code> syntax. This limits some of the
+options we have to customize it, but the available options using
+<code>love.plot()</code>’s syntax are still useful. We’ll move the
+legend to the top of the plot to save space using the
+<code>position</code> argument. We can give the plots different limits
+by entering a named list into the <code>limits</code> argument. We can
+do the same for the <code>thresholds</code> argument. Finally, by
+setting <code>var.order = &quot;unadjusted&quot;</code>, we ensure that the
+variable order is the same in both plots (which it will be regardless)
+and ordered by the first balance statistic (in this case, mean
+differences).</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span> race <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>          <span class="at">data =</span> lalonde, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">stats =</span> <span class="fu">c</span>(<span class="st">&quot;mean.diffs&quot;</span>, <span class="st">&quot;ks.statistics&quot;</span>),</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">weights =</span> <span class="fu">list</span>(<span class="at">w1 =</span> <span class="fu">get.w</span>(w.out1),</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>                         <span class="at">w2 =</span> <span class="fu">get.w</span>(w.out2)),</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.order =</span> <span class="st">&quot;unadjusted&quot;</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>          <span class="at">abs =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>          <span class="at">line =</span> <span class="cn">FALSE</span>, </span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>          <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">m =</span> .<span class="dv">1</span>, <span class="at">ks =</span> .<span class="dv">05</span>),</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.names =</span> new.names,</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>          <span class="at">colors =</span> <span class="fu">c</span>(<span class="st">&quot;red&quot;</span>, <span class="st">&quot;blue&quot;</span>, <span class="st">&quot;darkgreen&quot;</span>),</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>          <span class="at">shapes =</span> <span class="fu">c</span>(<span class="st">&quot;triangle filled&quot;</span>, <span class="st">&quot;circle filled&quot;</span>, <span class="st">&quot;square filled&quot;</span>),</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>          <span class="at">sample.names =</span> <span class="fu">c</span>(<span class="st">&quot;Unweighted&quot;</span>, <span class="st">&quot;PS Weighted&quot;</span>, <span class="st">&quot;CBPS Weighted&quot;</span>),</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>          <span class="at">limits =</span> <span class="fu">list</span>(<span class="at">m =</span> <span class="fu">c</span>(<span class="dv">0</span>, .<span class="dv">82</span>),</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>                        <span class="at">ks =</span> <span class="fu">c</span>(<span class="dv">0</span>, .<span class="dv">45</span>)),</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>          <span class="at">wrap =</span> <span class="dv">20</span>,</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>          <span class="at">position =</span> <span class="st">&quot;top&quot;</span>) </span></code></pre></div>
+<p>Below we recreate the plot in <span class="citation">West et al. (<a href="#ref-westPropensityScoresBasis2014" role="doc-biblioref">2014</a>)</span>, which uses a simple theme and
+avoids color, which can be important for publication. In addition, the
+plot has labels and puts the legend in a different position. We can
+include those features by including an argument to <code>labels</code>
+and by supplying a <code>theme</code> object to <code>themes</code>:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(w.out1, <span class="at">abs =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>          <span class="at">stats =</span> <span class="fu">c</span>(<span class="st">&quot;mean.diffs&quot;</span>, <span class="st">&quot;variance.ratios&quot;</span>),</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">drop.distance =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.names =</span> new.names,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>          <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">v =</span> <span class="dv">2</span>),</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">limits =</span> <span class="fu">list</span>(<span class="at">m =</span> <span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">9</span>, .<span class="dv">9</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>                        <span class="at">v =</span> <span class="fu">c</span>(.<span class="dv">3</span>, <span class="dv">6</span>)),</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>          <span class="at">shapes =</span> <span class="fu">c</span>(<span class="st">&quot;circle filled&quot;</span>, <span class="st">&quot;circle&quot;</span>),</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>          <span class="at">position =</span> <span class="st">&quot;none&quot;</span>,</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>          <span class="at">labels =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>          <span class="at">title =</span> <span class="cn">NULL</span>,</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>          <span class="at">wrap =</span> <span class="dv">20</span>,</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>          <span class="at">themes =</span> <span class="fu">list</span>(<span class="at">v =</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="fu">c</span>(.<span class="dv">75</span>, <span class="fl">1.09</span>), </span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">legend.title =</span> <span class="fu">element_blank</span>(), </span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">legend.key.size =</span> <span class="fu">unit</span>(.<span class="dv">02</span>, <span class="st">&quot;npc&quot;</span>))))</span></code></pre></div>
+<p>When using <code>love.plot</code>, you might see a warning that says
+<code>Standardized mean differences and raw mean differences are present in the same plot. Use the &#39;stars&#39; argument to distinguish between them and appropriately label the x-axis.</code>.
+We avoided this here by setting <code>binary</code> to
+<code>&quot;std&quot;</code> so that only standardized mean differences are
+produced when requesting <code>stats = &quot;mean.diffs&quot;</code>. The
+<code>stars</code> argument adds an asterisk (or a character of your
+choice) to the names of variables that either have standardized mean
+difference or raw mean differences, whichever you choose. The idea is
+that the asterisk will be explained in a caption below the plot,
+indicating that the axis title doesn’t fully represent how that
+variable’s mean difference is displayed. For example, you might make the
+following plot:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(w.out1, <span class="at">binary =</span> <span class="st">&quot;raw&quot;</span>,</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>          <span class="at">stars =</span> <span class="st">&quot;raw&quot;</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">drop.distance =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">var.names =</span> new.names)</span></code></pre></div>
+<p>By setting <code>stars = &quot;raw&quot;</code>, asterisks appear next to the
+variables for which the raw difference in means (i.e., proportions) is
+displayed, contradicting the axis title. In the figure’s caption, you
+might write</p>
+<blockquote>
+<p>* indicates variables for which the displayed value is the raw
+(unstandardized) difference in means.</p>
+</blockquote>
+<p>This ensures readers can fully and accurately interpret the plot. My
+suggestion is to display standardized mean differences for all variables
+as well as KS statistics. The KS statistic for a binary variable is the
+raw difference in proportion, so that information is not lost.</p>
+<div id="references" class="section level2 unnumbered">
+<h2 class="unnumbered">References</h2>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-imaiCovariateBalancingPropensity2014" class="csl-entry">
+Imai, Kosuke, and Marc Ratkovic. 2014. <span>“Covariate Balancing
+Propensity Score.”</span> <em>Journal of the Royal Statistical Society:
+Series B (Statistical Methodology)</em> 76 (1): 243–63. <a href="https://doi.org/10.1111/rssb.12027">https://doi.org/10.1111/rssb.12027</a>.
+</div>
+<div id="ref-westPropensityScoresBasis2014" class="csl-entry">
+West, Stephen G., Heining Cham, Felix J. Thoemmes, Babette Renneberg,
+Julian Schulze, and Matthias Weiler. 2014. <span>“Propensity Scores as a
+Basis for Equating Groups: Basic Principles and Application in Clinical
+Treatment Outcome Research.”</span> <em>Journal of Consulting and
+Clinical Psychology</em> 82 (5): 906–19. <a href="https://doi.org/10.1037/a0036387">https://doi.org/10.1037/a0036387</a>.
+</div>
+</div>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>Older versions of <code>cobalt</code> required the first
+argument to be a call to <code>bal.tab()</code>; this is no longer
+required and in fact is not recommended because <code>love.plot</code>
+is more flexible when handling its own inputs. That said,
+<code>love.plot</code> calls <code>bal.tab</code> internally, so
+problems that arise may be due to problems with <code>bal.tab</code>
+rather than with <code>love.plot</code>. Sometimes the
+<code>bal.tab</code> object can take some time to be produced, in which
+case it might be useful to just run <code>bal.tab</code> once and supply
+its output to different calls of <code>love.plot</code> as you fiddle
+with its options, as <code>b &lt;- bal.tab(w.out); love.plot(b)</code>.
+Note that doing so removes some of <code>love.plot</code> flexibility.
+The most important aspect is that <code>love.plot</code> when called
+with the first syntax can modify the implicit call to
+<code>bal.tab</code> to get everything it needs. For example, normally
+variance ratios are not present in <code>bal.tab</code> output, but if
+they are requested with <code>stats = &quot;variance.ratios&quot;</code> in
+<code>love.plot</code>, they will be produced and displayed correctly
+without additional input. When using the latter syntax, an error will
+occur saying that variance ratios were not present in the original
+<code>bal.tab</code> call. This can be mitigated by setting
+<code>quick = FALSE</code> or including <code>&quot;variance.ratios&quot;</code>
+in the <code>stats</code> argument in the call to <code>bal.tab</code>
+before entering its output into <code>love.plot</code>.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

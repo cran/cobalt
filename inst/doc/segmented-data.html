@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Noah Greifer" />
+
+<meta name="date" content="2023-03-21" />
+
+<title>Using cobalt with Clustered, Multiply Imputed, and Other Segmented Data</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Using <code>cobalt</code> with Clustered,
+Multiply Imputed, and Other Segmented Data</h1>
+<h4 class="author">Noah Greifer</h4>
+<h4 class="date">2023-03-21</h4>
+
+
+<div id="TOC">
+<ul>
+<li><a href="#cobalt-and-segmented-data" id="toc-cobalt-and-segmented-data"><code>cobalt</code> and Segmented
+Data</a></li>
+<li><a href="#clustered-data" id="toc-clustered-data">Clustered Data</a>
+<ul>
+<li><a href="#bal.tab" id="toc-bal.tab"><code>bal.tab()</code></a></li>
+<li><a href="#bal.plot" id="toc-bal.plot"><code>bal.plot()</code></a></li>
+<li><a href="#love.plot" id="toc-love.plot"><code>love.plot()</code></a></li>
+</ul></li>
+<li><a href="#multiply-imputed-data" id="toc-multiply-imputed-data">Multiply Imputed Data</a>
+<ul>
+<li><a href="#bal.tab-1" id="toc-bal.tab-1"><code>bal.tab()</code></a></li>
+<li><a href="#bal.plot-1" id="toc-bal.plot-1"><code>bal.plot()</code></a></li>
+<li><a href="#love.plot-1" id="toc-love.plot-1"><code>love.plot()</code></a></li>
+</ul></li>
+<li><a href="#multi-category-treatments-with-multiply-imputed-data" id="toc-multi-category-treatments-with-multiply-imputed-data">Multi-Category
+Treatments with Multiply Imputed Data</a>
+<ul>
+<li><a href="#bal.tab-2" id="toc-bal.tab-2"><code>bal.tab()</code></a></li>
+<li><a href="#bal.plot-2" id="toc-bal.plot-2"><code>bal.plot()</code></a></li>
+<li><a href="#love.plot-2" id="toc-love.plot-2"><code>love.plot()</code></a></li>
+</ul></li>
+<li><a href="#concluding-remarks" id="toc-concluding-remarks">Concluding
+Remarks</a></li>
+</ul>
+</div>
+
+<p>This is a guide for the use of <code>cobalt</code> with more
+complicated data than is typical in studies using propensity scores and
+similar methods. In particular, this guide will explain
+<code>cobalt</code>’s features for handling multilevel or grouped data
+and data arising from multiple imputation. The features described here
+set <code>cobalt</code> apart from other packages that assess balance
+because they exist only in <code>cobalt</code>. It will be assumed that
+the basic functions of <code>cobalt</code> are understood; this guide
+will only address issues that are unique to these data scenarios.</p>
+<div id="cobalt-and-segmented-data" class="section level2">
+<h2><code>cobalt</code> and Segmented Data</h2>
+<p>First, let’s understand segmented data. Segmented data arises when
+the data involved in balance assessment needs to be split into segments
+to appropriately assess balance. These scenarios include clustered
+(e.g., multilevel) data, in which case balance should be assessed within
+each cluster; data arising from a sequential study, in which case
+balance should be assessed at each time point; multi-category
+treatments, in which case balance should be assessed for each pair of
+treatments; and multiply imputed data, in which case balance should be
+assessed within each imputation. <code>cobalt</code> can handle all
+these scenarios simultaneously, but how it does so may be a little
+complicated. This vignette explains how these scenarios are handled.</p>
+<p>At the core is the idea that the most basic unit of balance
+assessment is a balance statistic for a covariate For binary treatments
+or pairs of treatment levels, this can be the (standardized) mean
+difference, variance ratio, or Kolmogorov-Smirnoff (KS) statistic. For
+continuous treatments, this is the treatment-covariate correlation.
+These statistics are generated by <code>bal.tab()</code> and can be
+plotted using <code>love.plot()</code> when the data are not segmented.
+When the data are segmented, these statistics need to be generated
+within each segment. When the segmentation occurs in several ways in the
+same dataset (e.g., with clustered and multiply imputed data, or with
+longitudinal data with multi-category treatments), balance assessment
+should reflect each layer of segmentation.</p>
+<p>Although the idea of simply splitting data into segments is simple,
+there are a few options and limitations in <code>cobalt</code> that are
+important to consider. The basic idea is the same regardless of how the
+data are segmented: for each layer of segmentation, balance is assessed
+within segments of that layer, and the layers stack heirarchically. For
+example, for clustered and multiply imputed data, first the data are
+split by cluster; within each cluster, the data are split by imputation;
+balance statistics are computed within each imputation within each
+cluster. In some cases, a summary of balance across segments can be
+produced to simplify balance assessment. Matching and weighting are
+compatible with segmented data, but subclassification is its own special
+form of segmentation that is treated differently and will not be
+considered here.</p>
+<p>Each of <code>cobalt</code>’s primary functions
+(<code>bal.tab()</code>, <code>bal.plot()</code>, and
+<code>love.plot()</code>) have features to handle segmented data sets.
+The following sections describe for each data scenario the relevant
+features of each function. We’ll take a look at a few common examples of
+segmented data: clustered data, multiply imputed data, and
+multi-category and multiply imputed data.</p>
+</div>
+<div id="clustered-data" class="section level2">
+<h2>Clustered Data</h2>
+<p>In clustered data, the data set must contain a variable denoting the
+group each individual belongs to. This may be a group considered a
+nuisance that must be accounted for to eliminate confounding (e.g.,
+hospitals in a multi-site medical treatment study), or a group of
+concern for effect moderation (e.g., race or gender). In the examples
+below, we will imagine that we are interested in the ATT of
+<code>treat</code> on <code>re78</code> stratified by <code>race</code>.
+Thus, we will condition on the propensity score within each cluster.</p>
+<p>First, let’s estimate propensity scores and perform matching within
+each race group. We can do this by performing separate analyses within
+each cluster, but we can also use exact matching in <code>MatchIt</code>
+to ensure matches occur within clusters. It is important to note that
+this analysis does not necessarily represent a sound statistical
+analysis and is being used for illustrative purposes only.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>m.out <span class="ot">&lt;-</span> MatchIt<span class="sc">::</span><span class="fu">matchit</span>(treat <span class="sc">~</span> race<span class="sc">*</span>(age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span> re74 <span class="sc">+</span> re75), </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>                          <span class="at">data =</span> lalonde, <span class="at">method =</span> <span class="st">&quot;nearest&quot;</span>, <span class="at">exact =</span> <span class="st">&quot;race&quot;</span>, </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>                          <span class="at">replace =</span> <span class="cn">TRUE</span>, <span class="at">ratio =</span> <span class="dv">2</span>)</span></code></pre></div>
+<div id="bal.tab" class="section level3">
+<h3><code>bal.tab()</code></h3>
+<p>The output produced by <code>bal.tab()</code> with clustered data
+contains balance tables for each cluster and a summary of balance across
+clusters. To use <code>bal.tab()</code> with groups, there are four
+arguments that should be considered. These are <code>cluster</code>,
+<code>which.cluster</code>, <code>cluster.summary</code>, and
+<code>cluster.fun</code>.</p>
+<ul>
+<li><p><code>cluster</code> is a vector of group membership for each
+unit or the name of a variable in a provided data set containing group
+membership.</p></li>
+<li><p><code>which.cluster</code> determines for which clusters balance
+tables are to be displayed, if any. (Default: display all
+clusters)</p></li>
+<li><p><code>cluster.summary</code> determines whether the cluster
+summary is to be displayed or not. (Default: hide the cluster
+summary)</p></li>
+<li><p><code>cluster.fun</code> determines which function(s) are used to
+combine balance statistics across clusters for the cluster summary.
+(Default: when <code>abs = FALSE</code>, minimum, mean, and maximum;
+when <code>abs = TRUE</code>, mean and maximum)</p></li>
+</ul>
+<p>The arguments are in addition to the other arguments that are used
+with <code>bal.tab()</code> to display balance. <code>imp.summary</code>
+and <code>imp.fun</code> can also be set as global options by using
+<code>set.cobalt.options()</code>. Let’s examine balance on our data
+within each race group.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(m.out, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>)</span></code></pre></div>
+<p>Here we see balance tables for each cluster. These are the same
+output we would see if we use <code>bal.tab()</code> for each cluster
+separately (e.g., using the <code>subset</code> argument). All the
+commands that work for <code>bal.tab()</code> also work here with the
+same results, except that balance tallies and the variable with the
+greatest imbalance will not be displayed as they usually are when a
+threshold is specified. Next, we can request a balance summary across
+clusters and hide the individual clusters by setting
+<code>which.cluster = .none</code>:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(m.out, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>, <span class="at">which.cluster =</span> .none)</span></code></pre></div>
+<p>This table presents the minimum, mean, and maximum balance statistics
+for each variable across clusters. Setting <code>un = TRUE</code> will
+also display the same values for the adjusted data set. With binary
+treatments, setting <code>disp = c(v = TRUE)</code> or
+<code>thresholds = c(v = 2)</code> will display the same values for
+variance ratios. Setting <code>abs = TRUE</code> requests summaries of
+absolute balance statistics which displays the extremeness of balance
+statistics for each variable; thus, if, for example, in some groups
+there are large negative mean differences and in other groups there are
+large positive mean differences, this table will display large mean
+differences, even though the average mean difference is close to 0.
+While it’s important to know the average balance statistic overall,
+assessing the absolute balance statistics provides more information
+about balance within each cluster rather than in aggregate.</p>
+<p>To examine balance for just a few clusters at a time, users can enter
+values for <code>which.cluster</code>. This can be a vector of clusters
+indices (i.e., 1, 2, 3, etc.) or names (e.g., “black”, “hispan”,
+“white”). Users also specify <code>which.cluster = .none</code> as above
+to omit cluster balance for all clusters and just see the summary across
+clusters. Users can force display of the summary across clusters by
+specifying <code>TRUE</code> or <code>FALSE</code> for
+<code>cluster.summary</code>. When <code>which.cluster = .none</code>,
+<code>cluster.summary</code> will automatically be set to
+<code>TRUE</code> (or else there wouldn’t be any output!). When
+examining balance within a few groups, it can be more helpful to examine
+balance within each group and ignore the summary. Below are examples of
+the use of <code>which.cluster</code> and <code>cluster.summary</code>
+to change <code>bal.tab()</code> output.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Just for black</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(m.out, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>, <span class="at">which.cluster =</span> <span class="st">&quot;black&quot;</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">#Just the balance summary across clusters with only the mean</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(m.out, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>, <span class="at">which.cluster =</span> .none, <span class="at">cluster.fun =</span> <span class="st">&quot;mean&quot;</span>)</span></code></pre></div>
+<p>These can also be set as global options by using, for example,
+<code>set.cobalt.options(cluster.fun = &quot;mean&quot;)</code>, which allows
+users not to type a non-default option every time they call
+<code>bal.tab</code>.</p>
+</div>
+<div id="bal.plot" class="section level3">
+<h3><code>bal.plot()</code></h3>
+<p><code>bal.plot()</code> functions as it does with non-clustered data,
+except that multiple plots can be produced at the same time displaying
+balance for each cluster. The arguments to <code>bal.plot()</code> are
+the same as those for <code>bal.tab()</code>, except that
+<code>cluster.summary</code> is absent. Below is an example of the use
+of <code>bal.plot()</code> with clustered data:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.plot</span>(m.out, <span class="at">var.name =</span> <span class="st">&quot;age&quot;</span>, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>, <span class="at">which =</span> <span class="st">&quot;both&quot;</span>)</span></code></pre></div>
+<p>Balance plots for each cluster are displayed next to each other. You
+can specify <code>which.cluster</code> as with <code>bal.tab()</code> to
+restrict plotting to a subset of clusters.</p>
+</div>
+<div id="love.plot" class="section level3">
+<h3><code>love.plot()</code></h3>
+<p><code>love.plot()</code> shines with clustered data because there are
+several options that are unique to <code>cobalt</code> and help with the
+visual display of balance. One way to display cluster balance with
+<code>love.plot()</code> is to produce different plots for each cluster,
+as <code>bal.plot()</code> does. This method should not be used with
+many clusters, or the plots will be unreadable. In our present example,
+this is not an issue. To do so, the <code>which.cluster</code> argument
+in <code>bal.tab()</code> or <code>love.plot()</code> must be set to the
+names or indices of the clusters for which balance is to be plotted. If
+<code>which.cluster</code> is set to <code>.all</code> (the default),
+all clusters will be plotted. Below is an example:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(m.out, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>)</span></code></pre></div>
+<p>These plots function like those from using <code>love.plot()</code>
+with non-clustered data, except that they cannot be sorted based on the
+values of the balance statistics (they can still be sorted
+alphabetically, though). This is to ensure that the covariates line up
+across the plots. The same axis limits will apply to all plots.</p>
+<p>Second, balance can be displayed summarizing across clusters by
+plotting an aggregate function (i.e., the mean or maximum) of the
+balance statistic for each covariate across clusters. To do this,
+<code>which.cluster</code> in the <code>love.plot</code> command must be
+set to <code>.none</code>. To change which aggregate function is
+displayed, use the argument to <code>agg.fun</code>, which may be “mean”
+or “max”. Below is an example:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(m.out, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>, <span class="at">which.cluster =</span> .none, <span class="at">agg.fun =</span> <span class="st">&quot;mean&quot;</span>)</span></code></pre></div>
+<p>A third option is to set <code>agg.fun = &quot;range&quot;</code> (the
+default), which produces a similar plot as above except that the minimum
+and maximum values of the balance statistics for each covariate are
+displayed as well. See below for an example:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(m.out, <span class="at">cluster =</span> <span class="st">&quot;race&quot;</span>, <span class="at">which.cluster =</span> .none, <span class="at">agg.fun =</span> <span class="st">&quot;range&quot;</span>)</span></code></pre></div>
+<p>Each point represents the mean balance statistic, and the bars
+represent intervals bounded by the minimum and maximum of each balance
+statistic. This display can be especially helpful with many clusters
+given that the mean alone may not tell the whole story. In some cases,
+it might be useful to set limits on the x-axis by using the
+<code>limits</code> argument in <code>love.plot()</code>; doing so may
+cut off some of the ranges, but whatever is left will be displayed. All
+<code>love.plot()</code> arguments work with these methods as they do in
+the case of non-clustered data. When <code>var.order</code> is specified
+as <code>&quot;unadjusted&quot;</code> or <code>&quot;adjusted&quot;</code>, the ordering
+will occur on the mean balance statistic when using
+<code>agg.fun = &quot;range&quot;</code>. Only one argument to <code>stats</code>
+is allowed when segmented data produces more than one plot (i.e., as it
+would with <code>which.cluster = .all</code>).</p>
+</div>
+</div>
+<div id="multiply-imputed-data" class="section level2">
+<h2>Multiply Imputed Data</h2>
+<p>Multiply imputed data works in a very similar way to clustered data,
+except the “grouping” variable refers to imputations rather than
+clusters. Thus, each row belongs to one imputation (i.e., the data set
+should be in “long” format). The data set used should only include the
+imputed data sets and not the original data set with missing values
+(unlike Stata’s <code>mi</code> commands, which do require the original
+data set as well). The imputed data sets can be of different sizes
+(i.e., because matching reduced the size of each differently), but it is
+preferred that they are the same size and weights are used to indicate
+which units belong to the sample and which do not.</p>
+<p>In the example below, we will use a version of the Lalonde data set
+with some values missing. We will use the <code>mice</code> package to
+implement multiple imputation with chained equations. We will perform
+the “within” approach using the <code>MatchThem</code> to perform
+propensity score weighting within each imputation with <code>educ</code>
+as the continuous treatment (substantively this analysis makes no sense
+and is just for illustration).</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde_mis&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co">#Generate imputed data sets</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">10</span> <span class="co">#number of imputed data sets</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>imp.out <span class="ot">&lt;-</span> mice<span class="sc">::</span><span class="fu">mice</span>(lalonde_mis, <span class="at">m =</span> m, <span class="at">print =</span> <span class="cn">FALSE</span>) </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="co">#Performing generalized propensity score weighting in each imputation</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>wt.out <span class="ot">&lt;-</span> MatchThem<span class="sc">::</span><span class="fu">weightthem</span>(educ <span class="sc">~</span> age <span class="sc">+</span> race <span class="sc">+</span> married <span class="sc">+</span> </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>                                    re74 <span class="sc">+</span> re75, <span class="at">datasets =</span> imp.out, </span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>                                <span class="at">approach =</span> <span class="st">&quot;within&quot;</span>, <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>)</span></code></pre></div>
+<div id="bal.tab-1" class="section level3">
+<h3><code>bal.tab()</code></h3>
+<p>There are a few ways to use <code>bal.tab()</code> with our imputed
+data sets. When using the <code>mimids</code> or <code>wimids</code>
+methods for <code>MatchThem</code> objects, only the output object needs
+to be supplied. When using other methods, an argument to
+<code>imp</code> can be supplied; this should contain the imputation
+identifiers for each unit or the name of a variable in a supplied
+dataset (e.g., through the <code>data</code> argument) that contains the
+imputation identifiers. Alternatively, the <code>mids</code> object
+resulting from the call to <code>mice</code> can be supplied to the
+<code>data</code> argument, which automatically populates
+<code>imp</code>. There are four arguments that are only relevant to
+imputed data:</p>
+<ul>
+<li><p><code>imp</code> is a vector of imputation numbers for each unit
+or the name of a variable in an available data set containing the
+imputation numbers. If <code>data</code> is a <code>mids</code> object
+or if the <code>mimids</code> or <code>wimids</code> methods are used,
+this doesn’t need to be specified.</p></li>
+<li><p><code>which.imp</code> determines for which imputation balance
+assessment is to be displayed. Often it can be useful to examine balance
+in just a few imputations for a detailed examination of what is going
+on. Can be <code>.all</code> to display all imputations (not
+recommended), <code>.none</code> to display none, or a vector providing
+the imputation numbers for the desired imputations. (Default: no
+imputations are displayed.)</p></li>
+<li><p><code>imp.summary</code> determines whether to display a summary
+of balance across imputations. (Default: the summary of balance across
+imputations is displayed.)</p></li>
+<li><p><code>imp.fun</code> determines which function(s) are used to
+combine balance statistics across imputations for the summary of balance
+across imputations. (Default: when <code>abs = FALSE</code>, minimum,
+mean, and maximum; when <code>abs = TRUE</code>, mean and
+maximum)</p></li>
+</ul>
+<p><code>imp.summary</code> and <code>imp.fun</code> can also be set as
+global options by using <code>set.cobalt.options()</code> like the
+corresponding cluster options.</p>
+<p>In many cases, not all variables are imputed, and often the treatment
+variable is not imputed. If each imputation has the same number of
+units, you can specify other arguments (e.g., treatment, distance) by
+specifying an object of the length of one imputation, and this vector
+will be applied to all imputations. This will come in handy when
+supplying additional covariates that weren’t involved in the imputation
+or propensity score estimation through <code>addl</code>. To do this,
+the imputed data set must be sorted by imputation and unit ID.</p>
+<p>Because we’re using a <code>wimids</code> object, we can just call
+<code>bal.tab()</code> with it as the first argument.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Checking balance on the output object</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
+<p>First, we see a balance summary across all the imputations. This
+table presents the minimum, mean, and maximum balance statistics for
+each variable across imputations. Setting <code>un = TRUE</code> will
+also display the same values for the adjusted data set. Setting
+<code>abs = TRUE</code> will make <code>bal.tab</code> report summaries
+of the absolute values of the balance statistics. This table functions
+in the same way as the table for balance across clusters. Below is the
+average sample size across imputations; in some matching and weighting
+schemes, the sample size (or effective sample size) may differ across
+imputations.</p>
+<p>To view balance on individual imputations, you can specify an
+imputation number to <code>which.imp</code>. (The summary across
+imputations is automatically hidden but can be forced to be displayed
+using <code>imp.summary</code>.)</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out, <span class="at">which.imp =</span> <span class="dv">1</span>)</span></code></pre></div>
+<p>As with clustered data, all <code>bal.tab()</code> options work as
+with non-imputed data. Indeed, the functions for clustered and imputed
+data are nearly identical except that for imputed data,
+<code>bal.tab()</code> computes the average sample size across
+imputations, whereas for other forms of segmented data,
+<code>bal.tab()</code> computes the total sample size across groups.</p>
+</div>
+<div id="bal.plot-1" class="section level3">
+<h3><code>bal.plot()</code></h3>
+<p><code>bal.plot()</code> works with imputed data as it does with
+non-imputed data, except that multiple plots can be produced displaying
+balance for multiple imputations at a time. The arguments to
+<code>bal.plot()</code> are the same as those for
+<code>bal.tab()</code>, except that <code>imp.summary</code> is absent.
+Below is an example of the use of <code>bal.plot()</code> with imputed
+and matched data from <code>MatchThem</code>, examining balance in the
+first imputation:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.plot</span>(wt.out, <span class="at">which.imp =</span> <span class="dv">1</span>, <span class="at">var.name =</span> <span class="st">&quot;age&quot;</span>, <span class="at">which =</span> <span class="st">&quot;both&quot;</span>)</span></code></pre></div>
+<p>When many imputations are generated, it is recommended not to plot
+all at the same time by specifying an argument to
+<code>which.imp</code>, as done above. When <code>which.imp</code> is
+set to <code>.none</code>, data are combined across imputation to
+produce a single plot, which can act as a summary heuristic but which
+may obscure imbalances occurring in only a few imputations and not
+others.</p>
+</div>
+<div id="love.plot-1" class="section level3">
+<h3><code>love.plot()</code></h3>
+<p><code>love.plot()</code> functions with imputed data as it does with
+clustered data. It is not recommended to display balance for multiple
+imputations at a time, and rather to display balance summarized across
+imputations:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(wt.out, <span class="at">threshold =</span> .<span class="dv">05</span>)</span></code></pre></div>
+<p>Often these ranges will be small if the imputed data sets are very
+similar to each other, but the more imputations are generated, the wider
+the ranges tend to be.</p>
+</div>
+</div>
+<div id="multi-category-treatments-with-multiply-imputed-data" class="section level2">
+<h2>Multi-Category Treatments with Multiply Imputed Data</h2>
+<p>So far we’ve seen how <code>cobalt</code> functions work with one
+layer of data segmentation, but now let’s see what it’s like to work
+with two or more layers of segmentation. As an example, we’ll first look
+at multiply imputed data with a multi-category treatment. With
+multi-category treatments, balance is typically assessed by examining
+balance statistics computed for pairs of treatments. With multi-category
+and multiply imputed data, the data is segmented both by imputation and
+by treatment pair.</p>
+<p>We’ll use the three-category <code>race</code> variable as our
+multi-category treatment and use the same imputed data as above. Again,
+the <code>MatchThem</code> package can be used to estimate weights in
+multiply imputed data. We’ll use propensity score weighting to estimate
+the ATE of <code>race</code>. As before, this analysis makes no sense
+substantively and is just for illustration.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Estimate weights within each imputation using propensity scores</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>wt3.out <span class="ot">&lt;-</span> MatchThem<span class="sc">::</span><span class="fu">weightthem</span>(race <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> </span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>                                     nodegree <span class="sc">+</span> re74 <span class="sc">+</span> re75, </span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">datasets =</span> imp.out, <span class="at">approach =</span> <span class="st">&quot;within&quot;</span>, </span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">use.mlogit =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<div id="bal.tab-2" class="section level3">
+<h3><code>bal.tab()</code></h3>
+<p>Using <code>bal.tab()</code> on the resulting object does the
+following: for each pair of treatments, balance is assessed for each
+imputation and aggregated across imputations. That is, for each pair of
+treatments, everything described in the previous section will occur.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(wt3.out)</span></code></pre></div>
+<p>Other options can be supplied to choose how balance is computed with
+multi-category treatments; these are described at
+<code>?bal.tab.multi</code> and in the main vignette. Importantly,
+though, a balance summary across treatment pairs is not available.</p>
+</div>
+<div id="bal.plot-2" class="section level3">
+<h3><code>bal.plot()</code></h3>
+<p><code>bal.plot()</code> works with multi-category treatments the same
+way it does with binary treatments. All treatment levels are displayed
+on the same plot. As before, with multiply imputed data, balance can be
+examined on one or more imputations at a time.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.plot</span>(wt3.out, <span class="at">var.name =</span> <span class="st">&quot;married&quot;</span>, <span class="at">which.imp =</span> <span class="dv">1</span>,</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>         <span class="at">which =</span> <span class="st">&quot;both&quot;</span>)</span></code></pre></div>
+</div>
+<div id="love.plot-2" class="section level3">
+<h3><code>love.plot()</code></h3>
+<p>With multiple layers of segmentation, <code>love.plot()</code> has a
+few options. Before, we saw that we could facet the plot by the segments
+or aggregate across segments; with multiple layers, we can do both.
+<code>love.plot()</code> can aggregate across as many layers as there
+are and can facet with segments of one layer. With more than two layers
+of segmentation, at least one of the <code>which.</code> arguments must
+be <code>.none</code> (to aggregate) or of length 1 (to facet at one
+segment of the layer). Here we’ll demonstrate aggregating across
+imputations while faceting on treatment pairs.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">love.plot</span>(wt3.out, <span class="at">threshold =</span> .<span class="dv">1</span>, <span class="at">agg.fun =</span> <span class="st">&quot;mean&quot;</span>)</span></code></pre></div>
+<p>The arguments to <code>which.treat</code>, <code>which.imp</code>,
+<code>abs</code>, and <code>agg.fun</code> can be used to control how
+the plots are faceted and aggregated as they can with single-layer
+data.</p>
+</div>
+</div>
+<div id="concluding-remarks" class="section level2">
+<h2>Concluding Remarks</h2>
+<p>We have demonstrated the use of <code>cobalt</code> with clustered
+data, multiply imputed data, and multiply imputed data with a
+multi-category treatment. Though there are few published recommendations
+for the display of balance in some of these cases, we believe these
+tools may encourage development in this area. In general, we believe in
+displaying the most relevant information as compactly as possible, and
+thus recommend using <code>love.plot()</code> with some degree of
+aggregation for inclusion in published work.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
