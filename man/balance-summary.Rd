@@ -123,7 +123,7 @@ col_w_corr(
 
 \item{na.rm}{\code{logical}; whether \code{NA}s should be ignored or not. If \code{FALSE}, any variable with any \code{NA}s will have its corresponding statistic returned as \code{NA}. If \code{TRUE}, any variable with any \code{NA}s will have its corresponding statistic computed as if the missing value were not there.}
 
-\item{...}{for all functions, additional arguments supplied to \code{\link[=splitfactor]{splitfactor()}} when \code{mat} is a data.frame. \code{data}, \code{var.name}, \code{drop.first}, and \code{drop.level} are ignored; \code{drop.first} is automatically set to \code{"if2"}. For \code{col_w_ovl}, other arguments passed to \code{\link[=density]{density()}} besides \code{x} and \code{weights}. Note that the default value for \code{bw} when unspecified is \code{"nrd"} rather than the default in \code{density()}, which is \code{"nrd0"}.}
+\item{...}{for all functions, additional arguments supplied to \code{\link[=splitfactor]{splitfactor()}} when \code{mat} is a data.frame. \code{data}, \code{var.name}, \code{drop.first}, and \code{drop.level} are ignored; \code{drop.first} is automatically set to \code{"if2"}. For \code{col_w_ovl()} and \code{col_w_ent()}, other arguments passed to \code{\link[=density]{density()}} besides \code{x} and \code{weights}. Note that the default value for \code{bw} when unspecified is \code{"nrd"} rather than the default in \code{density()}, which is \code{"nrd0"}.}
 
 \item{bin.vars}{a vector used to denote whether each variable is binary or not. Can be a \code{logical} vector with length equal to the number of columns of \code{mat} or a vector of numeric indices or character names of the binary variables. If missing (the default), the function will figure out which covariates are binary or not, which can increase computation time. If \code{NULL}, it will be assumed no variables are binary. All functions other than \code{col_w_mean()} treat binary variables different from continuous variables. If a factor or character variable is in \code{mat}, all the dummies created will automatically be marked as binary, but it should still receive an entry when \code{bin.vars} is supplied as \code{logical}.}
 
@@ -145,11 +145,11 @@ For \code{col_w_cov()} and \code{col_w_corr()}, only \code{"all"} and \code{"wei
 
 \item{abs}{\code{logical}; for \code{col_w_smd()}, \code{col_w_cov()}, and \code{col_w_corr()}, whether the returned statistics should be in absolute value (\code{TRUE}) or not. For \code{col_w_vr()}, whether the ratio should always include the larger variance in the numerator, so that the ratio is always greater than or equal to 1. Default is \code{FALSE}.}
 
-\item{weighted.weights}{for \code{col_w_smd()}, \code{col_w_cov()}, and \code{col_w_corr()}, when \code{std = TRUE} and \code{s.d.denom = "weighted"}, a vector of weights to be applied to the computation of the denominator standard deviation. If not specified, will use the argument to \code{weights}. When \code{s.d.denom} is not "weighted", this is ignored. The main purpose of this is to allow \code{weights} to be \code{NULL} while weighting the denominator standard deviations for assessing balance in the unweighted sample but using the standard deviations of the weighted sample.}
+\item{weighted.weights}{for \code{col_w_smd()}, \code{col_w_cov()}, and \code{col_w_corr()}, when \code{std = TRUE} and \code{s.d.denom = "weighted"}, a vector of weights to be applied to the computation of the denominator standard deviation. If not specified, will use the argument to \code{weights}. When \code{s.d.denom} is not \code{"weighted"}, this is ignored. The main purpose of this is to allow \code{weights} to be \code{NULL} while weighting the denominator standard deviations for assessing balance in the unweighted sample but using the standard deviations of the weighted sample.}
 
-\item{integrate}{\code{logical}; for \code{col_w_ovl()}, whether to use \code{\link[=integrate]{integrate()}} to calculate the area of overlap. If \code{FALSE}, a midpoint Riemann sum with 1000 partitions will be used instead. The Riemann sum is a little slower and very slightly imprecise (unnoticibly in most contexts), but the integral can fail sometimes and thus is less stable. The default is to use the Riemann sum.}
+\item{integrate}{\code{logical}; for \code{col_w_ovl()}, whether to use \code{\link[=integrate]{integrate()}} to calculate the area of overlap or the distance between the densities, respectively. If \code{FALSE}, a midpoint Riemann sum with 1000 partitions will be used instead. The Riemann sum is a little slower and very slightly imprecise (unnoticibly in most contexts), but the integral can fail sometimes and thus is less stable. The default is to use the Riemann sum.}
 
-\item{type}{for \code{col_w_cov()} and \code{col_w_corr()}, the type of covariance/correlation to be computed. Allowable options include "pearson" and "spearman". When "spearman" is requested, the covariates and treatment are first turned into ranks using \code{\link[=rank]{rank()}} with \code{na.last = "keep"}.}
+\item{type}{for \code{col_w_cov()} and \code{col_w_corr()}, the type of covariance/correlation to be computed. Allowable options include \code{"pearson"} and \code{"spearman"}. When \code{"spearman"} is requested, the covariates and treatment are first turned into ranks using \code{\link[=rank]{rank()}} with \code{na.last = "keep"}.}
 }
 \value{
 A vector of balance statistics, one for each variable in \code{mat}. If \code{mat} has column names, the output will be named as well.
@@ -221,9 +221,9 @@ bal.tab(covs, treat = treat, weights = weights,
 \dontshow{\}) # examplesIf}
 }
 \references{
-Franklin, J. M., Rassen, J. A., Ackermann, D., Bartels, D. B., & Schneeweiss, S. (2014). Metrics for covariate balance in cohort studies of causal effects. \emph{Statistics in Medicine}, 33(10), 1685–1699. \doi{10.1002/sim.6058}
-
 Austin, P. C. (2019). Assessing covariate balance when using the generalized propensity score with quantitative or continuous exposures. \emph{Statistical Methods in Medical Research}, 28(5), 1365–1377. \doi{10.1177/0962280218756159}
+
+Franklin, J. M., Rassen, J. A., Ackermann, D., Bartels, D. B., & Schneeweiss, S. (2014). Metrics for covariate balance in cohort studies of causal effects. \emph{Statistics in Medicine}, 33(10), 1685–1699. \doi{10.1002/sim.6058}
 
 What Works Clearinghouse. (2020). WWC Procedures Handbook (Version 4.1). Retrieved from
 \url{https://ies.ed.gov/ncee/wwc/Handbooks}
@@ -232,5 +232,6 @@ What Works Clearinghouse. (2020). WWC Procedures Handbook (Version 4.1). Retriev
 \itemize{
 \item \code{\link[=bal.tab]{bal.tab()}}
 \item \code{\link[=bal.compute]{bal.compute()}}
+\item \link{balance-statistics}
 }
 }

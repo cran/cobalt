@@ -1,45 +1,55 @@
 ## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE, fig.width=5)
-if (any(!sapply(c("WeightIt", "twang"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
+if (any(!sapply(c("WeightIt"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
 library("cobalt")
-data("iptwExWide", package = "twang")
-head(iptwExWide)
+data("msmdata", package = "WeightIt")
+head(msmdata)
+
+## -----------------------------------------------------------------------------
+bal.tab(list(A_1 ~ X1_0 + X2_0,
+             A_2 ~ X1_1 + X2_1 +
+                 A_1 + X1_0 + X2_0,
+             A_3 ~ X1_2 + X2_2 +
+                 A_2 + X1_1 + X2_1 +
+                 A_1 + X1_0 + X2_0),
+        data = msmdata)
+
+## -----------------------------------------------------------------------------
+bal.tab(list(A_1 ~ X1_0 + X2_0,
+             A_2 ~ X1_1 + X2_1 +
+                 A_1 + X1_0 + X2_0,
+             A_3 ~ X1_2 + X2_2 +
+                 A_2 + X1_1 + X2_1 +
+                 A_1 + X1_0 + X2_0),
+        data = msmdata,
+        which.time = .all)
 
 ## -----------------------------------------------------------------------------
 Wmsm <- WeightIt::weightitMSM(
-    list(tx1 ~ use0 + gender + age,
-         tx2 ~ use0 + gender + age + use1 + tx1,
-         tx3 ~ use0 + gender + age + use1 + tx1 + use2 + tx2),
-    data = iptwExWide,
-    method = "ps")
-
-## -----------------------------------------------------------------------------
-bal.tab(list(iptwExWide[c("use0", "gender", "age")],
-             iptwExWide[c("use0", "gender", "age", "use1", "tx1")],
-             iptwExWide[c("use0", "gender", "age", "use1", "tx1", "use2", "tx2")]),
-        treat.list = iptwExWide[c("tx1", "tx2", "tx3")])
-
-## -----------------------------------------------------------------------------
-bal.tab(list(iptwExWide[c("use0", "gender", "age")],
-             iptwExWide[c("use0", "gender", "age", "use1", "tx1")],
-             iptwExWide[c("use0", "gender", "age", "use1", "tx1", "use2", "tx2")]),
-        treat.list = iptwExWide[c("tx1", "tx2", "tx3")],
-        which.time = .all)
+    list(A_1 ~ X1_0 + X2_0,
+         A_2 ~ X1_1 + X2_1 +
+             A_1 + X1_0 + X2_0,
+         A_3 ~ X1_2 + X2_2 +
+             A_2 + X1_1 + X2_1 +
+             A_1 + X1_0 + X2_0),
+    data = msmdata,
+    method = "glm")
 
 ## -----------------------------------------------------------------------------
 bal.tab(Wmsm, un = TRUE, which.time = .all, msm.summary = TRUE)
 
 ## ---- fig.height=4------------------------------------------------------------
-bal.plot(Wmsm, var.name = "age", which = "both")
+bal.plot(Wmsm, var.name = "X1_0", which = "both",
+         type = "histogram")
 
 ## ---- fig.height=4------------------------------------------------------------
-bal.plot(Wmsm, var.name = "tx1", which = "both")
+bal.plot(Wmsm, var.name = "X2_1", which = "both")
 
 ## -----------------------------------------------------------------------------
-love.plot(Wmsm, abs = TRUE)
+love.plot(Wmsm, binary = "std")
 
-## ---- fig.width=4-------------------------------------------------------------
-love.plot(Wmsm, which.time = .none)
+## -----------------------------------------------------------------------------
+love.plot(Wmsm, binary = "std", which.time = .all)
 

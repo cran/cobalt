@@ -65,14 +65,14 @@ base.bal.tab.cluster <- function(X,
     agg.fun <- tolower(as.character(if_null_then(cluster.fun, A[["agg.fun"]], all.agg.funs)))
     agg.fun <- match_arg(agg.fun, all.agg.funs, several.ok = TRUE)
     
-    X$covs <- do.call("get.C2", c(X, A[names(A) %nin% names(X)]), quote = TRUE)
+    X$covs <- do.call(".get_C2", c(X, A[names(A) %nin% names(X)]), quote = TRUE)
     
     #Setup output object
     out <- list()
     
     #Get list of bal.tabs for each imputation
     out[["Cluster.Balance"]] <- lapply(levels(X$cluster), function(cl) {
-        X_cl <- assign.X.class(subset_X(X, X$cluster == cl)) 
+        X_cl <- .assign_X_class(subset_X(X, X$cluster == cl)) 
         X_cl$call <- NULL
         
         tryCatch({
@@ -100,7 +100,7 @@ base.bal.tab.cluster <- function(X,
                                             agg.fun = agg.fun))
         }
         
-        observations <- lapply(out[["Cluster.Balance"]], function(x) x[["Observations"]])
+        observations <- grab(out[["Cluster.Balance"]], "Observations")
         
         out[["Observations"]] <- samplesize.across.clusters(observations)
     }
@@ -113,5 +113,5 @@ base.bal.tab.cluster <- function(X,
                                          cluster.fun = agg.fun))
     class(out) <- c("bal.tab.cluster", "bal.tab")
     
-    return(out)
+    out
 }

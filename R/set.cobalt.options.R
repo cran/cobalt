@@ -8,7 +8,7 @@
 #' 
 #' @param default if `TRUE`, sets all \pkg{cobalt} options not named in `...` to their default values.
 #' 
-#' @details When an option is set to `NULL`, it is set to its default value. The defaults are not displayed but are listed on the help pages where they appear. Most options correspond to display options, which can be accessed [here][display-options]. Some others (e.g., `continous` and `binary`) are described on the [bal.tab()] help page.
+#' @details When an option is set to `NULL`, it is set to its default value. The defaults are not displayed but are listed on the help pages where they appear. Most options correspond to display options, which can be accessed [here][display-options]. Some others (e.g., `continuous` and `binary`) are described on the [bal.tab()] help page.
 #' 
 #' @seealso 
 #' * [options()]
@@ -138,37 +138,35 @@ get.cobalt.options <- function(...) {
         }
     }
     
-    out <- setNames(lapply(paste0("cobalt_", opts), getOption), opts)
-    return(out)
-    
+    setNames(lapply(paste0("cobalt_", opts), getOption), opts)
 }
 
 #set.cobalt.options
 acceptable.options <- function() {
     TF <- c(TRUE, FALSE)
-    return(list(stats = c("mean.diffs"),
-                un = TF,
-                continuous = c("raw", "std"),
-                binary = c("raw", "std"),
-                imbalanced.only = TF,
-                disp = c("means", "sds"),
-                disp.means = TF,
-                disp.sds = TF,
-                disp.v.ratio = TF,
-                disp.ks = TF,
-                disp.subclass = TF,
-                disp.bal.tab = TF,
-                cluster.summary = TF,
-                cluster.fun = c("min", "mean", "max"),
-                imp.summary = TF,
-                imp.fun = c("min", "mean", "max"),
-                multi.summary = TF,
-                msm.summary = TF,
-                target.summary = TF,
-                subclass.summary = TF,
-                int_sep = " * ",
-                factor_sep = "_",
-                center = TF,
-                remove_perfect_col = TF,
-                disp.call = TF))
+    list(stats = c("mean.diffs"),
+         un = TF,
+         continuous = c("raw", "std"),
+         binary = c("raw", "std"),
+         imbalanced.only = TF,
+         disp = c("means", "sds"),
+         disp.means = TF,
+         disp.sds = TF,
+         disp.v.ratio = TF,
+         disp.ks = TF,
+         disp.subclass = TF,
+         disp.bal.tab = TF,
+         cluster.summary = TF,
+         cluster.fun = c("min", "mean", "max"),
+         imp.summary = TF,
+         imp.fun = c("min", "mean", "max"),
+         multi.summary = TF,
+         msm.summary = TF,
+         target.summary = TF,
+         subclass.summary = TF,
+         int_sep = " * ",
+         factor_sep = "_",
+         center = TF,
+         remove_perfect_col = TF,
+         disp.call = TF)
 }

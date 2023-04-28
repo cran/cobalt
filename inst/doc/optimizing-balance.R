@@ -16,11 +16,15 @@ covs <- subset(lalonde, select = -c(treat, race, re78))
 
 # Initialize the object with the balance statistic,
 # treatment, and covariates
-smd.init <- bal.init("smd.max", treat = lalonde$treat,
-                     covs = covs)
+smd.init <- bal.init(covs, treat = lalonde$treat,
+                     stat = "smd.max")
 
 # Compute balance with no weights
 bal.compute(smd.init)
+
+# Can also compute the statistic directly using bal.compute():
+bal.compute(covs, treat = lalonde$treat,
+            stat = "smd.max")
 
 ## -----------------------------------------------------------------------------
 bal.tab(covs, treat = lalonde$treat, binary = "std")
@@ -55,8 +59,8 @@ bal.compute(smd.init, get.w(w.out))
 
 ## ---- eval = weightit.ok && br.ok---------------------------------------------
 # Initialize object to compute the largest SMD
-smd.init <- bal.init("smd.max", treat = lalonde$treat,
-                     covs = covs)
+smd.init <- bal.init(covs, treat = lalonde$treat,
+                     stat = "smd.max")
 
 # Create vector of tuning parameters
 links <- c("probit", "logit", "br.probit", "br.logit",
@@ -75,7 +79,7 @@ weights.list <- sapply(links, function(link) {
 # Use each set of weights to compute balance
 # Can replace sapply() with purrr:map_vec()
 stats <- sapply(weights.list, bal.compute,
-                init = smd.init)
+                x = smd.init)
 
 # See which set of weights is the best
 stats
@@ -90,9 +94,8 @@ data("lalonde")
 
 # Initialize balance
 covs <- subset(lalonde, select = -c(treat, re78))
-ks.init <- bal.init("ks.max", covs = covs,
-                    treat = lalonde$treat,
-                    estimand = "ATT")
+ks.init <- bal.init(covs, treat = lalonde$treat,
+                    stat = "ks.max", estimand = "ATT")
 
 # Fit a GBM model using `WeightIt` and `twang` defaults
 fit <- gbm::gbm(treat ~ age + educ + married + race +

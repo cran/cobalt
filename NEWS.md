@@ -1,6 +1,32 @@
 `cobalt` News and Updates
 ======
 
+# cobalt 4.5.1
+
+* Added a new function `available.stats()` which lists the available balance statistics for use with `bal.init()` and `bal.compute()`.
+
+* The interfaces to `bal.compute()` and `bal.init()` have changed slightly. The arguments have a slightly different order to match other `cobalt` functions. `bal.compute()` now is a generic function with a method for `bal.init` objects and a default method. The default method accepts the same arguments as `bal.init()` (and optionally an additional `weights` argument) and computes the (weighted) balance statistic directly. For most uses, the `bal.init() |> bal.compute()` workflow should be preferred.
+
+* Added a new multivariate balance statistic, the kernel distance as described by Zhu, Savage, and Ghosh (2018). This can be requested in `bal.compute()` and `bal.init()` by setting `stat = "kernel.dist"`. In most cases, this will perform similarly to the energy distance.
+
+* `s.weights` are more compatible with matching methods and can now be supplied to `bal.tab()` with `mimids` and `wimids` objects from `MatchThem`. Thanks to Helen Wright for pointing out this issue.
+
+* Fixed a bug when using `bal.init()` with non-`NULL` `s.weights`.
+
+* Fixed bugs when using `bal.init()` and `bal.compute()` with multi-category treatments.
+
+* Fixed a bug when using `col_w_ovl()` with missing data.
+
+* Fixed a bug when using `bal.tab()` with `stat = "spearman.correlations"`.
+
+* Fixed a bug when using `bal.plot()` with longitudinal treatments.
+
+* Fixed a bug in while the display options `factor_sep` and `int_sep` were not functioning correctly.
+
+* Fixed a bug when no covariates are supplied.
+
+* Improved some errors all around, and particularly in `col_w_smd()` and friends, `bal.init()`, and `var.names()`.
+
 # cobalt 4.5.0
 
 * Added new functions `bal.compute()` and `bal.init()`, which are used for compute scalar balance statistics efficiently for use in optimizing balance. A new vignette, `vignette("optimizing-balance")` is available as well.

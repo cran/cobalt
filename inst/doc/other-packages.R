@@ -76,15 +76,15 @@ knitr::opts_chunk$set(eval = TRUE)
 if (!requireNamespace("CBPS", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
-#  #CBPS weighting
-#  data("lalonde", package = "cobalt") #If not yet loaded
-#  covs0 <- subset(lalonde, select = -c(treat, re78))
-#  f <- reformulate(names(covs0), "treat")
-#  
-#  #Generating covariate balancing propensity score weights for ATT
-#  cbps.out <- CBPS::CBPS(f, data = lalonde)
-#  
-#  bal.tab(cbps.out)
+#CBPS weighting
+data("lalonde", package = "cobalt") #If not yet loaded
+covs0 <- subset(lalonde, select = -c(treat, re78))
+f <- reformulate(names(covs0), "treat")
+
+#Generating covariate balancing propensity score weights for ATT
+cbps.out <- CBPS::CBPS(f, data = lalonde)
+
+bal.tab(cbps.out)
 
 ## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
@@ -153,32 +153,32 @@ knitr::opts_chunk$set(eval = TRUE)
 if (!requireNamespace("MatchThem", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
-#  #PS weighting on multiply imputed data
-#  data("lalonde_mis", package = "cobalt")
-#  
-#  #Generate imputed data sets
-#  m <- 10 #number of imputed data sets
-#  imp.out <- mice::mice(lalonde_mis, m = m, print = FALSE)
-#  
-#  #Matching for balance on covariates
-#  mt.out <- MatchThem::matchthem(treat ~ age + educ + married +
-#                                     race + re74 + re75,
-#                                 datasets = imp.out,
-#                                 approach = "within",
-#                                 method = "nearest",
-#                                 estimand = "ATT")
-#  
-#  bal.tab(mt.out)
-#  
-#  #Weighting for balance on covariates
-#  wt.out <- MatchThem::weightthem(treat ~ age + educ + married +
-#                                      race + re74 + re75,
-#                                  datasets = imp.out,
-#                                  approach = "within",
-#                                  method = "ps",
-#                                  estimand = "ATE")
-#  
-#  bal.tab(wt.out)
+#PS weighting on multiply imputed data
+data("lalonde_mis", package = "cobalt")
+
+#Generate imputed data sets
+m <- 10 #number of imputed data sets
+imp.out <- mice::mice(lalonde_mis, m = m, print = FALSE) 
+
+#Matching for balance on covariates
+mt.out <- MatchThem::matchthem(treat ~ age + educ + married +
+                                   race + re74 + re75, 
+                               datasets = imp.out,
+                               approach = "within", 
+                               method = "nearest",
+                               estimand = "ATT")
+
+bal.tab(mt.out)
+
+#Weighting for balance on covariates
+wt.out <- MatchThem::weightthem(treat ~ age + educ + married +
+                                    race + re74 + re75, 
+                                datasets = imp.out,
+                                approach = "within", 
+                                method = "ps",
+                                estimand = "ATE")
+
+bal.tab(wt.out)
 
 ## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
@@ -187,29 +187,28 @@ knitr::opts_chunk$set(eval = TRUE)
 if (any(!sapply(c("cem", "mice"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
 ## -----------------------------------------------------------------------------
-#  #Coarsened exact matching
-#  data("lalonde", package = "cobalt") #If not yet loaded
-#  
-#  #Matching for balance on covariates
-#  cem.out <- cem::cem("treat", data = lalonde, drop = "re78")
-#  
-#  bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
+#Coarsened exact matching
+data("lalonde", package = "cobalt") #If not yet loaded
 
-## -----------------------------------------------------------------------------
-#  #Coarsened exact matching on multiply imputed data
-#  data("lalonde_mis", package = "cobalt")
-#  
-#  #Generate imputed data sets
-#  m <- 10 #number of imputed data sets
-#  imp.out <- mice::mice(lalonde_mis, m = m, print = FALSE)
-#  imp.data.list <- mice::complete(imp.out, "all")
-#  
-#  #Match within each imputed dataset
-#  cem.out.imp <- cem::cem("treat", datalist = imp.data.list,
-#                          drop = "re78")
-#  
-#  bal.tab(cem.out.imp, data = imp.out)
-#  
+#Matching for balance on covariates
+cem.out <- cem::cem("treat", data = lalonde, drop = "re78")
+
+bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
+
+## ---- message = F-------------------------------------------------------------
+#Coarsened exact matching on multiply imputed data
+data("lalonde_mis", package = "cobalt")
+
+#Generate imputed data sets
+m <- 10 #number of imputed data sets
+imp.out <- mice::mice(lalonde_mis, m = m, print = FALSE) 
+imp.data.list <- mice::complete(imp.out, "all")
+
+#Match within each imputed dataset
+cem.out.imp <- cem::cem("treat", datalist = imp.data.list,
+                        drop = "re78")
+
+bal.tab(cem.out.imp, data = imp.out)
 
 ## ---- include=FALSE, eval=TRUE------------------------------------------------
 knitr::opts_chunk$set(eval = TRUE)
