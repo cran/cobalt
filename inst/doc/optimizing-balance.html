@@ -398,13 +398,14 @@ the propensity score should be used to trim samples, etc.</p>
 varying a number of parameters, which are sometimes called “tuning
 parameters”, in order to optimize balance. Many popular methods adjust
 tuning parameters to optimize balance as inherent parts of the method,
-like genetic matching <span class="citation">(<a href="#ref-diamondGeneticMatchingEstimating2013" role="doc-biblioref">Diamond and Sekhon 2013</a>)</span>, which tunes
-variance importance in the distance matrix, or generalized boosted
-modeling <span class="citation">(<a href="#ref-mccaffreyPropensityScoreEstimation2004" role="doc-biblioref">McCaffrey, Ridgeway, and Morral 2004</a>)</span>,
-which tunes the number of trees in the prediction model for propensity
-scores. This strategy tends to yield methods that perform better than
-methods that don’t tune at all or tune to optimize a criterion other
-than balance (e.g., prediction accuracy) <span class="citation">Pirracchio and Carone (<a href="#ref-pirracchioBalanceSuperLearner2018" role="doc-biblioref">2018</a>)</span>.</p>
+like genetic matching <span class="citation">(<a href="#ref-diamondGeneticMatchingEstimating2013">Diamond and Sekhon
+2013</a>)</span>, which tunes variance importance in the distance
+matrix, or generalized boosted modeling <span class="citation">(<a href="#ref-mccaffreyPropensityScoreEstimation2004">McCaffrey, Ridgeway,
+and Morral 2004</a>)</span>, which tunes the number of trees in the
+prediction model for propensity scores. This strategy tends to yield
+methods that perform better than methods that don’t tune at all or tune
+to optimize a criterion other than balance (e.g., prediction accuracy)
+<span class="citation">Pirracchio and Carone (<a href="#ref-pirracchioBalanceSuperLearner2018">2018</a>)</span>.</p>
 <p>As of version 4.5.0, <code>cobalt</code> provides the functions
 <code>bal.compute()</code> and <code>bal.init()</code> to aid in
 selecting these tuning parameters in an efficient way without needing to
@@ -440,128 +441,129 @@ difference among the included covariates, which is specified as
 <code>bal.init()</code> and pass its output to
 <code>bal.compute()</code> to compute the balance statistic for the
 sample prior to weighting.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(cobalt)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>covs <span class="ot">&lt;-</span> <span class="fu">subset</span>(lalonde, <span class="at">select =</span> <span class="sc">-</span><span class="fu">c</span>(treat, race, re78))</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize the object with the balance statistic,</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># treatment, and covariates</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>smd.init <span class="ot">&lt;-</span> <span class="fu">bal.init</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>                     <span class="at">stat =</span> <span class="st">&quot;smd.max&quot;</span>)</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute balance with no weights</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init)</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.7207554</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Can also compute the statistic directly using bal.compute():</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.compute</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>            <span class="at">stat =</span> <span class="st">&quot;smd.max&quot;</span>)</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.7207554</span></span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(cobalt)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>covs <span class="ot">&lt;-</span> <span class="fu">subset</span>(lalonde, <span class="at">select =</span> <span class="sc">-</span><span class="fu">c</span>(treat, race, re78))</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co"># Initialize the object with the balance statistic,</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co"># treatment, and covariates</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>smd.init <span class="ot">&lt;-</span> <span class="fu">bal.init</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>                     <span class="at">stat =</span> <span class="st">&quot;smd.max&quot;</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="co"># Compute balance with no weights</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init)</span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co">#&gt; [1] 0.7207554</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="co"># Can also compute the statistic directly using bal.compute():</span></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="fu">bal.compute</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>            <span class="at">stat =</span> <span class="st">&quot;smd.max&quot;</span>)</span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#&gt; [1] 0.7207554</span></span></code></pre></div>
 <p>The largest absolute standardized mean difference with no weights is
 0.72, which we can verify and investigate further using
 <code>bal.tab()</code>:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming pooled.</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Balance Measures</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;             Type Diff.Un</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; age      Contin. -0.2419</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; educ     Contin.  0.0448</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; married   Binary -0.7208</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; nodegree  Binary  0.2355</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; re74     Contin. -0.5958</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; re75     Contin. -0.2870</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Sample sizes</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     Control Treated</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; All     429     185</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">bal.tab</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming pooled.</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co">#&gt; Balance Measures</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt;             Type Diff.Un</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt; age      Contin. -0.2419</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt; educ     Contin.  0.0448</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt; married   Binary -0.7208</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; nodegree  Binary  0.2355</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; re74     Contin. -0.5958</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; re75     Contin. -0.2870</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; Sample sizes</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt;     Control Treated</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; All     429     185</span></span></code></pre></div>
 <p>We can see that the largest value corresponds to the covariate
 <code>married</code>.</p>
 <p>Now, lets estimate weights using probit regression propensity scores
 in <code>WeightIt</code> and see whether this balance statistic
 decreases after applying the weights:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;WeightIt&quot;</span>)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                  <span class="at">link =</span> <span class="st">&quot;probit&quot;</span>)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute the balance statistic on the estimated weights</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init, <span class="fu">get.w</span>(w.out))</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.6833739</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;WeightIt&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>                  <span class="at">link =</span> <span class="st">&quot;probit&quot;</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co"># Compute the balance statistic on the estimated weights</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init, <span class="fu">get.w</span>(w.out))</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; [1] 0.6833739</span></span></code></pre></div>
 <p>After weighting, our balance statistic is 0.68, indicating a modest
 improvement (though still with significant imbalance remaining). Let’s
 try again with logistic regression:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">link =</span> <span class="st">&quot;logit&quot;</span>)</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute the balance statistic on the estimated weights</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init, <span class="fu">get.w</span>(w.out))</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.4883804</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>                  <span class="at">link =</span> <span class="st">&quot;logit&quot;</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co"># Compute the balance statistic on the estimated weights</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init, <span class="fu">get.w</span>(w.out))</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; [1] 0.4883804</span></span></code></pre></div>
 <p>This is better, but we can do even better with bias-reduced logistic
-regression <span class="citation">(<a href="#ref-kosmidis2020" role="doc-biblioref">Kosmidis and Firth 2020</a>)</span>:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">link =</span> <span class="st">&quot;br.logit&quot;</span>)</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute the balance statistic on the estimated weights</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init, <span class="fu">get.w</span>(w.out))</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.4200393</span></span></code></pre></div>
+regression <span class="citation">(<a href="#ref-kosmidis2020">Kosmidis
+and Firth 2020</a>)</span>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>                  <span class="at">link =</span> <span class="st">&quot;br.logit&quot;</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co"># Compute the balance statistic on the estimated weights</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init, <span class="fu">get.w</span>(w.out))</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; [1] 0.4200393</span></span></code></pre></div>
 <p>Instead of writing each complete call one at a time, we can do a
 little programming to make this happen automatically:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize object to compute the largest SMD</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>smd.init <span class="ot">&lt;-</span> <span class="fu">bal.init</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>                     <span class="at">stat =</span> <span class="st">&quot;smd.max&quot;</span>)</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Create vector of tuning parameters</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>links <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;probit&quot;</span>, <span class="st">&quot;logit&quot;</span>, <span class="st">&quot;br.probit&quot;</span>, <span class="st">&quot;br.logit&quot;</span>,</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;cloglog&quot;</span>, <span class="st">&quot;br.cloglog&quot;</span>)</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply each link to estimate weights</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Can replace sapply() with purrr::map()</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>weights.list <span class="ot">&lt;-</span> <span class="fu">sapply</span>(links, <span class="cf">function</span>(link) {</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                  <span class="at">link =</span> link)</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">get.w</span>(w.out)</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>}, <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Use each set of weights to compute balance</span></span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Can replace sapply() with purrr:map_vec()</span></span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>stats <span class="ot">&lt;-</span> <span class="fu">sapply</span>(weights.list, bal.compute,</span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>                <span class="at">x =</span> smd.init)</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co"># See which set of weights is the best</span></span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>stats</span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     probit      logit  br.probit   br.logit    cloglog br.cloglog </span></span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  0.6833739  0.4883804  0.5829455  0.4200393  0.4129788  0.3596011</span></span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>stats[<span class="fu">which.min</span>(stats)]</span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; br.cloglog </span></span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  0.3596011</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Initialize object to compute the largest SMD</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>smd.init <span class="ot">&lt;-</span> <span class="fu">bal.init</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>                     <span class="at">stat =</span> <span class="st">&quot;smd.max&quot;</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co"># Create vector of tuning parameters</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>links <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;probit&quot;</span>, <span class="st">&quot;logit&quot;</span>, <span class="st">&quot;br.probit&quot;</span>, <span class="st">&quot;br.logit&quot;</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>           <span class="st">&quot;cloglog&quot;</span>, <span class="st">&quot;br.cloglog&quot;</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co"># Apply each link to estimate weights</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co"># Can replace sapply() with purrr::map()</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>weights.list <span class="ot">&lt;-</span> <span class="fu">sapply</span>(links, <span class="cf">function</span>(link) {</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>    w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> nodegree <span class="sc">+</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>                      re74 <span class="sc">+</span> re75, <span class="at">data =</span> lalonde,</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>                  <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>                  <span class="at">link =</span> link)</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>    <span class="fu">get.w</span>(w.out)</span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>}, <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co"># Use each set of weights to compute balance</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co"># Can replace sapply() with purrr:map_vec()</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>stats <span class="ot">&lt;-</span> <span class="fu">sapply</span>(weights.list, bal.compute,</span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a>                <span class="at">x =</span> smd.init)</span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co"># See which set of weights is the best</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a>stats</span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt;     probit      logit  br.probit   br.logit    cloglog br.cloglog </span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt;  0.6833739  0.4883804  0.5829455  0.4200393  0.4129788  0.3596011</span></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a>stats[<span class="fu">which.min</span>(stats)]</span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; br.cloglog </span></span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co">#&gt;  0.3596011</span></span></code></pre></div>
 <p>Interestingly, bias-reduced complimentary log-log regression produced
 weights with the smallest maximum absolute standardized mean difference.
 We can use <code>bal.tab()</code> to examine balance more finely on the
 chosen weights:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.tab</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>,</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>        <span class="at">weights =</span> weights.list[[<span class="st">&quot;br.cloglog&quot;</span>]])</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming pooled.</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Balance Measures</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;             Type Diff.Adj</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; age      Contin.  -0.1451</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; educ     Contin.   0.1959</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; married   Binary  -0.0314</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; nodegree  Binary  -0.1317</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; re74     Contin.   0.3596</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; re75     Contin.   0.2545</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Effective sample sizes</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;            Control Treated</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Unadjusted  429.    185.  </span></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Adjusted    400.05   66.52</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">bal.tab</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>,</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>        <span class="at">weights =</span> weights.list[[<span class="st">&quot;br.cloglog&quot;</span>]])</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming pooled.</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; Balance Measures</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt;             Type Diff.Adj</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; age      Contin.  -0.1451</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; educ     Contin.   0.1959</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; married   Binary  -0.0314</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt; nodegree  Binary  -0.1317</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt; re74     Contin.   0.3596</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt; re75     Contin.   0.2545</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; Effective sample sizes</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt;            Control Treated</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co">#&gt; Unadjusted  429.    185.  </span></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#&gt; Adjusted    400.05   66.52</span></span></code></pre></div>
 <p>If balance is acceptable (in this case, it is not), you would move
 forward with these weights in estimating the treatment effect.
 Otherwise, you might try other values of the tuning parameters, other
@@ -631,64 +633,66 @@ computed as <span class="math display">\[
 \]</span> where <span class="math inline">\(\mathbf{\bar{x}}_1\)</span>
 and <span class="math inline">\(\mathbf{\bar{x}}_0\)</span> are the
 vectors of covariate means in the two treatment groups, <span class="math inline">\(\Sigma^-1\)</span> is the (generalized) inverse of
-the covariance matrix of the covariates <span class="citation">(<a href="#ref-franklinMetricsCovariateBalance2014" role="doc-biblioref">Franklin et al. 2014</a>)</span>. This is similar
-to <code>&quot;smd.rms&quot;</code> but the covariates are standardized to remove
-correlations between and de-emphasize redundant covariates. The other
-allowable arguments include <code>estimand</code> (ATE, ATC, or ATT) to
-select the estimand, which determines how the covariance matrix is
-calculated, and <code>focal</code> to identify the focal treatment group
-when the ATT is the estimand. Can only be used with binary
-treatments.</p>
+the covariance matrix of the covariates <span class="citation">(<a href="#ref-franklinMetricsCovariateBalance2014">Franklin et al.
+2014</a>)</span>. This is similar to <code>&quot;smd.rms&quot;</code> but the
+covariates are standardized to remove correlations between and
+de-emphasize redundant covariates. The other allowable arguments include
+<code>estimand</code> (ATE, ATC, or ATT) to select the estimand, which
+determines how the covariance matrix is calculated, and
+<code>focal</code> to identify the focal treatment group when the ATT is
+the estimand. Can only be used with binary treatments.</p>
 </div>
 <div id="energy.dist" class="section level4">
 <h4><code>energy.dist</code></h4>
 <p>The total energy distance between each treatment group and the target
 sample, which is a scalar measure of the similarity between two
 multivariate distributions. See <span class="citation">Huling and Mak
-(<a href="#ref-hulingEnergyBalancingCovariate2022" role="doc-biblioref">2022</a>)</span> for details. The other allowable
-arguments include <code>estimand</code> (ATE, ATC, or ATT) to select the
-estimand, <code>focal</code> to identify the focal treatment group when
-the ATT is the estimand and the treatment has more than two categories,
-and <code>improved</code> to select whether the “improved” energy
-distance should be used, which emphasizes difference between treatment
-groups in addition to difference between each treatment group and the
-target sample (default <code>TRUE</code>). Can be used with binary and
-multi-category treatments.</p>
+(<a href="#ref-hulingEnergyBalancingCovariate2022">2022</a>)</span> for
+details. The other allowable arguments include <code>estimand</code>
+(ATE, ATC, or ATT) to select the estimand, <code>focal</code> to
+identify the focal treatment group when the ATT is the estimand and the
+treatment has more than two categories, and <code>improved</code> to
+select whether the “improved” energy distance should be used, which
+emphasizes difference between treatment groups in addition to difference
+between each treatment group and the target sample (default
+<code>TRUE</code>). Can be used with binary and multi-category
+treatments.</p>
 </div>
 <div id="kernel.dist" class="section level4">
 <h4><code>kernel.dist</code></h4>
 <p>The kernel distance between treatment groups, which is a scalar
 measure of the similarity between two multivariate distributions. See
-<span class="citation">Zhu, Savage, and Ghosh (<a href="#ref-zhuKernelBasedMetricBalance2018" role="doc-biblioref">2018</a>)</span> for details. Can only be used with
-binary treatments.</p>
+<span class="citation">Zhu, Savage, and Ghosh (<a href="#ref-zhuKernelBasedMetricBalance2018">2018</a>)</span> for
+details. Can only be used with binary treatments.</p>
 </div>
 <div id="l1.med" class="section level4">
 <h4><code>l1.med</code></h4>
 <p>The median L1 statistic computed across a random selection of
 possible coarsening of the data. See <span class="citation">Iacus, King,
-and Porro (<a href="#ref-iacusMultivariateMatchingMethods2011" role="doc-biblioref">2011</a>)</span> for details. The other allowable
-arguments include <code>l1.min.bin</code> (default 2) and
-<code>l1.max.bin</code> default (12) to select the minimum and maximum
-number of bins with which to bin continuous variables and
-<code>l1.n</code> (default 101) to select the number of binnings used to
-select the binning at the median. <code>covs</code> should be supplied
-without splitting factors into dummies to ensure the binning works
-correctly. Can be used with binary and multi-category treatments.</p>
+and Porro (<a href="#ref-iacusMultivariateMatchingMethods2011">2011</a>)</span> for
+details. The other allowable arguments include <code>l1.min.bin</code>
+(default 2) and <code>l1.max.bin</code> default (12) to select the
+minimum and maximum number of bins with which to bin continuous
+variables and <code>l1.n</code> (default 101) to select the number of
+binnings used to select the binning at the median. <code>covs</code>
+should be supplied without splitting factors into dummies to ensure the
+binning works correctly. Can be used with binary and multi-category
+treatments.</p>
 </div>
 <div id="r2-r2.2-r2.3" class="section level4">
 <h4><code>r2</code>, <code>r2.2</code>, <code>r2.3</code></h4>
 <p>The post-weighting <span class="math inline">\(R^2\)</span> of a
-model for the treatment given the covariates. <span class="citation">Franklin et al. (<a href="#ref-franklinMetricsCovariateBalance2014" role="doc-biblioref">2014</a>)</span> describe a similar but less
-generalizable metric, the “post-matching c-statistic”. The other
-allowable arguments include <code>poly</code> to add polynomial terms of
-the supplied order to the model and <code>int</code> (default
-<code>FALSE</code>) to add two-way interactions between covariates into
-the model. Using <code>&quot;r2.2&quot;</code> is a shortcut to requesting
-squares, and using <code>&quot;r2.3&quot;</code> is a shortcut to requesting
-cubes. Can be used with binary and continuous treatments. For binary
-treatments, the McKelvey and Zavoina <span class="math inline">\(R^2\)</span> from a logistic regression is used;
-for continuous treatments, the <span class="math inline">\(R^2\)</span>
-from a linear regression is used.</p>
+model for the treatment given the covariates. <span class="citation">Franklin et al. (<a href="#ref-franklinMetricsCovariateBalance2014">2014</a>)</span>
+describe a similar but less generalizable metric, the “post-matching
+c-statistic”. The other allowable arguments include <code>poly</code> to
+add polynomial terms of the supplied order to the model and
+<code>int</code> (default <code>FALSE</code>) to add two-way
+interactions between covariates into the model. Using
+<code>&quot;r2.2&quot;</code> is a shortcut to requesting squares, and using
+<code>&quot;r2.3&quot;</code> is a shortcut to requesting cubes. Can be used with
+binary and continuous treatments. For binary treatments, the McKelvey
+and Zavoina <span class="math inline">\(R^2\)</span> from a logistic
+regression is used; for continuous treatments, the <span class="math inline">\(R^2\)</span> from a linear regression is used.</p>
 </div>
 <div id="p.mean-p.max-p.rms" class="section level4">
 <h4><code>p.mean</code>, <code>p.max</code>, <code>p.rms</code></h4>
@@ -709,20 +713,24 @@ treatments.</p>
 <p>The distance covariance between the scaled covariates and treatment,
 which is a scalar measure of the independence of two possibly
 multivariate distributions. See <span class="citation">Huling, Greifer,
-and Chen (<a href="#ref-hulingIndependenceWeightsCausal2021" role="doc-biblioref">2021</a>)</span> for details. Can only be used with
-continuous treatments.</p>
+and Chen (<a href="#ref-hulingIndependenceWeightsCausal2021">2021</a>)</span> for
+details. Can only be used with continuous treatments.</p>
 </div>
 <div id="choosing-a-balance-statistic" class="section level3">
 <h3>Choosing a balance statistic</h3>
 <p>Given all these options, how should one choose? There has been some
-research into which yields the best results <span class="citation">(<a href="#ref-franklinMetricsCovariateBalance2014" role="doc-biblioref">Franklin et al. 2014</a>; <a href="#ref-griffinChasingBalanceOther2017" role="doc-biblioref">Griffin
-et al. 2017</a>; <a href="#ref-stuartPrognosticScorebasedBalance2013" role="doc-biblioref">Stuart, Lee, and Leacy 2013</a>; <a href="#ref-belitserMeasuringBalanceModel2011" role="doc-biblioref">Belitser et al. 2011</a>; <a href="#ref-parastOptimizingVariancebiasTradeoff2017" role="doc-biblioref">Parast et al. 2017</a>)</span>, but the actual
-performance of each depends on the unique features of the data and
-system under study. For example, in the unlikely case that the true
-outcome model is linear in the covariates, using the <code>&quot;smd&quot;</code>
-or <code>&quot;mahalanobis&quot;</code> statistics will work well for binary and
-multi-category treatments. In more realistic cases, though, every
-measure has its advantages and disadvantages.</p>
+research into which yields the best results <span class="citation">(<a href="#ref-franklinMetricsCovariateBalance2014">Franklin et al.
+2014</a>; <a href="#ref-griffinChasingBalanceOther2017">Griffin et al.
+2017</a>; <a href="#ref-stuartPrognosticScorebasedBalance2013">Stuart,
+Lee, and Leacy 2013</a>; <a href="#ref-belitserMeasuringBalanceModel2011">Belitser et al. 2011</a>;
+<a href="#ref-parastOptimizingVariancebiasTradeoff2017">Parast et al.
+2017</a>)</span>, but the actual performance of each depends on the
+unique features of the data and system under study. For example, in the
+unlikely case that the true outcome model is linear in the covariates,
+using the <code>&quot;smd&quot;</code> or <code>&quot;mahalanobis&quot;</code> statistics
+will work well for binary and multi-category treatments. In more
+realistic cases, though, every measure has its advantages and
+disadvantages.</p>
 <p>For binary and multi-category treatments, only
 <code>&quot;energy.dist&quot;</code>, <code>&quot;kernel.dist&quot;</code>, and
 <code>&quot;L1.med&quot;</code> reflect balance on all features of the joint
@@ -751,65 +759,66 @@ subclassification.</p>
 <p>GBM has many tuning parameters that can be optimized, but the key
 parameter is the number of trees to use to calculate the predictions.
 <code>WeightIt</code> and <code>twang</code> both implement the methods
-described in <span class="citation">McCaffrey, Ridgeway, and Morral (<a href="#ref-mccaffreyPropensityScoreEstimation2004" role="doc-biblioref">2004</a>)</span> for selecting the number of trees
-using a balance criterion. Here, we will do so manually both to
-understand the internals of these functions and illustrate the uses of
-<code>bal.compute()</code> and <code>bal.init()</code>.</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>)</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize balance</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>covs <span class="ot">&lt;-</span> <span class="fu">subset</span>(lalonde, <span class="at">select =</span> <span class="sc">-</span><span class="fu">c</span>(treat, re78))</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>ks.init <span class="ot">&lt;-</span> <span class="fu">bal.init</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>                    <span class="at">stat =</span> <span class="st">&quot;ks.max&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATT&quot;</span>)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit a GBM model using `WeightIt` and `twang` defaults</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> gbm<span class="sc">::</span><span class="fu">gbm</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> race <span class="sc">+</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>                    nodegree <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>                <span class="at">data =</span> lalonde,</span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>                <span class="at">distribution =</span> <span class="st">&quot;bernoulli&quot;</span>,</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>                <span class="at">n.trees =</span> <span class="dv">4000</span>, <span class="at">interaction.depth =</span> <span class="dv">3</span>,</span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>                <span class="at">shrinkage =</span> .<span class="dv">01</span>, <span class="at">bag.fraction =</span> <span class="dv">1</span>)</span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>trees_to_test <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">4000</span>)</span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>p.mat <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,</span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>                 <span class="at">n.trees =</span> trees_to_test)</span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>stats <span class="ot">&lt;-</span> <span class="fu">apply</span>(p.mat, <span class="dv">2</span>, <span class="cf">function</span>(p) {</span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compute ATT weights</span></span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    w <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">1</span>, p<span class="sc">/</span>(<span class="dv">1</span><span class="sc">-</span>p))</span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>    <span class="fu">bal.compute</span>(ks.init, <span class="at">weights =</span> w)</span>
-<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>})</span>
-<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>stats[<span class="fu">which.min</span>(stats)]</span>
-<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;       1408 </span></span>
-<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 0.09563649</span></span></code></pre></div>
+described in <span class="citation">McCaffrey, Ridgeway, and Morral (<a href="#ref-mccaffreyPropensityScoreEstimation2004">2004</a>)</span> for
+selecting the number of trees using a balance criterion. Here, we will
+do so manually both to understand the internals of these functions and
+illustrate the uses of <code>bal.compute()</code> and
+<code>bal.init()</code>.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co"># Initialize balance</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>covs <span class="ot">&lt;-</span> <span class="fu">subset</span>(lalonde, <span class="at">select =</span> <span class="sc">-</span><span class="fu">c</span>(treat, re78))</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>ks.init <span class="ot">&lt;-</span> <span class="fu">bal.init</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>                    <span class="at">stat =</span> <span class="st">&quot;ks.max&quot;</span>, <span class="at">estimand =</span> <span class="st">&quot;ATT&quot;</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co"># Fit a GBM model using `WeightIt` and `twang` defaults</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>fit <span class="ot">&lt;-</span> gbm<span class="sc">::</span><span class="fu">gbm</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> race <span class="sc">+</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>                    nodegree <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>                <span class="at">data =</span> lalonde,</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>                <span class="at">distribution =</span> <span class="st">&quot;bernoulli&quot;</span>,</span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>                <span class="at">n.trees =</span> <span class="dv">4000</span>, <span class="at">interaction.depth =</span> <span class="dv">3</span>,</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>                <span class="at">shrinkage =</span> .<span class="dv">01</span>, <span class="at">bag.fraction =</span> <span class="dv">1</span>)</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>trees_to_test <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">4000</span>)</span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>p.mat <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>,</span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>                 <span class="at">n.trees =</span> trees_to_test)</span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a></span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a>stats <span class="ot">&lt;-</span> <span class="fu">apply</span>(p.mat, <span class="dv">2</span>, <span class="cf">function</span>(p) {</span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a>    <span class="co"># Compute ATT weights</span></span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a>    w <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">1</span>, p<span class="sc">/</span>(<span class="dv">1</span><span class="sc">-</span>p))</span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a>    </span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a>    <span class="fu">bal.compute</span>(ks.init, <span class="at">weights =</span> w)</span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a>})</span>
+<span id="cb8-27"><a href="#cb8-27" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" tabindex="-1"></a>stats[<span class="fu">which.min</span>(stats)]</span>
+<span id="cb8-29"><a href="#cb8-29" tabindex="-1"></a><span class="co">#&gt;       1408 </span></span>
+<span id="cb8-30"><a href="#cb8-30" tabindex="-1"></a><span class="co">#&gt; 0.09563649</span></span></code></pre></div>
 <p>From these results, we see that using 1408 trees gives us the lowest
 maximum KS statistic of .096. Out of interest, we can plot the
 relationship between the number of trees and our balance statistic to
 see what it looks like:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;ggplot2&quot;</span>)</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> trees_to_test, <span class="at">y =</span> stats)) <span class="sc">+</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">&quot;ks.max&quot;</span>, <span class="at">x =</span> <span class="st">&quot;n.trees&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;ggplot2&quot;</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> trees_to_test, <span class="at">y =</span> stats)) <span class="sc">+</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>    <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">&quot;ks.max&quot;</span>, <span class="at">x =</span> <span class="st">&quot;n.trees&quot;</span>)</span></code></pre></div>
 <p><img src="data:image/png;base64,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" /><!-- --></p>
 <p>Let’s compare this to the output of <code>WeightIt</code>:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;WeightIt&quot;</span>)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> race <span class="sc">+</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>                    nodegree <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>                <span class="at">data =</span> lalonde, <span class="at">estimand =</span> <span class="st">&quot;ATT&quot;</span>,</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>                <span class="at">method =</span> <span class="st">&quot;gbm&quot;</span>, <span class="at">n.trees =</span> <span class="dv">4000</span>,</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>                <span class="at">stop.method =</span> <span class="st">&quot;ks.max&quot;</span>)</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Display the best tree:</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>w.out<span class="sc">$</span>info<span class="sc">$</span>best.tree</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 1408</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ks.max from weightit()</span></span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="fu">bal.compute</span>(ks.init, <span class="at">weights =</span> <span class="fu">get.w</span>(w.out))</span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0.09563649</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;WeightIt&quot;</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>w.out <span class="ot">&lt;-</span> <span class="fu">weightit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> race <span class="sc">+</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>                    nodegree <span class="sc">+</span> re74 <span class="sc">+</span> re75,</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>                <span class="at">data =</span> lalonde, <span class="at">estimand =</span> <span class="st">&quot;ATT&quot;</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>                <span class="at">method =</span> <span class="st">&quot;gbm&quot;</span>, <span class="at">n.trees =</span> <span class="dv">4000</span>,</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>                <span class="at">stop.method =</span> <span class="st">&quot;ks.max&quot;</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co"># Display the best tree:</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>w.out<span class="sc">$</span>info<span class="sc">$</span>best.tree</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; [1] 1408</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co"># ks.max from weightit()</span></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="fu">bal.compute</span>(ks.init, <span class="at">weights =</span> <span class="fu">get.w</span>(w.out))</span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a><span class="co">#&gt; [1] 0.09563649</span></span></code></pre></div>
 <p>We can see that <code>weightit()</code> also selects 1408 trees as
 the optimum and the resulting maximum KS statistic computed using the
 returned weights is equal to the one we computed manually. Using

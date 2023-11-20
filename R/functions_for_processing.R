@@ -309,8 +309,8 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
     }
     
     if (is_not_null(covs)) {
-        covs_c <- try({
-            if (is_mat_like(covs)) get_covs_from_formula(data = covs)
+        covs_c <- {
+            if (is_mat_like(covs)) try(get_covs_from_formula(data = covs), silent = TRUE)
             else if (is.character(covs)) {
                 if (!is_mat_like(data)) {
                     .err("if `covs` is a character vector, `data` must be specified as a data.frame")
@@ -319,11 +319,11 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
                 if (!all(covs %in% colnames(data))) {
                     .err("all entries in `covs` must be names of variables in `data`")
                 }
-                get_covs_from_formula(f.build(covs), data = as.data.frame(data))
+                try(get_covs_from_formula(f.build(covs), data = as.data.frame(data)), silent = TRUE)
                 
             }
             else .err("`covs` must be a data.frame of covariates")
-        }, silent = TRUE) 
+        }
     }
     
     if (is_not_null(treat)) {
@@ -334,49 +334,37 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
         }, silent = TRUE)
     }
     
-    covs_to_use <- treat_to_use <- ""
+    covs_to_use <- treat_to_use <- "c"
     if (is_error(covs_c)) {
-        if (null_or_error(covs_f) && needs.covs) {
+        if (is_error(covs_f)) {
             .err(attr(covs_c, "condition")$message, tidy = FALSE)
         }
-        else {
-            covs_to_use <- "f"
-        }
+        covs_to_use <- "f"
     }
     else if (is_null(covs_c)) {
-        if (is_error(covs_f) && needs.covs) {
+        if (is_error(covs_f)) {
             .err(attr(covs_f, "condition")$message, tidy = FALSE)
         }
-        else if (is_null(covs_f) && needs.covs) {
+        if (is_null(covs_f) && needs.covs) {
             .err("no covariates were specified")
         }
-        else {
-            covs_to_use <- "f"
-        }
-    }
-    else {
-        covs_to_use <- "c"
+        covs_to_use <- "f"
     }
     
     if (is_error(treat_c)) {
-        if (null_or_error(treat_f) && needs.treat) {
+        if (is_error(treat_f)) {
             .err(attr(treat_c, "condition")$message, tidy = FALSE)
         }
         treat_to_use <- "f"
     }
     else if (is_null(treat_c)) {
-        if (is_error(treat_f) && needs.treat) {
+        if (is_error(treat_f)) {
             .err(attr(treat_f, "condition")$message, tidy = FALSE)
         }
-        else if (is_null(treat_f) && needs.treat) {
+        if (is_null(treat_f) && needs.treat) {
             .err("no treatment variable was specified")
         }
-        else {
-            treat_to_use <- "f"
-        }
-    }
-    else {
-        treat_to_use <- "c"
+        treat_to_use <- "f"
     }
     
     t.c <- list(treat = switch(treat_to_use, "f" = treat_f, "c" = treat_c), 
@@ -755,9 +743,14 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
             s.d.denom <- .get_s.d.denom.cont(as.character(s.d.denom), weights = weighted.weights[subset])
         }
         else {
-            unique.treats <- if (inherits(treat, "processed.treat") && all(subset)) as.character(treat_vals(treat)) else as.character(unique(treat[subset]))
+            unique.treats <- {
+                if (inherits(treat, "processed.treat") && all(subset)) as.character(treat_vals(treat))
+                else as.character(unique(treat[subset]))
+            }
             s.d.denom <- .get_s.d.denom(as.character(s.d.denom), weights = weighted.weights[subset], treat = treat[subset])
-            if (s.d.denom %in% c("treated", "control")) s.d.denom <- treat_vals(treat)[treat_names(treat)[s.d.denom]]
+            if (s.d.denom %in% c("treated", "control") && s.d.denom %nin% unique.treats) {
+                s.d.denom <- treat_vals(treat)[treat_names(treat)[s.d.denom]]
+            }
             treat <- as.character(treat)
         }
         
@@ -768,7 +761,6 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
                              w = s.weights[treat == s.d.denom],
                              bin.vars = bin.vars, na.rm = na.rm))
             }
-        
         else if (s.d.denom == "pooled")
             denom.fun <- function(mat, treat, s.weights, weighted.weights, bin.vars,
                                   unique.treats, na.rm) {
@@ -790,10 +782,11 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
         else if (s.d.denom == "hedges")
             denom.fun <- function(mat, treat, s.weights, weighted.weights, bin.vars,
                                   unique.treats, na.rm) {
-                (1 - 3/(4*length(treat) - 9))^-1 * sqrt(Reduce("+", lapply(unique.treats,
-                                                                           function(t) (sum(treat == t) - 1) * col.w.v(mat[treat == t, , drop = FALSE],
-                                                                                                                       w = s.weights[treat == t],
-                                                                                                                       bin.vars = bin.vars, na.rm = na.rm))) / (length(treat) - 2))
+                (1 - 3/(4*length(treat) - 9))^-1 *
+                    sqrt(Reduce("+", lapply(unique.treats,
+                                            function(t) (sum(treat == t) - 1) * col.w.v(mat[treat == t, , drop = FALSE],
+                                                                                        w = s.weights[treat == t],
+                                                                                        bin.vars = bin.vars, na.rm = na.rm))) / (length(treat) - 2))
             }
         else .err("`s.d.denom` is not an allowed value")
         
@@ -925,7 +918,10 @@ subset_X <- function(X, subset = NULL) {
                 
                 out
             }
-            X[names(X) %in% subsettable()] <- lapply(X[names(X) %in% subsettable()], subset_X_internal, subset)
+            
+            for (i in which(names(X) %in% subsettable())) {
+                X[[i]] <- subset_X_internal(X[[i]], subset)
+            }
         }
     }
     
@@ -1232,7 +1228,13 @@ process_disp <- function(disp = NULL, ...) {
     disp
 }
 process_addl <- function(addl = NULL, datalist = list()) {
+    if (is_not_null(addl) && !is.atomic(addl) && !rlang::is_formula(addl) &&
+        !is.matrix(addl) && !is.data.frame(addl)) {
+        .err("`addl` must be a formula or variable containing the distance values")
+    }
+    
     data <- do.call("data.frame", unname(clear_null(datalist)))
+    
     if (is.atomic(addl) && 
         (!is.character(addl) || is_null(datalist) ||
          length(addl) == nrow(data))) {
@@ -1241,9 +1243,17 @@ process_addl <- function(addl = NULL, datalist = list()) {
     else if (is.character(addl)) {
         addl <- reformulate(addl)
     }
-    
-    addl_t.c <- .use_tc_fd(formula = addl, data = data, covs = addl, 
-                           needs.treat = FALSE, needs.covs = FALSE)
+
+    addl_t.c <- {
+        if (is.data.frame(addl)) {
+            .use_tc_fd(data = data, covs = addl, 
+                       needs.treat = FALSE, needs.covs = FALSE)
+        }
+        else {
+            .use_tc_fd(formula = addl, data = data, 
+                       needs.treat = FALSE, needs.covs = FALSE)
+        }
+    }
     
     addl_t.c[["covs"]]
 }
@@ -1263,11 +1273,14 @@ process_addl.list <- function(addl.list = NULL, datalist = list(), covs.list = l
 }
 process_distance <- function(distance = NULL, datalist = list(), obj.distance = NULL,
                              obj.distance.name = "distance") {
-    data <- do.call("data.frame", unname(clear_null(datalist)))
+    
     if (is_not_null(distance) && !is.atomic(distance) && !rlang::is_formula(distance) &&
         !is.matrix(distance) && !is.data.frame(distance)) {
         .err("`distance` must be a formula or variable containing the distance values")
     }
+    
+    data <- do.call("data.frame", unname(clear_null(datalist)))
+    
     if (is.atomic(distance) && 
         (!is.character(distance) || is_null(datalist) ||
          length(distance) == nrow(data))) {
@@ -1277,9 +1290,17 @@ process_distance <- function(distance = NULL, datalist = list(), obj.distance = 
         distance <- reformulate(distance)
     }
     
-    distance_t.c <- .use_tc_fd(formula = distance, data = data, covs = distance, 
-                               needs.treat = FALSE, needs.covs = FALSE)
-    
+    distance_t.c <- {
+        if (is.data.frame(distance)) {
+            .use_tc_fd(data = data, covs = distance, 
+                       needs.treat = FALSE, needs.covs = FALSE)
+        }
+        else {
+            .use_tc_fd(formula = distance, data = data, 
+                       needs.treat = FALSE, needs.covs = FALSE)
+        }
+    }
+
     distance <- distance_t.c[["covs"]]
     
     if (is_not_null(obj.distance) && !all(is.na(obj.distance))) {
@@ -1655,9 +1676,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
             if (null_or_error(evaled.var)) {
                 .err(conditionMessage(attr(evaled.var, "condition")))
             }
-            else {
-                rownames(ttfactors)[i] <- add_quotes(rownames(ttfactors)[i], "`")
-            }
+            rownames(ttfactors)[i] <- add_quotes(rownames(ttfactors)[i], "`")
         }
         
         if (is.function(evaled.var)) {
@@ -1807,8 +1826,8 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
             base <- gsub("`", "", names(x)[i], fixed = TRUE)
             if (base %in% na_vars) {
                 base <- substr(base, 1, nchar(base) - 5)
-                return(list(component = c(base, ":<NA>"),
-                            type = c("base", "na")))
+                list(component = c(base, ":<NA>"),
+                            type = c("base", "na"))
             }
             out <- list(component = base,
                         type = "base")
@@ -1885,7 +1904,9 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     #Drop single_value or colinear with cluster
     if (drop) {
         test.treat <- is_not_null(treat) && get.treat.type(treat) != "continuous"
+        
         # test.cluster <- is_not_null(cluster) && !all_the_same(cluster, na.rm = FALSE)
+        
         drop_vars <- vapply(seq_len(ncol(covs)), 
                             function(i) {
                                 # if (all_the_same(covs[,i], na.rm = FALSE)) return(TRUE)
@@ -1979,6 +2000,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     #Remove duplicate & redundant variables
     if (drop) {
         for (x in setdiff(names(C_list), "distance")) {
+            
             #Remove self-redundant variables
             if (getOption("cobalt_remove_perfect_col", ncol(C_list[[x]]) <= 900)) {
                 redundant.var.indices <- find_perfect_col(C_list[[x]])
@@ -2037,6 +2059,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     #ex=names of variables to exclude in interactions and polynomials; a subset of df
     #int=whether to include interactions or not; currently only 2-way are supported
     #poly=degree of polynomials to include; will also include all below poly. If 1, no polynomial will be included
+    #orth=use orthogonal polynomials
     #nunder=number of underscores between variables
     
     cn <- is_not_null(co.names)
@@ -2192,6 +2215,7 @@ df_clean <- function(df) {
     }, character(1))
 }
 find_perfect_col <- function(C1, C2 = NULL, fun = stats::cor) {
+    
     #Finds indices of redundant vars in C1.
     C1.no.miss <- C1[,colnames(C1) %nin% attr(C1, "missing.ind"), drop = FALSE]
     if (is_null(C2)) {
@@ -2338,9 +2362,11 @@ balance.table <- function(C, type, weights = NULL, treat, continuous, binary, s.
     
     #B=Balance frame
     Bnames <- c("Type", 
-                expand.grid_string(c(if (type == "bin") expand.grid_string(c("M"["means" %in% compute], "SD"["sds" %in% compute]), c("0", "1"), collapse = ".")
+                expand.grid_string(c(if (type == "bin") expand.grid_string(c("M"["means" %in% compute],
+                                                                             "SD"["sds" %in% compute]),
+                                                                           c("0", "1"), collapse = ".")
                                      else if (type == "cont") c("M"["means" %in% compute], "SD"["sds" %in% compute]), 
-                                     unlist(lapply(compute[compute %in% all_STATS(type)[!get_from_STATS("adj_only")[get_from_STATS("type") == type]]], function(s) {
+                                     unlist(lapply(intersect(compute, all_STATS(type)[!get_from_STATS("adj_only")[get_from_STATS("type") == type]]), function(s) {
                                          c(STATS[[s]]$bal.tab_column_prefix,
                                            if (no.adj && is_not_null(thresholds[[s]])) STATS[[s]]$Threshold)
                                      }))
@@ -2348,7 +2374,7 @@ balance.table <- function(C, type, weights = NULL, treat, continuous, binary, s.
                 "Un", collapse = "."),
                 expand.grid_string(c(if (type == "bin") expand.grid_string(c("M"["means" %in% compute], "SD"["sds" %in% compute]), c("0", "1"), collapse = ".")
                                      else if (type == "cont") c("M"["means" %in% compute], "SD"["sds" %in% compute]), 
-                                     unlist(lapply(compute[compute %in% all_STATS(type)], function(s) {
+                                     unlist(lapply(intersect(compute, all_STATS(type)), function(s) {
                                          c(STATS[[s]]$bal.tab_column_prefix,
                                            if (!no.adj && is_not_null(thresholds[[s]])) STATS[[s]]$Threshold)
                                      }))

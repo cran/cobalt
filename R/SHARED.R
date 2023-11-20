@@ -11,33 +11,32 @@ word_list <- function(word.list = NULL, and.or = c("and", "or"), is.are = FALSE,
     if (L == 0) {
         out <- ""
         attr(out, "plural") <- FALSE
+        return(out)
+    }
+    
+    word.list <- word.list[!word.list %in% c(NA_character_, "")]
+    L <- length(word.list)
+    if (L == 0) {
+        out <- ""
+        attr(out, "plural") <- FALSE
+    }
+    else if (L == 1) {
+        out <- word.list
+        if (is.are) out <- paste(out, "is")
+        attr(out, "plural") <- FALSE
     }
     else {
-        word.list <- word.list[!word.list %in% c(NA_character_, "")]
-        L <- length(word.list)
-        if (L == 0) {
-            out <- ""
-            attr(out, "plural") <- FALSE
-        }
-        else if (L == 1) {
-            out <- word.list
-            if (is.are) out <- paste(out, "is")
-            attr(out, "plural") <- FALSE
+        and.or <- match_arg(and.or)
+        if (L == 2) {
+            out <- paste(word.list, collapse = paste0(" ", and.or, " "))
         }
         else {
-            and.or <- match_arg(and.or)
-            if (L == 2) {
-                out <- paste(word.list, collapse = paste0(" ", and.or, " "))
-            }
-            else {
-                out <- paste(paste(word.list[seq_len(L - 1)], collapse = ", "),
-                             word.list[L], sep = paste0(", ", and.or, " "))
-                
-            }
-            if (is.are) out <- paste(out, "are")
-            attr(out, "plural") <- TRUE
+            out <- paste(paste(word.list[seq_len(L - 1)], collapse = ", "),
+                         word.list[L], sep = paste0(", ", and.or, " "))
+            
         }
-        
+        if (is.are) out <- paste(out, "are")
+        attr(out, "plural") <- TRUE
     }
     
     out
@@ -275,8 +274,10 @@ between <- function(x, range, inclusive = TRUE, na.action = FALSE) {
     if (range[2] < range[1]) range <- c(range[2], range[1])
     
     if (anyNA(x)) {
-        if (length(na.action) != 1 || !is.atomic(na.action)) stop("'na.action' must be an atomic vector of length 1.", call. = FALSE)
+        if (length(na.action) != 1 || !is.atomic(na.action))
+            stop("'na.action' must be an atomic vector of length 1.", call. = FALSE)
     }
+    
     if (inclusive) out <- ifelse(is.na(x), na.action, x >= range[1] & x <= range[2])
     else out <- ifelse(is.na(x), na.action, x > range[1] & x < range[2])
     
@@ -365,13 +366,17 @@ center <- function(x, at = NULL, na.rm = TRUE) {
 }
 w.m <- function(x, w = NULL, na.rm = TRUE) {
     if (is_null(w)) w <- rep(1, length(x))
-    if (anyNA(x)) w[is.na(x)] <- NA
+    if (anyNA(x)) is.na(w)[is.na(x)] <- TRUE
     
     sum(x * w, na.rm = na.rm)/sum(w, na.rm = na.rm)
 }
 col.w.m <- function(mat, w = NULL, na.rm = TRUE) {
-    if (is_null(w)) w <- 1
-    w.sum <- colSums(w*!is.na(mat))
+    if (is_null(w)) w <- rep(1, nrow(mat))
+    
+    w.sum <- {
+        if (!na.rm || !anyNA(mat)) sum(w)
+        else colSums(w*!is.na(mat))
+    }
     
     colSums(mat*w, na.rm = na.rm)/w.sum
 }
@@ -410,7 +415,7 @@ col.w.v <- function(mat, w = NULL, bin.vars = NULL, na.rm = TRUE) {
     else if (na.rm && anyNA(mat)) {
         # n <- nrow(mat)
         w <- array(w, dim = dim(mat))
-        w[is.na(mat)] <- NA
+        is.na(w)[is.na(mat)] <- TRUE
         s <- colSums(w, na.rm = na.rm)
         w <- mat_div(w, s)
         if (non.bin.vars.present) {
@@ -449,15 +454,15 @@ col.w.cov <- function(mat, y, w = NULL, na.rm = TRUE) {
     
     if (is_null(w)) {
         y <- array(y, dim = dim(mat))
-        if (anyNA(mat)) y[is.na(mat)] <- NA
-        if (anyNA(y)) mat[is.na(y)] <- NA
+        if (anyNA(mat)) is.na(y)[is.na(mat)] <- TRUE
+        if (anyNA(y)) is.na(mat)[is.na(y)] <- TRUE
         den <- colSums(!is.na(mat*y)) - 1
         cov <- colSums(center(mat, na.rm = na.rm)*center(y, na.rm = na.rm), na.rm = na.rm)/den
     }
     else if (na.rm && anyNA(mat)) {
         n <- nrow(mat)
         w <- array(w, dim = dim(mat))
-        w[is.na(mat)] <- NA_real_
+        is.na(w)[is.na(mat)] <- TRUE
         s <- colSums(w, na.rm = na.rm)
         w <- mat_div(w, s)
         x <- w * center(mat, at = colSums(w * mat, na.rm = na.rm))
@@ -566,10 +571,10 @@ assign.treat.type <- function(treat, use.multi = FALSE) {
         treat.type <- "continuous"
     }
     attr(treat, "treat.type") <- treat.type
-    return(treat)
+    treat
 }
 get.treat.type <- function(treat) {
-    return(attr(treat, "treat.type"))
+    attr(treat, "treat.type")
 }
 has.treat.type <- function(treat) {
     is_not_null(get.treat.type(treat))
@@ -686,22 +691,24 @@ make_df <- function(ncol, nrow = 0, types = "numeric") {
             stop("'types' must be an acceptable type. For factors, use NA.")
         }
         if (length(types) == 1) types <- rep(types, ncol)
-        for (i in seq_len(ncol)) if (!is.na(types)[i] && types[i] != "numeric") df[[i]] <- get(types[i])(nrow)
+        for (i in seq_len(ncol)) if (!is.na(types)[i] && types[i] != "numeric") {
+            df[[i]] <- get(types[i])(nrow)
+        }
     }
     
     df
 }
 ifelse_ <- function(...) {
     dotlen <- ...length()
-    if (dotlen %% 2 == 0) stop("ifelse_ must have an odd number of arguments: pairs of test/yes, and one no.")
+    if (dotlen %% 2 == 0) stop("`ifelse_()` must have an odd number of arguments: pairs of test/yes, and one no.")
     out <- ...elt(dotlen)
     
     if (dotlen <= 1) {
-        if (!is.atomic(out)) stop("The first entry to ifelse_ must be atomic.")
+        if (!is.atomic(out)) stop("The first entry to `ifelse_()` must be atomic.")
     }
     
     if (!is.atomic(out)) {
-        stop("The last entry to ifelse_ must be atomic.")
+        stop("The last entry to `ifelse_()` must be atomic.")
     }
     
     if (length(out) == 1) out <- rep(out, length(..1))
@@ -711,8 +718,8 @@ ifelse_ <- function(...) {
         yes <- ...elt(2*i)
         if (length(yes) == 1) yes <- rep(yes, n)
         if (length(yes) != n || length(test) != n) stop("All entries must have the same length.")
-        if (!is.logical(test)) stop(paste("The", ordinal(2*i - 1), "entry to ifelse_ must be logical."))
-        if (!is.atomic(yes)) stop(paste("The", ordinal(2*i), "entry to ifelse_ must be atomic."))
+        if (!is.logical(test)) stop(paste("The", ordinal(2*i - 1), "entry to `ifelse_()` must be logical."))
+        if (!is.atomic(yes)) stop(paste("The", ordinal(2*i), "entry to `ifelse_()` must be atomic."))
         pos <- which(test)
         out[pos] <- yes[pos]
     }
@@ -736,15 +743,14 @@ is_ <- function(x, types, stop = FALSE, arg.to = FALSE) {
     }
     else it.is <- FALSE
     
-    if (stop) {
-        if (!it.is) {
-            s0 <- ifelse(arg.to, "The argument to ", "")
-            s2 <- ifelse(any(types %in% c("factor", "character", "numeric", "logical")),
-                         "vector", "")
-            stop(paste0(s0, "'", s1, "' must be a ", word_list(types, and.or = "or"), " ", s2, "."), call. = FALSE)
-        }
+    if (stop && !it.is) {
+        s0 <- ifelse(arg.to, "The argument to ", "")
+        s2 <- ifelse(any(types %in% c("factor", "character", "numeric", "logical")),
+                     "vector", "")
+        stop(paste0(s0, "'", s1, "' must be a ", word_list(types, and.or = "or"), " ", s2, "."), call. = FALSE)
     }
-    return(it.is)
+    
+    it.is
 }
 is_mat_like <- function(x) {
     length(dim(x)) == 2
@@ -752,15 +758,16 @@ is_mat_like <- function(x) {
 is_null <- function(x) length(x) == 0L
 is_not_null <- function(x) !is_null(x)
 if_null_then <- function(x1 = NULL, x2 = NULL, ...) {
-    if (is_not_null(x1)) x1
-    else if (is_not_null(x2)) x2
-    else if (...length() > 0) {
-        for (k in seq_len(...length())) {
-            if (is_not_null(...elt(k))) return(...elt(k))
-        }
-        return(..1)
+    if (is_not_null(x1)) return(x1)
+    if (is_not_null(x2)) return(x2)
+    if (...length() == 0) return(x1)
+    
+    for (k in seq_len(...length())) {
+        elt_k <- ...elt(k)
+        if (is_not_null(elt_k)) return(elt_k)
     }
-    else return(x1)
+    
+    ..1
 }
 clear_null <- function(x) {
     x[vapply(x, function(i) {
@@ -868,5 +875,6 @@ has_method <- function(class, fun) {
     if (!is.character(fun) || length(fun) != 1) stop("'fun' must be a string of length 1.")
     if (!is.character(class)) stop("'class' must be a character vector.")
     
-    vapply(class, function(cl) is_not_null(getS3method(fun, cl, optional = TRUE, envir = asNamespace(packageName()))), logical(1L))
+    vapply(class, function(cl) is_not_null(getS3method(fun, cl, optional = TRUE, envir = asNamespace(packageName()))),
+           logical(1L))
 }
