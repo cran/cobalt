@@ -1,6 +1,18 @@
 `cobalt` News and Updates
 ======
 
+# cobalt 4.5.3
+
+* Fixed a bug when missing values were present in continuous covariates. Thanks to @vnusinfo. (#76)
+
+* Fixed a bug when using `bal.tab()` with the `cluster` argument supplied with the `caret` package loaded. Thanks to @BorgeJorge. (#77)
+
+* When `cluster` is specified, categorical variables that perfectly coincide with the cluster variable are now correctly removed.
+
+* Perfectly colinear variables are no longer removed (unless they are binary variables split from the same factor). This should speed up evaluation and reduce the probability of false positives being removed.
+
+* Variables with a single value are now more reliably categorized as "binary" in tables and calculations.
+
 # cobalt 4.5.2
 
 * Fixed a bug when using `bal.compute()` with a treatment variable with levels named "treated" and "control".
@@ -9,7 +21,7 @@
 
 * Fixed a bug when using `addl` without a dataset supplied. (#71)
 
-* Fixed a bug when using `subset` to remove clusters lack full representation in all treatment groups when `cluster` is specified. (#70)
+* Fixed a bug when using `subset` to remove clusters lacking full representation in all treatment groups when `cluster` is specified. (#70)
 
 # cobalt 4.5.1
 
