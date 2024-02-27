@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -29,7 +29,7 @@ bal.compute(covs, treat = lalonde$treat,
 ## -----------------------------------------------------------------------------
 bal.tab(covs, treat = lalonde$treat, binary = "std")
 
-## ---- eval = weightit.ok------------------------------------------------------
+## ----eval = weightit.ok-------------------------------------------------------
 library("WeightIt")
 w.out <- weightit(treat ~ age + educ + married + nodegree +
                       re74 + re75, data = lalonde,
@@ -39,7 +39,7 @@ w.out <- weightit(treat ~ age + educ + married + nodegree +
 # Compute the balance statistic on the estimated weights
 bal.compute(smd.init, get.w(w.out))
 
-## ---- eval = weightit.ok------------------------------------------------------
+## ----eval = weightit.ok-------------------------------------------------------
 w.out <- weightit(treat ~ age + educ + married + nodegree +
                       re74 + re75, data = lalonde,
                   method = "ps", estimand = "ATE",
@@ -48,7 +48,7 @@ w.out <- weightit(treat ~ age + educ + married + nodegree +
 # Compute the balance statistic on the estimated weights
 bal.compute(smd.init, get.w(w.out))
 
-## ---- eval = weightit.ok && br.ok---------------------------------------------
+## ----eval = weightit.ok && br.ok----------------------------------------------
 w.out <- weightit(treat ~ age + educ + married + nodegree +
                       re74 + re75, data = lalonde,
                   method = "ps", estimand = "ATE",
@@ -57,7 +57,7 @@ w.out <- weightit(treat ~ age + educ + married + nodegree +
 # Compute the balance statistic on the estimated weights
 bal.compute(smd.init, get.w(w.out))
 
-## ---- eval = weightit.ok && br.ok---------------------------------------------
+## ----eval = weightit.ok && br.ok----------------------------------------------
 # Initialize object to compute the largest SMD
 smd.init <- bal.init(covs, treat = lalonde$treat,
                      stat = "smd.max")
@@ -85,11 +85,11 @@ stats <- sapply(weights.list, bal.compute,
 stats
 stats[which.min(stats)]
 
-## ---- eval = weightit.ok && br.ok---------------------------------------------
+## ----eval = weightit.ok && br.ok----------------------------------------------
 bal.tab(covs, treat = lalonde$treat, binary = "std",
         weights = weights.list[["br.cloglog"]])
 
-## ---- eval = gbm.ok-----------------------------------------------------------
+## ----eval = gbm.ok------------------------------------------------------------
 data("lalonde")
 
 # Initialize balance
@@ -119,14 +119,14 @@ stats <- apply(p.mat, 2, function(p) {
 
 stats[which.min(stats)]
 
-## ---- fig.width=7, fig.height=3, eval = gbm.ok--------------------------------
+## ----fig.width=7, fig.height=3, eval = gbm.ok---------------------------------
 library("ggplot2")
 ggplot() +
     geom_line(aes(x = trees_to_test, y = stats)) +
     theme_bw() +
     labs(y = "ks.max", x = "n.trees")
 
-## ---- warning=FALSE, eval = weightit.ok && gbm.ok-----------------------------
+## ----warning=FALSE, eval = weightit.ok && gbm.ok------------------------------
 library("WeightIt")
 w.out <- weightit(treat ~ age + educ + married + race +
                     nodegree + re74 + re75,

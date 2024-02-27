@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
   knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.width = 5)
   if (any(!sapply(c("MatchIt", "MatchThem", "mice"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 

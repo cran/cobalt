@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE, fig.width=6, fig.height = 4)
 if (any(!sapply(c("WeightIt", "CBPS"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
@@ -16,7 +16,7 @@ set.cobalt.options(binary = "std")
 ## -----------------------------------------------------------------------------
 love.plot(w.out1)
 
-## ---- eval = FALSE------------------------------------------------------------
+## ----eval = FALSE-------------------------------------------------------------
 #  #This produces the same output as the prior block but with
 #  #the additional covariates included in the formula.
 #  love.plot(treat ~ age + educ + married + nodegree + race + re74 + re75 +

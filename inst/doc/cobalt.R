@@ -1,11 +1,11 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE)
 if (any(!sapply(c("WeightIt", "MatchIt"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
-## ---- include = F-------------------------------------------------------------
+## ----include = F--------------------------------------------------------------
 library("cobalt")
 
-## ---- eval = F----------------------------------------------------------------
+## ----eval = F-----------------------------------------------------------------
 #  install.packages("cobalt")
 #  library("cobalt")
 
@@ -102,18 +102,18 @@ W.out <- WeightIt::weightit(treat ~ age + educ + race + re74 + re75,
 
 bal.tab(W.out)
 
-## ---- fig.show = "hold", fig.width = 3.5, fig.height=2.75---------------------
+## ----fig.show = "hold", fig.width = 3.5, fig.height=2.75----------------------
 bal.plot(W.out, var.name = "age")
 bal.plot(W.out, var.name = "race")
 
-## ---- fig.width = 5-----------------------------------------------------------
+## ----fig.width = 5------------------------------------------------------------
 #Before and after weighting; which = "both"
 bal.plot(W.out, var.name = "prop.score",
          which = "both",
          type = "histogram",
          mirror = TRUE)
 
-## ---- fig.width = 5-----------------------------------------------------------
+## ----fig.width = 5------------------------------------------------------------
 data("lalonde", package = "cobalt")
 
 # Nearest neighbor 1:1 matching with replacement
@@ -125,7 +125,7 @@ m.out <- MatchIt::matchit(treat ~ age + educ + married + race +
 
 love.plot(m.out, binary = "std", thresholds = c(m = .1))
 
-## ---- fig.width = 5-----------------------------------------------------------
+## ----fig.width = 5------------------------------------------------------------
 v <- data.frame(old = c("age", "educ", "race_black", "race_hispan", 
                         "race_white", "married", "nodegree", "re74", "re75", "distance"),
                 new = c("Age", "Years of Education", "Black", 
@@ -160,12 +160,12 @@ W.out.c <- WeightIt::weightit(re75 ~ age + educ + race + married +
 bal.tab(W.out.c, stats = c("c", "k"), un = TRUE, 
         thresholds = c(cor = .1), poly = 3)
 
-## ---- fig.width = 5-----------------------------------------------------------
+## ----fig.width = 5------------------------------------------------------------
 #Assessing balance graphically
 bal.plot(W.out.c, "re74", which = "both")
 bal.plot(W.out.c, "married", which = "both")
 
-## ---- fig.width = 6, fig.height = 3-------------------------------------------
+## ----fig.width = 6, fig.height = 3--------------------------------------------
 #Summarizing balance in a Love plot
 love.plot(W.out.c, stats = c("c", "ks"),
           thresholds = c(cor = .1), 
@@ -193,13 +193,13 @@ bal.tab(W.out.mn, un = TRUE,
         disp = "means",
         which.treat = .all)
 
-## ---- fig.width = 5, fig.height=2.75------------------------------------------
+## ----fig.width = 5, fig.height=2.75-------------------------------------------
 #Assessing balance graphically
 bal.plot(W.out.mn, "age", which = "both")
 
 bal.plot(W.out.mn, "married", which = "both")
 
-## ---- fig.width = 7-----------------------------------------------------------
+## ----fig.width = 7------------------------------------------------------------
 #Summarizing balance in a Love plot
 love.plot(W.out.mn, thresholds = c(m = .1), binary = "std",
           which.treat = .all, abs = FALSE)
@@ -211,13 +211,13 @@ bal.tab(treat ~ age + educ + married + race +
                        IPW = W.out),
         disp.v.ratio = TRUE)
 
-## ---- fig.width=7-------------------------------------------------------------
+## ----fig.width=7--------------------------------------------------------------
 bal.plot(treat ~ age, data = lalonde, 
          weights = list(Matched = m.out,
                         IPW = W.out),
          var.name = "age", which = "both")
 
-## ---- fig.width=5-------------------------------------------------------------
+## ----fig.width=5--------------------------------------------------------------
 love.plot(treat ~ age + educ + married + race +
               nodegree + re74 + re75,
           data = lalonde, 
@@ -228,7 +228,7 @@ love.plot(treat ~ age + educ + married + race +
           shapes = c("circle", "square", "triangle"),
           line = TRUE)
 
-## ---- eval = FALSE------------------------------------------------------------
+## ----eval = FALSE-------------------------------------------------------------
 #  bal.tab(m.out, weights = list(IPW = W.out))
 
 ## -----------------------------------------------------------------------------

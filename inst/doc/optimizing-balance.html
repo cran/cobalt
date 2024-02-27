@@ -463,7 +463,7 @@ sample prior to weighting.</p>
 0.72, which we can verify and investigate further using
 <code>bal.tab()</code>:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">bal.tab</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming pooled.</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming &quot;pooled&quot;.</span></span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co">#&gt; Balance Measures</span></span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt;             Type Diff.Un</span></span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt; age      Contin. -0.2419</span></span>
@@ -511,7 +511,7 @@ and Firth 2020</a>)</span>:</p>
 <span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a></span>
 <span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co"># Compute the balance statistic on the estimated weights</span></span>
 <span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="fu">bal.compute</span>(smd.init, <span class="fu">get.w</span>(w.out))</span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; [1] 0.4200393</span></span></code></pre></div>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; [1] 0.4200392</span></span></code></pre></div>
 <p>Instead of writing each complete call one at a time, we can do a
 little programming to make this happen automatically:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Initialize object to compute the largest SMD</span></span>
@@ -540,7 +540,7 @@ little programming to make this happen automatically:</p>
 <span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co"># See which set of weights is the best</span></span>
 <span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a>stats</span>
 <span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt;     probit      logit  br.probit   br.logit    cloglog br.cloglog </span></span>
-<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt;  0.6833739  0.4883804  0.5829455  0.4200393  0.4129788  0.3596011</span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt;  0.6833739  0.4883804  0.5829420  0.4200392  0.4129788  0.3596011</span></span>
 <span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a>stats[<span class="fu">which.min</span>(stats)]</span>
 <span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; br.cloglog </span></span>
 <span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co">#&gt;  0.3596011</span></span></code></pre></div>
@@ -550,7 +550,7 @@ We can use <code>bal.tab()</code> to examine balance more finely on the
 chosen weights:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">bal.tab</span>(covs, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>,</span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>        <span class="at">weights =</span> weights.list[[<span class="st">&quot;br.cloglog&quot;</span>]])</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming pooled.</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; Note: `s.d.denom` not specified; assuming &quot;pooled&quot;.</span></span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; Balance Measures</span></span>
 <span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt;             Type Diff.Adj</span></span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; age      Contin.  -0.1451</span></span>

@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE)
 library("cobalt")
 
@@ -12,10 +12,7 @@ lalonde.unsplit <- unsplitfactor(lalonde.split, "race",
                                  dropped.level = "black")
 head(lalonde.unsplit)
 
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("twang", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## ---- warning = FALSE---------------------------------------------------------
+## ----warning = FALSE, eval = requireNamespace("twang", quietly = TRUE)--------
 #GBM PS weighting for the ATT
 data("lalonde", package = "cobalt") ##If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78))
@@ -27,13 +24,7 @@ ps.out <- twang::ps(f, data = lalonde,
                     verbose = FALSE)
 bal.tab(ps.out, stop.method = "es.mean")
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("Matching", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("Matching", quietly = TRUE)----------------------
 #1:1 NN PS matching w/ replacement
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78))
@@ -47,17 +38,11 @@ match.out <- Matching::Match(Tr = lalonde$treat, X = p.score,
 bal.tab(match.out, formula = f, data = lalonde,
         distance = ~ p.score)
 
-## ---- eval = FALSE------------------------------------------------------------
+## ----eval = FALSE-------------------------------------------------------------
 #  bal.tab(match.out, treat = lalonde$treat, covs = covs0,
 #          distance = ~ p.score)
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("optmatch", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("optmatch", quietly = TRUE)----------------------
 #Optimal full matching on the propensity score
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78))
@@ -69,13 +54,7 @@ fm <- optmatch::fullmatch(treat ~ p.score, data = lalonde)
 
 bal.tab(fm, covs = covs0, distance = ~ p.score)
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("CBPS", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("CBPS", quietly = TRUE)--------------------------
 #CBPS weighting
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78))
@@ -86,13 +65,7 @@ cbps.out <- CBPS::CBPS(f, data = lalonde)
 
 bal.tab(cbps.out)
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("ebal", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("ebal", quietly = TRUE)--------------------------
 #Entropy balancing
 data("lalonde", package = "cobalt") #If not yet loaded
 covs0 <- subset(lalonde, select = -c(treat, re78, race))
@@ -102,13 +75,7 @@ e.out <- ebal::ebalance(lalonde$treat, covs0)
 
 bal.tab(e.out, treat = lalonde$treat, covs = covs0)
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("designmatch", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("designmatch", quietly = TRUE)-------------------
 #Mixed integer programming matching
 library("designmatch")
 data("lalonde", package = "cobalt") #If not yet loaded
@@ -119,19 +86,13 @@ dmout <- bmatch(lalonde$treat,
                 dist_mat = NULL,
                 subset_weight = NULL,
                 mom = list(covs = covs0,
-                           tols = absstddif(covs0, lalonde$treat, .005)),
+                           tols = absstddif(covs0, lalonde$treat, .05)),
                 n_controls = 1,
                 total_groups = 185)
 
 bal.tab(dmout, treat = lalonde$treat, covs = covs0)
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("sbw", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("sbw", quietly = TRUE)---------------------------
 #Optimization-based weighting
 data("lalonde", package = "cobalt") #If not yet loaded
 lalonde_split <- splitfactor(lalonde, drop.first = "if2")
@@ -146,13 +107,7 @@ sbw.out <- sbw::sbw(lalonde_split,
                     par = list(par_est = "att"))
 bal.tab(sbw.out, un = TRUE, disp.means = TRUE)
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("MatchThem", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("MatchThem", quietly = TRUE) && requireNamespace("mice", quietly = TRUE)----
 #PS weighting on multiply imputed data
 data("lalonde_mis", package = "cobalt")
 
@@ -180,43 +135,31 @@ wt.out <- MatchThem::weightthem(treat ~ age + educ + married +
 
 bal.tab(wt.out)
 
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
+## ----eval = FALSE && requireNamespace("cem", quietly = TRUE)------------------
+#  #Coarsened exact matching
+#  data("lalonde", package = "cobalt") #If not yet loaded
+#  
+#  #Matching for balance on covariates
+#  cem.out <- cem::cem("treat", data = lalonde, drop = "re78")
+#  
+#  bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
 
-## ---- include=FALSE-----------------------------------------------------------
-if (any(!sapply(c("cem", "mice"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
+## ----message = F, eval = FALSE && all(sapply(c("cem", "mice"), requireNamespace, quietly = TRUE))----
+#  #Coarsened exact matching on multiply imputed data
+#  data("lalonde_mis", package = "cobalt")
+#  
+#  #Generate imputed data sets
+#  m <- 10 #number of imputed data sets
+#  imp.out <- mice::mice(lalonde_mis, m = m, print = FALSE)
+#  imp.data.list <- mice::complete(imp.out, "all")
+#  
+#  #Match within each imputed dataset
+#  cem.out.imp <- cem::cem("treat", datalist = imp.data.list,
+#                          drop = "re78")
+#  
+#  bal.tab(cem.out.imp, data = imp.out)
 
-## -----------------------------------------------------------------------------
-#Coarsened exact matching
-data("lalonde", package = "cobalt") #If not yet loaded
-
-#Matching for balance on covariates
-cem.out <- cem::cem("treat", data = lalonde, drop = "re78")
-
-bal.tab(cem.out, data = lalonde, stats = c("m", "ks"))
-
-## ---- message = F-------------------------------------------------------------
-#Coarsened exact matching on multiply imputed data
-data("lalonde_mis", package = "cobalt")
-
-#Generate imputed data sets
-m <- 10 #number of imputed data sets
-imp.out <- mice::mice(lalonde_mis, m = m, print = FALSE) 
-imp.data.list <- mice::complete(imp.out, "all")
-
-#Match within each imputed dataset
-cem.out.imp <- cem::cem("treat", datalist = imp.data.list,
-                        drop = "re78")
-
-bal.tab(cem.out.imp, data = imp.out)
-
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
-
-## ---- include=FALSE-----------------------------------------------------------
-if (!requireNamespace("optweight", quietly = TRUE)) knitr::opts_chunk$set(eval = FALSE)
-
-## -----------------------------------------------------------------------------
+## ----eval = requireNamespace("optweight", quietly = TRUE)---------------------
 #Optimization-based weighting
 data("lalonde", package = "cobalt")
 
@@ -229,7 +172,4 @@ names(ow.out)
 
 #Use bal.tab() directly on the output
 bal.tab(ow.out)
-
-## ---- include=FALSE, eval=TRUE------------------------------------------------
-knitr::opts_chunk$set(eval = TRUE)
 

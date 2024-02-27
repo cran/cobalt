@@ -13,7 +13,7 @@
 #' There are three arguments for `bal.tab()` that relate to subclasses: `subclass`, `which.subclass`, and `subclass.summary`.
 #' 
 #' \describe{
-#'     \item{`subclass`}{For the `data.frame` and formula methods of `bal.tab()`, a vector of subclass membership or the name of the variable in `data` containing subclass membership. When using subclassification with a function compatible with \pkg{cobalt}, such as `matchit()` in \pkg{MatchIt}, this argument can be omitted because the subclass are in the output object.}
+#'     \item{`subclass`}{For the `data.frame` and formula methods of `bal.tab()`, a vector of subclass membership or the name of the variable in `data` containing subclass membership. When using subclassification with a function compatible with \pkg{cobalt}, such as `matchit()` in \pkg{MatchIt}, this argument can be omitted because the subclasses are in the output object.}
 #'     \item{`which.subclass`}{This is a display option that does not affect computation. If `.all`, all subclasses in `subclass` will be displayed. If `.none` (the default), no subclasses will be displayed. Otherwise, can be a vector of subclass indices for which to display balance.}
 #'     \item{`subclass.summary`}{This is a display option that does not affect computation. If `TRUE`, the balance summary across subclasses will be displayed. The default is `TRUE`, and if `which.subclass` is `.none`, it will automatically be set to `TRUE`.}
 #' }
@@ -64,10 +64,10 @@ base.bal.tab.subclass <- function(X,
         if (missing(binary)) binary <- getOption("cobalt_binary", "std")
     }
     
-    subclass <- factor(X$subclass)
+    X$subclass <- factor(X$subclass)
     
     if (missing(which.subclass)) {
-        if (isTRUE(A[["disp.subclass"]])) which.subclass <- seq_len(nlevels(subclass))
+        if (isTRUE(A[["disp.subclass"]])) which.subclass <- seq_len(nlevels(X$subclass))
         else which.subclass <- NA
     }
     if (is_null(A[["disp.subclass"]])) {
@@ -77,7 +77,7 @@ base.bal.tab.subclass <- function(X,
     if (is_null(subclass.summary)) {
         subclass.summary <- is_not_null(which.subclass) && 
             (anyNA(which.subclass) || !is.numeric(which.subclass) || 
-                 (is.numeric(which.subclass) && !any(which.subclass %in% seq_len(nlevels(subclass)))))
+                 (is.numeric(which.subclass) && !any(which.subclass %in% seq_len(nlevels(X$subclass)))))
     }
     
     no.adj <- FALSE
@@ -94,6 +94,28 @@ base.bal.tab.subclass <- function(X,
     
     C <- do.call(".get_C2", c(X, A[names(A) %nin% names(X)], list(int = int, poly = poly)), quote = TRUE)
     co.names <- attr(C, "co.names")
+    
+    var_types <- attr(C, "var_types")
+    
+    if (get.treat.type(X$treat) != "continuous" &&
+        "mean.diffs" %in% X$stats &&
+        ((binary == "std" && any(var_types == "Binary")) ||
+         (continuous == "std" && any(var_types != "Binary")))) {
+        X$s.d.denom <- .get_s.d.denom(X$s.d.denom,
+                                      estimand = X$estimand,
+                                      weights = X$weights, 
+                                      subclass = X$subclass,
+                                      treat = X$treat,
+                                      focal = X$focal)
+    }
+    else if (get.treat.type(X$treat) == "continuous" &&
+             any(c("correlations", "spearman.correlations") %in% X$stats) &&
+             ((binary == "std" && any(var_types == "Binary")) ||
+              (continuous == "std" && any(var_types != "Binary")))) {
+        X$s.d.denom <- .get_s.d.denom.cont(X$s.d.denom,
+                                           weights = X$weights,
+                                           subclass = X$subclass)
+    }
     
     out[["Subclass.Balance"]] <- do.call("balance.table.subclass", 
                                          c(list(C,

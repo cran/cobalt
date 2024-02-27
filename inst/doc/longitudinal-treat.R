@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(message = FALSE, fig.width=5)
 if (any(!sapply(c("WeightIt"), requireNamespace, quietly = TRUE))) knitr::opts_chunk$set(eval = FALSE)
 
@@ -40,11 +40,11 @@ Wmsm <- WeightIt::weightitMSM(
 ## -----------------------------------------------------------------------------
 bal.tab(Wmsm, un = TRUE, which.time = .all, msm.summary = TRUE)
 
-## ---- fig.height=4------------------------------------------------------------
+## ----fig.height=4-------------------------------------------------------------
 bal.plot(Wmsm, var.name = "X1_0", which = "both",
          type = "histogram")
 
-## ---- fig.height=4------------------------------------------------------------
+## ----fig.height=4-------------------------------------------------------------
 bal.plot(Wmsm, var.name = "X2_1", which = "both")
 
 ## -----------------------------------------------------------------------------
