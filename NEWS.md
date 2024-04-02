@@ -1,6 +1,16 @@
 `cobalt` News and Updates
 ======
 
+# cobalt 4.5.5
+
+* Minor updates to `bal.plot()` to prevent warnings due to `ggplot2` 3.5.0.
+
+* Improved processing when no covariates are specified.
+
+* Fixed a bug when multiple weights are specified, `s.d.denom` is specified, and either all variables are continuous and `continuous = "raw"`, all variables are binary and `binary = "raw"`, or both `continuous = "raw"` and `binary = "raw"`.
+
+* Documentation updates
+
 # cobalt 4.5.4
 
 * Minor update to accommodate `ggplot2` 3.5.0. Thanks to @teunbrand. (#80)

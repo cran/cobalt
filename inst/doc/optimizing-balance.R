@@ -16,24 +16,32 @@ covs <- subset(lalonde, select = -c(treat, race, re78))
 
 # Initialize the object with the balance statistic,
 # treatment, and covariates
-smd.init <- bal.init(covs, treat = lalonde$treat,
-                     stat = "smd.max")
+smd.init <- bal.init(covs,
+                     treat = lalonde$treat,
+                     stat = "smd.max",
+                     estimand = "ATT")
 
 # Compute balance with no weights
 bal.compute(smd.init)
 
 # Can also compute the statistic directly using bal.compute():
-bal.compute(covs, treat = lalonde$treat,
-            stat = "smd.max")
+bal.compute(covs,
+            treat = lalonde$treat,
+            stat = "smd.max",
+            estimand = "ATT")
 
 ## -----------------------------------------------------------------------------
-bal.tab(covs, treat = lalonde$treat, binary = "std")
+bal.tab(covs,
+        treat = lalonde$treat,
+        binary = "std",
+        estimand = "ATT",
+        thresholds = .05)
 
 ## ----eval = weightit.ok-------------------------------------------------------
 library("WeightIt")
 w.out <- weightit(treat ~ age + educ + married + nodegree +
                       re74 + re75, data = lalonde,
-                  method = "ps", estimand = "ATE",
+                  method = "glm", estimand = "ATT",
                   link = "probit")
 
 # Compute the balance statistic on the estimated weights
@@ -42,7 +50,7 @@ bal.compute(smd.init, get.w(w.out))
 ## ----eval = weightit.ok-------------------------------------------------------
 w.out <- weightit(treat ~ age + educ + married + nodegree +
                       re74 + re75, data = lalonde,
-                  method = "ps", estimand = "ATE",
+                  method = "glm", estimand = "ATT",
                   link = "logit")
 
 # Compute the balance statistic on the estimated weights
@@ -51,7 +59,7 @@ bal.compute(smd.init, get.w(w.out))
 ## ----eval = weightit.ok && br.ok----------------------------------------------
 w.out <- weightit(treat ~ age + educ + married + nodegree +
                       re74 + re75, data = lalonde,
-                  method = "ps", estimand = "ATE",
+                  method = "glm", estimand = "ATT",
                   link = "br.logit")
 
 # Compute the balance statistic on the estimated weights
@@ -59,19 +67,21 @@ bal.compute(smd.init, get.w(w.out))
 
 ## ----eval = weightit.ok && br.ok----------------------------------------------
 # Initialize object to compute the largest SMD
-smd.init <- bal.init(covs, treat = lalonde$treat,
-                     stat = "smd.max")
+smd.init <- bal.init(covs,
+                     treat = lalonde$treat,
+                     stat = "smd.max",
+                     estimand = "ATT")
 
 # Create vector of tuning parameters
-links <- c("probit", "logit", "br.probit", "br.logit",
-           "cloglog", "br.cloglog")
+links <- c("probit", "logit", "cloglog",
+           "br.probit", "br.logit", "br.cloglog")
 
 # Apply each link to estimate weights
 # Can replace sapply() with purrr::map()
 weights.list <- sapply(links, function(link) {
     w.out <- weightit(treat ~ age + educ + married + nodegree +
                       re74 + re75, data = lalonde,
-                  method = "ps", estimand = "ATE",
+                  method = "glm", estimand = "ATT",
                   link = link)
     get.w(w.out)
 }, simplify = FALSE)
@@ -86,7 +96,9 @@ stats
 stats[which.min(stats)]
 
 ## ----eval = weightit.ok && br.ok----------------------------------------------
-bal.tab(covs, treat = lalonde$treat, binary = "std",
+bal.tab(covs,
+        treat = lalonde$treat,
+        binary = "std",
         weights = weights.list[["br.cloglog"]])
 
 ## ----eval = gbm.ok------------------------------------------------------------
@@ -94,8 +106,10 @@ data("lalonde")
 
 # Initialize balance
 covs <- subset(lalonde, select = -c(treat, re78))
-ks.init <- bal.init(covs, treat = lalonde$treat,
-                    stat = "ks.max", estimand = "ATT")
+ks.init <- bal.init(covs,
+                    treat = lalonde$treat,
+                    stat = "ks.max",
+                    estimand = "ATT")
 
 # Fit a GBM model using `WeightIt` and `twang` defaults
 fit <- gbm::gbm(treat ~ age + educ + married + race +
@@ -105,7 +119,7 @@ fit <- gbm::gbm(treat ~ age + educ + married + race +
                 n.trees = 4000, interaction.depth = 3,
                 shrinkage = .01, bag.fraction = 1)
 
-trees_to_test <- seq(0, 4000)
+trees_to_test <- seq(1, 4000)
 
 p.mat <- predict(fit, type = "response",
                  n.trees = trees_to_test)

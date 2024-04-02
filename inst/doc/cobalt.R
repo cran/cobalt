@@ -181,8 +181,7 @@ data("lalonde", package = "cobalt")
 W.out.mn <- WeightIt::weightit(race ~ age + educ + married +
                                    nodegree + re74 + re75,
                                data = lalonde,
-                               method = "energy",
-                               use.mlogit = FALSE)
+                               method = "glm")
 
 ## -----------------------------------------------------------------------------
 #Balance summary across treatment pairs

@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2024-02-26" />
+<meta name="date" content="2024-04-02" />
 
 <title>Using cobalt with Other Preprocessing Packages</title>
 
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Using <code>cobalt</code> with Other
 Preprocessing Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2024-02-26</h4>
+<h4 class="date">2024-04-02</h4>
 
 
 <div id="TOC">
@@ -1189,15 +1189,15 @@ example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
 <span id="cb27-16"><a href="#cb27-16" tabindex="-1"></a><span class="fu">bal.tab</span>(mt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## distance    Distance       0.9484        0.9564       0.9688
-## age          Contin.      -0.0589       -0.0005       0.0536
-## educ         Contin.      -0.2070       -0.1390      -0.0914
-## married       Binary      -0.0683       -0.0230       0.0000
+## distance    Distance       0.9477        0.9524       0.9563
+## age          Contin.      -0.0302        0.0053       0.0612
+## educ         Contin.      -0.1882       -0.1409      -0.1129
+## married       Binary      -0.0690       -0.0311       0.0000
 ## race_black    Binary       1.0259        1.0259       1.0259
-## race_hispan   Binary      -0.8000       -0.7452      -0.6857
-## race_white    Binary      -0.7113       -0.6639      -0.6201
-## re74         Contin.      -0.0855       -0.0621      -0.0369
-## re75         Contin.      -0.0812       -0.0666      -0.0478
+## race_hispan   Binary      -0.7772       -0.7520      -0.6629
+## race_white    Binary      -0.7296       -0.6584      -0.6384
+## re74         Contin.      -0.0886       -0.0572      -0.0267
+## re75         Contin.      -0.1013       -0.0814      -0.0576
 ## 
 ## Average sample sizes across imputations
 ##             0   1
@@ -1209,26 +1209,26 @@ example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
 <span id="cb29-3"><a href="#cb29-3" tabindex="-1"></a>                                    race <span class="sc">+</span> re74 <span class="sc">+</span> re75, </span>
 <span id="cb29-4"><a href="#cb29-4" tabindex="-1"></a>                                <span class="at">datasets =</span> imp.out,</span>
 <span id="cb29-5"><a href="#cb29-5" tabindex="-1"></a>                                <span class="at">approach =</span> <span class="st">&quot;within&quot;</span>, </span>
-<span id="cb29-6"><a href="#cb29-6" tabindex="-1"></a>                                <span class="at">method =</span> <span class="st">&quot;ps&quot;</span>,</span>
+<span id="cb29-6"><a href="#cb29-6" tabindex="-1"></a>                                <span class="at">method =</span> <span class="st">&quot;glm&quot;</span>,</span>
 <span id="cb29-7"><a href="#cb29-7" tabindex="-1"></a>                                <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>)</span>
 <span id="cb29-8"><a href="#cb29-8" tabindex="-1"></a></span>
 <span id="cb29-9"><a href="#cb29-9" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## prop.score  Distance       0.1448        0.1563       0.1640
-## age          Contin.      -0.1953       -0.1897      -0.1821
-## educ         Contin.       0.0763        0.0831       0.0937
-## married       Binary      -0.2501       -0.2275      -0.2037
-## race_black    Binary       0.1348        0.1478       0.1587
-## race_hispan   Binary       0.0255        0.0378       0.0447
-## race_white    Binary      -0.1862       -0.1714      -0.1497
-## re74         Contin.      -0.2965       -0.2836      -0.2711
-## re75         Contin.      -0.1714       -0.1593      -0.1437
+## prop.score  Distance       0.1502        0.1592       0.1727
+## age          Contin.      -0.1930       -0.1874      -0.1829
+## educ         Contin.       0.0775        0.0816       0.0868
+## married       Binary      -0.2569       -0.2302      -0.2095
+## race_black    Binary       0.1400        0.1504       0.1658
+## race_hispan   Binary       0.0241        0.0332       0.0449
+## race_white    Binary      -0.1869       -0.1705      -0.1569
+## re74         Contin.      -0.3063       -0.2892      -0.2747
+## re75         Contin.      -0.1669       -0.1566      -0.1488
 ## 
 ## Average effective sample sizes across imputations
 ##                 0      1
 ## Unadjusted 429.   185.  
-## Adjusted   331.05  66.69</code></pre>
+## Adjusted   331.85  67.65</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <code>MatchIt</code> or <code>WeightIt</code>.</p>
 </div>
@@ -1316,8 +1316,8 @@ output compatible with the <code>default</code> method of
 <span id="cb33-7"><a href="#cb33-7" tabindex="-1"></a></span>
 <span id="cb33-8"><a href="#cb33-8" tabindex="-1"></a><span class="co">#Note the contents of the output object:</span></span>
 <span id="cb33-9"><a href="#cb33-9" tabindex="-1"></a><span class="fu">names</span>(ow.out)</span></code></pre></div>
-<pre><code>##  [1] &quot;weights&quot;   &quot;treat&quot;     &quot;covs&quot;      &quot;s.weights&quot; &quot;estimand&quot;  &quot;focal&quot;    
-##  [7] &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
+<pre><code>##  [1] &quot;weights&quot;   &quot;treat&quot;     &quot;covs&quot;      &quot;s.weights&quot; &quot;b.weights&quot; &quot;estimand&quot; 
+##  [7] &quot;focal&quot;     &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
 <div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" tabindex="-1"></a><span class="co">#Use bal.tab() directly on the output</span></span>
 <span id="cb35-2"><a href="#cb35-2" tabindex="-1"></a><span class="fu">bal.tab</span>(ow.out)</span></code></pre></div>
 <pre><code>## Balance Measures

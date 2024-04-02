@@ -130,7 +130,7 @@ wt.out <- MatchThem::weightthem(treat ~ age + educ + married +
                                     race + re74 + re75, 
                                 datasets = imp.out,
                                 approach = "within", 
-                                method = "ps",
+                                method = "glm",
                                 estimand = "ATE")
 
 bal.tab(wt.out)

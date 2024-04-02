@@ -68,8 +68,7 @@ love.plot(wt.out, threshold = .05)
 wt3.out <- MatchThem::weightthem(race ~ age + educ + married + 
                                      nodegree + re74 + re75, 
                                  datasets = imp.out, approach = "within", 
-                                 method = "ps", estimand = "ATE",
-                                 use.mlogit = FALSE)
+                                 method = "glm", estimand = "ATE")
 
 ## -----------------------------------------------------------------------------
 bal.tab(wt3.out)
