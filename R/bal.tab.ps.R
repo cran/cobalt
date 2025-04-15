@@ -27,7 +27,8 @@
 #' * [`class-bal.tab.msm`] for more information on longitudinal treatments.
 #' 
 #' @examplesIf requireNamespace("twang", quietly = TRUE)
-#' \donttest{library(twang); data("lalonde", package = "cobalt")
+#' \donttest{library(twang)
+#' data("lalonde", package = "cobalt")
 #' 
 #' ## Using ps() for generalized boosted modeling
 #' ps.out <- ps(treat ~ age + educ + married + race +
@@ -36,30 +37,31 @@
 #'              estimand = "ATT", verbose = FALSE)
 #' 
 #' bal.tab(ps.out, stop.method = "ks.mean", un = TRUE, 
-#'         m.threshold = .1, disp.ks = TRUE)
+#'         stats = c("m", "ks"),
+#'         thresholds = c(m = .1))
 #' }
 
 #' @exportS3Method bal.tab ps
 bal.tab.ps <- function(x, stop.method,
                        stats, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, thresholds = NULL, weights = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE,
                        ...) {
-    
-    tryCatch(args <- c(as.list(environment()), list(...))[-1], error = function(e) .err(conditionMessage(e)))
-    
-    #Adjustments to arguments
-    
-    args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
-    args[vapply(args, is_null, logical(1L)) & names(args) %nin% names(match.call())[-1]] <- NULL
-    
-    #Initializing variables
-    X <- do.call("x2base", c(list(x), args), quote = TRUE)
-    
-    args[names(args) %in% names(X)] <- NULL
-    
-    X <- .assign_X_class(X)
-    
-    do.call("base.bal.tab", c(list(X), args),
-            quote = TRUE)
+  
+  args <- try_chk(c(as.list(environment()), list(...))[-1L])
+  
+  #Adjustments to arguments
+  
+  args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
+  args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
+  
+  #Initializing variables
+  X <- do.call("x2base", c(list(x), args), quote = TRUE)
+  
+  args[names(X)] <- NULL
+  
+  X <- .assign_X_class(X)
+  
+  do.call("base.bal.tab", c(list(X), args),
+          quote = TRUE)
 }
 
 #' @exportS3Method bal.tab mnps

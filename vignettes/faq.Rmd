@@ -6,7 +6,7 @@ output:
 vignette: >
   %\VignetteIndexEntry{Frequently Asked Questions}
   %\VignetteEncoding{UTF-8}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEngine{knitr::rmarkdown_notangle}
 editor_options: 
   chunk_output_type: console
   markdown: 
@@ -21,6 +21,7 @@ knitr::opts_chunk$set(
   comment = "#>"
 )
 library(cobalt)
+matchit_ok <- all(sapply("MatchIt", requireNamespace, quietly = TRUE))
 ```
 
 ### How are standardized mean differences computed in `cobalt`?
@@ -51,15 +52,15 @@ treated group, i.e.,
 $\bar{x}_{1w} = \frac{1}{\sum_{i:A_i = 1}{w_i}}\sum_{i:A_i=1}{w_ix_i}$,
 and similarly for the control group. Critically, the standardization
 factor $s^*$ is the same before and after weighting. I will repeat,
-**the standardization factor** $s^*$ is the same before and after
-weighting. I don't mean it has the same formula, it mean it is literally
+**the standardization factor** $s^*$ **is the same before and after
+weighting**. I don't mean it has the same formula, it mean it is literally
 the same value. I explain in more detail in a question below why this is
 the case.
 
 How is the standardization factor computed? This depends on the argument
 to `s.d.denom` supplied to `bal.tab()` or `love.plot()`. When
 `s.d.denom` is not supplied, this is determined by the argument supplied
-to `estimand`, and when that is not supplied, the estimand is guess
+to `estimand`, and when that is not supplied, the estimand is guessed
 based on the form of the weights, if any. By default, with no weights
 supplied and no argument to `s.d.denom` or `estimand`, `s.d.denom` is
 set to `"pooled"`, and a note will appear saying so. That note doesn't
@@ -104,7 +105,7 @@ standardization factor are computed incorporating the sampling weights.
 When `s.d.denom = "weighted"`, the standardization factor is computed
 using the weights used to balance the sample (i.e., the matching or
 weighting weights), even for the unadjusted sample. Remember, the
-standardization is ALWAYS the same before and after adjustment.
+standardization factor is ALWAYS the same before and after adjustment.
 
 I know some of these formulas seem overly complicated for such simple
 statistics, but they are required to keep things consistent and not
@@ -153,7 +154,7 @@ bal.tab(treat ~ X1 + X2,
 But if we standardized the mean differences, not only do we move away
 from an actually interpretable statistic (i.e., what does it mean to
 divide by the standard deviation of a binary variable?), we see that the
-standardized mean difference vary by a huge amount, with `X1` having
+standardized mean differences vary by a huge amount, with `X1` having
 twice the imbalance of `X2`.
 
 ```{r}
@@ -168,7 +169,7 @@ $p$ is the mean of the variable). That means information about the mean
 of the variable, which is unrelated to imbalance, contaminates the
 standardized mean difference, which is supposed to measure imbalance. In
 this case, standardizing the mean difference only adds confusion and
-reduces interpretability. That is why, by default, mean differences for
+reduces interpretability. That is why mean differences for
 binary variables are unstandardized by default.
 
 You can always change this by setting `binary = "std"` in the call to
@@ -185,14 +186,14 @@ difference standardize all variables, including binary variables.
 ### Why do you use the same standardization factor before and after adjustment?
 
 It is important to remember that bias is a function of the difference in
-means of a covariate and standardization is a tool to aid in balance
+means of a covariate, and standardization is a just tool to aid in balance
 assessment. As a tool, it should reflect imbalance accurately (i.e.,
 without incorporating extraneous information), but there is no
 statistical "truth" about the nature of the standardization factor. I
 use the same standardization factor before and after adjustment as
 recommended by @stuartDevelopingPracticalRecommendations2008. The
 rationale is that by isolating the SMD to reflect changes in the
-difference in means, why can more accurately assess improvement in
+difference in means, one can more accurately assess improvement in
 balance rather than combining information about the difference in means
 with information about the variability of the covariate, which may
 change in a variety of ways after adjustment. I describe a specific
@@ -243,7 +244,7 @@ One must always remember that the standardized mean difference uses the
 standardization factor computed in the original sample, i.e., prior to
 subclassification. Let's take a look below using `MatchIt`:
 
-```{r}
+```{r, eval = matchit_ok}
 # PS Subclassification
 msub <- MatchIt::matchit(treat ~ age + educ + race + married + re74,
                          data = lalonde, method = "subclass",
@@ -258,7 +259,7 @@ difference for `age`). We compute the mean of `age` in each treatment
 group in subclass 1, and then divide it by the pooled standard deviation
 of age (because we requested the ATE) in *the original sample*.
 
-```{r}
+```{r, eval = matchit_ok}
 m0 <- mean(lalonde$age[lalonde$treat == 0 & msub$subclass == 1])
 m1 <- mean(lalonde$age[lalonde$treat == 1 & msub$subclass == 1])
 
@@ -288,7 +289,7 @@ corresponding to the number of units in the subclass in the target group
 (e.g., the treated units for the ATT, all units for the ATE, etc.).
 Below I'll demonstrate how to do that manually for the `age` covariate:
 
-```{r}
+```{r, eval = matchit_ok}
 # SMDs across subclasses for age
 smds <- sapply(1:6, function(s) {
     m0 <- mean(lalonde$age[lalonde$treat == 0 & msub$subclass == s])
@@ -317,7 +318,7 @@ proportion of treated units in each sample, and then using the formulas
 to compute propensity score weights from propensity scores. Here's how I
 do that manually for `age`:
 
-```{r}
+```{r, eval = matchit_ok}
 # Compute proportion of treated units in each subclass
 prop1 <- sapply(1:6, function(s) mean(lalonde$treat[msub$subclass == s]))
 
@@ -381,5 +382,13 @@ using `cobalt` instead for balance assessment, and I recommend reporting
 the balance statistics `cobalt` produces. That said, if you understand
 what `tableone` is doing and are okay with the choices it makes, there
 is no denying that it can produce beautiful tables.
+
+### Why doesn't `thresholds` work with `bal.tab()` with multiply imputed or clustered data?
+
+This question was asked [here](https://github.com/ngreifer/cobalt/issues/90) and [here](https://stackoverflow.com/q/79562364/6348551). With multiply imputed data, the default output of `bal.tab()` is the balance summary across imputations, which contains, for each balance statistic and for each covariate, the minimum, mean, and maximum value of that balance statistic for that covariate across imputations. When you request a balance threshold using `thresholds`, it isn't clear to `bal.tab()` which of those summaries the threshold is to be applied to. To get thresholds to appear, supply an argument to `imp.fun` to request just one summary, e.g., `imp.fun = "mean"`, and the thresholds will be applied to that summary.
+
+For clustered data, the same is true, but the across-cluster balance summary is not displayed by default. To request a single summary, use `cluster.fun`.
+
+Note this does not apply to `love.plot()`, which will produce thresholds even when the default `agg.fun` (`"range"` for multiply imputed data) is requested.
 
 ## References

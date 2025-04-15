@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2024-04-02" />
+<meta name="date" content="2025-04-15" />
 
 <title>Using cobalt with Other Preprocessing Packages</title>
 
@@ -51,7 +51,7 @@ overflow: visible;
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -62,7 +62,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
 { counter-reset: source-line 0; }
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Using <code>cobalt</code> with Other
 Preprocessing Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2024-04-02</h4>
+<h4 class="date">2025-04-15</h4>
 
 
 <div id="TOC">
@@ -379,7 +379,8 @@ with other packages</a></li>
 </div>
 
 <p>This is an appendix to the main vignette, “Covariate Balance Tables
-and Plots: A Guide to the cobalt Package”. It contains descriptions and
+and Plots: A Guide to the cobalt Package”, accessible at
+<code>vignette(&quot;cobalt&quot;)</code>. It contains descriptions and
 demonstrations of several utility functions in <code>cobalt</code> and
 the use of <code>bal.tab()</code> with <code>twang</code>,
 <code>Matching</code>, <code>optmatch</code>, <code>CBPS</code>,
@@ -725,8 +726,9 @@ of a call to <code>ps()</code>.</p>
 <p>The next sections describe the use of <code>bal.tab()</code> with
 packages other than those described in the main vignette. Even if you
 are using <code>bal.tab()</code> with one of these packages, it may be
-useful to read the main vignette to understand <code>bal.tab()</code>’s
-main options, which are not detailed here.</p>
+useful to read the main vignette at <code>vignette(&quot;cobalt&quot;)</code> to
+understand <code>bal.tab()</code>’s main options, which are not detailed
+here.</p>
 <div id="using-bal.tab-with-twang" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>twang</code></h3>
 <p>Generalized boosted modeling (GBM), as implemented in
@@ -770,8 +772,8 @@ table displaying sample size information, similar to what would be
 generated using <code>twang</code>’s <code>summary()</code> function.
 The “effective” sample size is displayed when weighting is used; it is
 calculated as is done in <code>twang</code>. See the <code>twang</code>
-documentation, <code>?bal.tab</code>, or “Details on Calculations” in
-the main vignette for details on this calculation.</p>
+documentation, <code>?bal.tab</code>, or “Details on Calculations” at
+<code>vignette(&quot;cobalt&quot;)</code> for details on this calculation.</p>
 <p>When using <code>bal.tab()</code> with <code>twang</code>, the user
 must specify the <code>ps</code> object, the output of a call to
 <code>ps()</code>, as the first argument. The second argument,
@@ -801,14 +803,15 @@ calculations for both the adjusted and unadjusted samples, just as
 <p><code>mnps</code> objects resulting from fitting models in
 <code>twang</code> with multi-category treatments are also compatible
 with <code>cobalt</code>. See the section “Using <code>cobalt</code>
-with multi-category treatments” in the main vignette. <code>iptw</code>
-objects resulting from fitting models in <code>twang</code> with
-longitudinal treatments are also compatible with <code>cobalt</code>.
-See the Appendix 3 vignette. <code>ps.cont</code> objects resulting from
-using <code>ps.cont()</code> in <code>twangContinuous</code>, which
-implements GBM for continuous treatments, are also compatible. See the
-section “Using <code>cobalt</code> with continuous treatments” in the
-main vignette.</p>
+with multi-category treatments” at <code>vignette(&quot;cobalt&quot;)</code>.
+<code>iptw</code> objects resulting from fitting models in
+<code>twang</code> with longitudinal treatments are also compatible with
+<code>cobalt</code>. See <code>vignette(&quot;longitudinal-treat&quot;)</code>.
+<code>ps.cont</code> objects resulting from using <code>ps.cont()</code>
+in <code>twangContinuous</code>, which implements GBM for continuous
+treatments, are also compatible. See the section “Using
+<code>cobalt</code> with continuous treatments” at
+<code>vignette(&quot;cobalt&quot;)</code>.</p>
 </div>
 <div id="using-bal.tab-with-matching" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>Matching</code></h3>
@@ -987,8 +990,8 @@ the input to <code>CBPS()</code>. Last is a table displaying sample size
 information. The “effective” sample size is displayed when weighting
 (rather than matching or subclassification) is used; it is calculated as
 is done in <code>twang</code>. See the <code>twang</code> documentation,
-<code>?bal.tab</code>, or “Details on Calculations” in the main vignette
-for details on this calculation.</p>
+<code>?bal.tab</code>, or “Details on Calculations” at
+<code>vignette(&quot;cobalt&quot;)</code> for details on this calculation.</p>
 <p>The other arguments to <code>bal.tab()</code> when using it with
 <code>CBPS</code> have the same form and function as those given when
 using it without a conditioning package, except for
@@ -1001,13 +1004,15 @@ defaults is advisable.</p>
 <p><code>CBPSContinuous</code> objects resulting from fitting models in
 <code>CBPS</code> with continuous treatments are also compatible with
 <code>cobalt</code>. See the section “Using <code>cobalt</code> with
-continuous treatments” in the main vignette. <code>CBPS</code> objects
-resulting from fitting models in <code>CBPS</code> with multi-category
-treatments are also compatible with <code>cobalt</code>. See the section
-“Using <code>cobalt</code> with multi-category treatments” in the main
-vignette. <code>CBMSM</code> objects resulting from fitting models in
+continuous treatments” at <code>vignette(&quot;cobalt&quot;)</code>.
+<code>CBPS</code> objects resulting from fitting models in
+<code>CBPS</code> with multi-category treatments are also compatible
+with <code>cobalt</code>. See the section “Using <code>cobalt</code>
+with multi-category treatments” at <code>vignette(&quot;cobalt&quot;)</code>.
+<code>CBMSM</code> objects resulting from fitting models in
 <code>CBPS</code> with longitudinal treatments are also compatible with
-<code>cobalt</code>. See the Appendix 3 vignette.</p>
+<code>cobalt</code>. See
+<code>vignette(&quot;longitudinal-treat&quot;)</code>.</p>
 </div>
 <div id="using-bal.tab-with-ebal" class="section level3">
 <h3>Using <code>bal.tab()</code> with <code>ebal</code></h3>
@@ -1048,11 +1053,11 @@ is a simple example of using <code>bal.tab()</code> with
 included in the original call to <code>ebalance</code>. In general,
 these will all be very close to 0. Next is a table displaying effective
 sample size information. See <code>?bal.tab</code> or “Details on
-Calculations” in the main vignette for details on this calculation. A
-common issue when using entropy balancing is small effective sample
-size, which can yield low precision in effect estimation when using
-weighted regression, so it is important that users pay attention to this
-measure.</p>
+Calculations” at <code>vignette(&quot;cobalt&quot;)</code> for details on this
+calculation. A common issue when using entropy balancing is small
+effective sample size, which can yield low precision in effect
+estimation when using weighted regression, so it is important that users
+pay attention to this measure.</p>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <code>Matching</code> or <code>optmatch</code>. In addition to the
 <code>ebalance</code> object, one must specify either both a formula and
@@ -1128,7 +1133,8 @@ using <code>bal.tab()</code> with <code>sbw</code>:</p>
 <span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a>                               <span class="at">bal_alg =</span> <span class="cn">FALSE</span>, </span>
 <span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a>                               <span class="at">bal_tol =</span> .<span class="dv">001</span>),</span>
 <span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a>                    <span class="at">par =</span> <span class="fu">list</span>(<span class="at">par_est =</span> <span class="st">&quot;att&quot;</span>))</span></code></pre></div>
-<pre><code>##   quadprog optimizer is opening... 
+<pre><code>##   Building the weighting problem... 
+##   quadprog optimizer is open... 
 ##   Finding the optimal weights... 
 ##   Optimal weights found.</code></pre>
 <div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">bal.tab</span>(sbw.out, <span class="at">un =</span> <span class="cn">TRUE</span>, <span class="at">disp.means =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
@@ -1189,15 +1195,15 @@ example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
 <span id="cb27-16"><a href="#cb27-16" tabindex="-1"></a><span class="fu">bal.tab</span>(mt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## distance    Distance       0.9477        0.9524       0.9563
-## age          Contin.      -0.0302        0.0053       0.0612
-## educ         Contin.      -0.1882       -0.1409      -0.1129
-## married       Binary      -0.0690       -0.0311       0.0000
+## distance    Distance       0.9425        0.9550       0.9685
+## age          Contin.      -0.0400        0.0125       0.0567
+## educ         Contin.      -0.1936       -0.1436      -0.0780
+## married       Binary      -0.0410       -0.0270       0.0138
 ## race_black    Binary       1.0259        1.0259       1.0259
-## race_hispan   Binary      -0.7772       -0.7520      -0.6629
-## race_white    Binary      -0.7296       -0.6584      -0.6384
-## re74         Contin.      -0.0886       -0.0572      -0.0267
-## re75         Contin.      -0.1013       -0.0814      -0.0576
+## race_hispan   Binary      -0.7772       -0.7314      -0.6857
+## race_white    Binary      -0.7113       -0.6748      -0.6384
+## re74         Contin.      -0.0950       -0.0506      -0.0092
+## re75         Contin.      -0.0985       -0.0652      -0.0231
 ## 
 ## Average sample sizes across imputations
 ##             0   1
@@ -1215,20 +1221,20 @@ example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
 <span id="cb29-9"><a href="#cb29-9" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## prop.score  Distance       0.1502        0.1592       0.1727
-## age          Contin.      -0.1930       -0.1874      -0.1829
-## educ         Contin.       0.0775        0.0816       0.0868
-## married       Binary      -0.2569       -0.2302      -0.2095
-## race_black    Binary       0.1400        0.1504       0.1658
-## race_hispan   Binary       0.0241        0.0332       0.0449
-## race_white    Binary      -0.1869       -0.1705      -0.1569
-## re74         Contin.      -0.3063       -0.2892      -0.2747
-## re75         Contin.      -0.1669       -0.1566      -0.1488
+## prop.score  Distance       0.1430        0.1566       0.1635
+## age          Contin.      -0.1930       -0.1881      -0.1828
+## educ         Contin.       0.0729        0.0830       0.0905
+## married       Binary      -0.2403       -0.2261      -0.1973
+## race_black    Binary       0.1361        0.1487       0.1564
+## race_hispan   Binary       0.0173        0.0343       0.0434
+## race_white    Binary      -0.1812       -0.1697      -0.1448
+## re74         Contin.      -0.2980       -0.2820      -0.2640
+## re75         Contin.      -0.1686       -0.1601      -0.1491
 ## 
 ## Average effective sample sizes across imputations
 ##                 0      1
 ## Unadjusted 429.   185.  
-## Adjusted   331.85  67.65</code></pre>
+## Adjusted   331.19  66.29</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <code>MatchIt</code> or <code>WeightIt</code>.</p>
 </div>

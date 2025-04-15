@@ -21,13 +21,13 @@
 #' * [bal.tab.matchit()] and [bal.tab.weightit()]
 #' 
 #' @examplesIf all(sapply(c("mice", "MatchThem", "MatchIt", "WeightIt"), requireNamespace, quietly = TRUE))
-#' library(mice)
 #' library(MatchThem)
 #' 
 #' data("lalonde_mis", package = "cobalt")
 #' 
 #' #Imputing the missing data
-#' imp <- mice(lalonde_mis, m = 5)
+#' imp <- mice::mice(lalonde_mis, m = 5,
+#'                   print = FALSE)
 #' 
 #' #Matching using within-imputation propensity scores
 #' mt.out1 <- matchthem(treat ~ age + educ + race + 
@@ -51,25 +51,23 @@
 #' bal.tab(wt.out)
 
 #' @exportS3Method bal.tab mimids
-bal.tab.mimids <-     function(x,
-                               stats, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, thresholds = NULL, weights = NULL, cluster = NULL, pairwise = TRUE, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE,
-                               ...) {
-    
-    tryCatch(args <- c(as.list(environment()), list(...))[-1], error = function(e) .err(conditionMessage(e)))
-    
-    #Adjustments to arguments
-    
-    args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
-    
-    #Initializing variables
-    X <- do.call("x2base", c(list(x), args), quote = TRUE)
-    
-    args[names(args) %in% names(X)] <- NULL
-    
-    X <- .assign_X_class(X)
-    
-    do.call("base.bal.tab", c(list(X), args),
-            quote = TRUE)
+bal.tab.mimids <- function(x, stats, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, thresholds = NULL, weights = NULL, cluster = NULL, pairwise = TRUE, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE, ...) {
+  
+  args <- try_chk(c(as.list(environment()), list(...))[-1L])
+  
+  #Adjustments to arguments
+  
+  args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
+  
+  #Initializing variables
+  X <- do.call("x2base", c(list(x), args), quote = TRUE)
+  
+  args[names(X)] <- NULL
+  
+  X <- .assign_X_class(X)
+  
+  do.call("base.bal.tab", c(list(X), args),
+          quote = TRUE)
 }
 
 #' @exportS3Method bal.tab wimids

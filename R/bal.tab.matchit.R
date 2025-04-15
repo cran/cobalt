@@ -24,15 +24,16 @@
 #' * [bal.tab()] for details of calculations.
 #' 
 #' @examplesIf requireNamespace("MatchIt", quietly = TRUE)
-#' library(MatchIt); data("lalonde", package = "cobalt")
+#' library(MatchIt)
+#' data("lalonde", package = "cobalt")
 #' 
 #' ## Nearest Neighbor matching
 #' m.out1 <- matchit(treat ~ age + educ + race + 
 #'                       married + nodegree + re74 + re75, 
 #'                   data = lalonde, method = "nearest")
 #' 
-#' bal.tab(m.out1, un = TRUE, m.threshold = .1, 
-#'         v.threshold = 2)
+#' bal.tab(m.out1, un = TRUE, 
+#'         thresholds = c(m = .1, v = 2))
 #' 
 #' ## Subclassification
 #' m.out2 <- matchit(treat ~ age + educ + race + 
@@ -43,23 +44,23 @@
 
 #' @exportS3Method bal.tab matchit
 bal.tab.matchit <- function(x,
-                               stats, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, thresholds = NULL, weights = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE,
-                               method, ...) {
-    
-    tryCatch(args <- c(as.list(environment()), list(...))[-1], error = function(e) .err(conditionMessage(e)))
-    
-    #Adjustments to arguments
-    
-    args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
-    args[vapply(args, is_null, logical(1L)) & names(args) %nin% names(match.call())[-1]] <- NULL
-    
-    #Initializing variables
-    X <- do.call("x2base.matchit", c(list(x), args), quote = TRUE)
-    
-    args[names(args) %in% names(X)] <- NULL
-    
-    X <- .assign_X_class(X)
-    
-    do.call("base.bal.tab", c(list(X), args),
-                   quote = TRUE)
+                            stats, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, thresholds = NULL, weights = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE,
+                            method, ...) {
+  
+  args <- try_chk(c(as.list(environment()), list(...))[-1L])
+  
+  #Adjustments to arguments
+  
+  args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
+  args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
+  
+  #Initializing variables
+  X <- do.call("x2base.matchit", c(list(x), args), quote = TRUE)
+  
+  args[names(X)] <- NULL
+  
+  X <- .assign_X_class(X)
+  
+  do.call("base.bal.tab", c(list(X), args),
+          quote = TRUE)
 }

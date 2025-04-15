@@ -49,7 +49,7 @@ overflow: visible;
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -60,7 +60,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
 { counter-reset: source-line 0; }
@@ -148,6 +148,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; }
 div.csl-bib-body { }
 div.csl-entry {
 clear: both;
+margin-bottom: 0em;
 }
 .hanging div.csl-entry {
 margin-left:2em;
@@ -379,6 +380,9 @@ are balance statistics computed when using subclassification?</a></li>
 <li><a href="#why-dont-i-get-the-same-balance-statistics-when-using-cobalt-as-i-do-when-using-tableone" id="toc-why-dont-i-get-the-same-balance-statistics-when-using-cobalt-as-i-do-when-using-tableone">Why
 don’t I get the same balance statistics when using <code>cobalt</code>
 as I do when using <code>tableone</code>?</a></li>
+<li><a href="#why-doesnt-thresholds-work-with-bal.tab-with-multiply-imputed-or-clustered-data" id="toc-why-doesnt-thresholds-work-with-bal.tab-with-multiply-imputed-or-clustered-data">Why
+doesn’t <code>thresholds</code> work with <code>bal.tab()</code> with
+multiply imputed or clustered data?</a></li>
 <li><a href="#references" id="toc-references">References</a></li>
 </ul>
 </div>
@@ -412,15 +416,15 @@ weighted mean of the covariate in the treated group, i.e., <span class="math inl
 1}{w_i}}\sum_{i:A_i=1}{w_ix_i}\)</span>, and similarly for the control
 group. Critically, the standardization factor <span class="math inline">\(s^*\)</span> is the same before and after
 weighting. I will repeat, <strong>the standardization factor</strong>
-<span class="math inline">\(s^*\)</span> is the same before and after
-weighting. I don’t mean it has the same formula, it mean it is literally
-the same value. I explain in more detail in a question below why this is
-the case.</p>
+<span class="math inline">\(s^*\)</span> <strong>is the same before and
+after weighting</strong>. I don’t mean it has the same formula, it mean
+it is literally the same value. I explain in more detail in a question
+below why this is the case.</p>
 <p>How is the standardization factor computed? This depends on the
 argument to <code>s.d.denom</code> supplied to <code>bal.tab()</code> or
 <code>love.plot()</code>. When <code>s.d.denom</code> is not supplied,
 this is determined by the argument supplied to <code>estimand</code>,
-and when that is not supplied, the estimand is guess based on the form
+and when that is not supplied, the estimand is guessed based on the form
 of the weights, if any. By default, with no weights supplied and no
 argument to <code>s.d.denom</code> or <code>estimand</code>,
 <code>s.d.denom</code> is set to <code>&quot;pooled&quot;</code>, and a note will
@@ -467,7 +471,7 @@ standardization factor are computed incorporating the sampling weights.
 When <code>s.d.denom = &quot;weighted&quot;</code>, the standardization factor is
 computed using the weights used to balance the sample (i.e., the
 matching or weighting weights), even for the unadjusted sample.
-Remember, the standardization is ALWAYS the same before and after
+Remember, the standardization factor is ALWAYS the same before and after
 adjustment.</p>
 <p>I know some of these formulas seem overly complicated for such simple
 statistics, but they are required to keep things consistent and not
@@ -519,8 +523,8 @@ contribute to the bias in the estimate to the same extent.</p>
 <p>But if we standardized the mean differences, not only do we move away
 from an actually interpretable statistic (i.e., what does it mean to
 divide by the standard deviation of a binary variable?), we see that the
-standardized mean difference vary by a huge amount, with <code>X1</code>
-having twice the imbalance of <code>X2</code>.</p>
+standardized mean differences vary by a huge amount, with
+<code>X1</code> having twice the imbalance of <code>X2</code>.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">bal.tab</span>(treat <span class="sc">~</span> X1 <span class="sc">+</span> X2,</span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>        <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>,</span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>        <span class="at">s.d.denom =</span> <span class="st">&quot;treated&quot;</span>)</span>
@@ -537,9 +541,8 @@ a function of its mean (in particular, it is <span class="math inline">\(s = \sq
 means information about the mean of the variable, which is unrelated to
 imbalance, contaminates the standardized mean difference, which is
 supposed to measure imbalance. In this case, standardizing the mean
-difference only adds confusion and reduces interpretability. That is
-why, by default, mean differences for binary variables are
-unstandardized by default.</p>
+difference only adds confusion and reduces interpretability. That is why
+mean differences for binary variables are unstandardized by default.</p>
 <p>You can always change this by setting <code>binary = &quot;std&quot;</code> in
 the call to <code>bal.tab()</code> or setting
 <code>set.cobalt.options(binary = &quot;std&quot;)</code> to change the option for
@@ -556,14 +559,14 @@ standardize all variables, including binary variables.</p>
 <h3>Why do you use the same standardization factor before and after
 adjustment?</h3>
 <p>It is important to remember that bias is a function of the difference
-in means of a covariate and standardization is a tool to aid in balance
-assessment. As a tool, it should reflect imbalance accurately (i.e.,
-without incorporating extraneous information), but there is no
+in means of a covariate, and standardization is a just tool to aid in
+balance assessment. As a tool, it should reflect imbalance accurately
+(i.e., without incorporating extraneous information), but there is no
 statistical “truth” about the nature of the standardization factor. I
 use the same standardization factor before and after adjustment as
 recommended by <span class="citation">Stuart (<a href="#ref-stuartDevelopingPracticalRecommendations2008">2008</a>)</span>.
 The rationale is that by isolating the SMD to reflect changes in the
-difference in means, why can more accurately assess improvement in
+difference in means, one can more accurately assess improvement in
 balance rather than combining information about the difference in means
 with information about the variability of the covariate, which may
 change in a variety of ways after adjustment. I describe a specific
@@ -820,9 +823,30 @@ That said, if you understand what <code>tableone</code> is doing and are
 okay with the choices it makes, there is no denying that it can produce
 beautiful tables.</p>
 </div>
+<div id="why-doesnt-thresholds-work-with-bal.tab-with-multiply-imputed-or-clustered-data" class="section level3">
+<h3>Why doesn’t <code>thresholds</code> work with <code>bal.tab()</code>
+with multiply imputed or clustered data?</h3>
+<p>This question was asked <a href="https://github.com/ngreifer/cobalt/issues/90">here</a> and <a href="https://stackoverflow.com/q/79562364/6348551">here</a>. With
+multiply imputed data, the default output of <code>bal.tab()</code> is
+the balance summary across imputations, which contains, for each balance
+statistic and for each covariate, the minimum, mean, and maximum value
+of that balance statistic for that covariate across imputations. When
+you request a balance threshold using <code>thresholds</code>, it isn’t
+clear to <code>bal.tab()</code> which of those summaries the threshold
+is to be applied to. To get thresholds to appear, supply an argument to
+<code>imp.fun</code> to request just one summary, e.g.,
+<code>imp.fun = &quot;mean&quot;</code>, and the thresholds will be applied to
+that summary.</p>
+<p>For clustered data, the same is true, but the across-cluster balance
+summary is not displayed by default. To request a single summary, use
+<code>cluster.fun</code>.</p>
+<p>Note this does not apply to <code>love.plot()</code>, which will
+produce thresholds even when the default <code>agg.fun</code>
+(<code>&quot;range&quot;</code> for multiply imputed data) is requested.</p>
+</div>
 <div id="references" class="section level2 unnumbered">
 <h2 class="unnumbered">References</h2>
-<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
 <div id="ref-stuartDevelopingPracticalRecommendations2008" class="csl-entry">
 Stuart, Elizabeth A. 2008. <span>“Developing Practical Recommendations
 for the Use of Propensity Scores: Discussion of <span>‘<span>A</span>

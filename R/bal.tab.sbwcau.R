@@ -19,7 +19,8 @@
 #' * [bal.tab()] for details of calculations.
 #' 
 #' @examplesIf requireNamespace("sbw", quietly = TRUE)
-#' library(sbw); data("lalonde", package = "cobalt")
+#' library(sbw)
+#' data("lalonde", package = "cobalt")
 #' 
 #' ## Stable balancing weights for the ATT
 #' sbw.out <- sbw(splitfactor(lalonde, drop.first = "if2"),
@@ -38,21 +39,21 @@
 bal.tab.sbwcau <- function(x,
                            stats, int = FALSE, poly = 1, distance = NULL, addl = NULL, data = NULL, continuous, binary, s.d.denom, thresholds = NULL, weights = NULL, cluster = NULL, imp = NULL, pairwise = TRUE, s.weights = NULL, abs = FALSE, subset = NULL, quick = TRUE,
                            ...) {
-    
-    tryCatch(args <- c(as.list(environment()), list(...))[-1], error = function(e) .err(conditionMessage(e)))
-    
-    #Adjustments to arguments
-    
-    args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
-    args[vapply(args, is_null, logical(1L)) & names(args) %nin% names(match.call())[-1]] <- NULL
-    
-    #Initializing variables
-    X <- do.call("x2base.sbwcau", c(list(x), args), quote = TRUE)
-    
-    args[names(args) %in% names(X)] <- NULL
-    
-    X <- .assign_X_class(X)
-    
-    do.call("base.bal.tab", c(list(X), args),
-            quote = TRUE)
+  
+  args <- try_chk(c(as.list(environment()), list(...))[-1L])
+  
+  #Adjustments to arguments
+  
+  args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
+  args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
+  
+  #Initializing variables
+  X <- do.call("x2base.sbwcau", c(list(x), args), quote = TRUE)
+  
+  args[names(X)] <- NULL
+  
+  X <- .assign_X_class(X)
+  
+  do.call("base.bal.tab", c(list(X), args),
+          quote = TRUE)
 }
