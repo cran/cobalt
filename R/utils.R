@@ -119,7 +119,7 @@ ordinal <- function(x) {
 }
 firstup <- function(x) {
   #Capitalize first letter
-  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  substr(x, 1L, 1L) <- toupper(substr(x, 1L, 1L))
   x
 }
 round_df_char <- function(df, digits, pad = "0", na_vals = "") {
@@ -287,28 +287,47 @@ trim_string <- function(x, char = " ", symmetrical = TRUE, recursive = TRUE) {
   ew <- endsWith(x, char)
   
   if (symmetrical) {
-    if (!any(sw & ew)) {
-      return(x)
+    while (any(sw & ew)) {
+      x[sw & ew] <- gsub("^.|.$", "", x[sw & ew])
+      
+      if (!recursive) {
+        break
+      }
+      
+      sw <- startsWith(x, char)
+      ew <- endsWith(x, char)
     }
-    
-    x[sw & ew] <- gsub("^.|.$", "", x[sw & ew])
   }
   else {
     asw <- any(sw)
     aew <- any(ew)
-    if (!asw && !aew) {
-      return(x)
-    }
     
-    if (asw) x[sw] <- gsub("^.", "", x[sw])
-    if (aew) x[ew] <- gsub(".$", "", x[ew])
+    while (asw || aew) {
+      if (asw) {
+        x[sw] <- gsub("^.", "", x[sw])
+      }
+      
+      if (aew) {
+        x[ew] <- gsub(".$", "", x[ew])
+      }
+      
+      if (!recursive) {
+        break
+      }
+      
+      if (asw) {
+        sw <- startsWith(x, char)
+        asw <- any(sw)
+      }
+      
+      if (aew) {
+        ew <- endsWith(x, char)
+        aew <- any(ew)
+      }
+    }
   }
   
-  if (!recursive) {
-    return(x)
-  }
-  
-  Tailcall(trim_string, x, char, symmetrical, recursive)
+  x
 }
 space <- function(n) {
   strrep(" ", n)
@@ -455,8 +474,8 @@ col.w.m <- function(mat, w = NULL, na.rm = TRUE) {
   if (is_null(w)) w <- rep.int(1, nrow(mat))
   
   w.sum <- {
-    if (!na.rm || !anyNA(mat)) sum(w)
-    else colSums(w * !is.na(mat))
+    if (na.rm && anyNA(mat)) colSums(w * !is.na(mat))
+    else sum(w)
   }
   
   colSums(mat * w, na.rm = na.rm) / w.sum
@@ -604,7 +623,7 @@ mean_fast <- function(x, nas.possible = FALSE) {
 }
 bw.nrd <- function(x) {
   #R's bw.nrd doesn't always work, but bw.nrd0 does
-  bw.nrd0(x) * 1.06 / .9
+  stats::bw.nrd0(x) * 1.06 / .9
 }
 ave_w.m <- function(x, ..., w = NULL) {
   #ave() version of w.m() since ave() doesn't do well with multiple variables to split
@@ -655,7 +674,9 @@ assign.treat.type <- function(treat, use.multi = FALSE) {
   }
   else if (use.multi || chk::vld_character_or_factor(treat)) {
     treat.type <- "multinomial"
-    if (!inherits(treat, "processed.treat")) treat <- factor(treat)
+    if (!inherits(treat, "processed.treat")) {
+      treat <- factor(treat)
+    }
   }
   else {
     treat.type <- "continuous"
@@ -665,7 +686,13 @@ assign.treat.type <- function(treat, use.multi = FALSE) {
   treat
 }
 get.treat.type <- function(treat) {
-  attr(treat, "treat.type")
+  out <- attr(treat, "treat.type")
+  
+  if (identical(out, "multi-category")) {
+    return("multinomial")
+  }
+  
+  out
 }
 has.treat.type <- function(treat) {
   is_not_null(get.treat.type(treat))
@@ -895,6 +922,10 @@ make_df <- function(ncol, nrow = 0L, types = "numeric") {
   
   df
 }
+rep_with <- function(x, y) {
+  #Helper function to fill named vectors with x and given names of y
+  setNames(rep.int(x, length(y)), names(y))
+}
 ifelse_ <- function(...) {
   dotlen <- ...length()
   if (dotlen %% 2 == 0) {
@@ -922,8 +953,8 @@ ifelse_ <- function(...) {
     yes <- ...elt(2 * i)
     if (length(yes) == 1) yes <- rep.int(yes, n)
     if (length(yes) != n || length(test) != n) stop("All entries must have the same length.")
-    if (!is.logical(test)) stop(paste("The", ordinal(2 * i - 1), "entry to `ifelse_()` must be logical."))
-    if (!is.atomic(yes)) stop(paste("The", ordinal(2 * i), "entry to `ifelse_()` must be atomic."))
+    if (!is.logical(test)) stop(sprintf("The %s entry to `ifelse_()` must be logical.", ordinal(2 * i - 1)))
+    if (!is.atomic(yes)) stop(sprintf("The %s entry to `ifelse_()` must be atomic.", ordinal(2 * i)))
     pos <- which(test)
     out[pos] <- yes[pos]
   }

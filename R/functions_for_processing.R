@@ -281,14 +281,14 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
   imat <- do.call("cbind", lapply(treat_vals(treat), function(t) treat == t & !NAsub))
   colnames(imat) <- treat_vals(treat)
   
-  weights <- rep.int(0, length(treat))
+  weights <- rep_with(0, treat)
   
   if (!is.factor(strata)) {
     strata <- factor(strata, nmax = min(colSums(imat)))
     levels(strata) <- seq_len(nlevels(strata))
   }
   
-  t_by_sub <- do.call("rbind", lapply(treat_vals(treat), function(t) tabulate(strata[imat[,t]], nlevels(strata))))
+  t_by_sub <- do.call("rbind", lapply(treat_vals(treat), function(t) tabulate(strata[imat[, t]], nlevels(strata))))
   dimnames(t_by_sub) <- list(treat_vals(treat), levels(strata))
   
   total_by_sub <- colSums(t_by_sub)
@@ -298,15 +298,15 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
   if (is_not_null(focal)) {
     focal <- process_focal(focal, treat)
     for (t in treat_vals(treat)) {
-      weights[imat[,t]] <- {
+      weights[imat[, t]] <- {
         if (t == focal)  1
-        else (t_by_sub[focal,] / t_by_sub[t,])[strata.c[imat[,t]]]
+        else (t_by_sub[focal, ] / t_by_sub[t, ])[strata.c[imat[, t]]]
       }
     }
   }
   else {
     for (t in treat_vals(treat)) {
-      weights[imat[,t]] <- (total_by_sub / t_by_sub[t,])[strata.c[imat[,t]]]
+      weights[imat[, t]] <- (total_by_sub / t_by_sub[t, ])[strata.c[imat[, t]]]
     }
   }
   
@@ -345,8 +345,8 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
       
       if (is_mat_like(covs)) {
         D <- {
-          if (is_not_null(D)) cbind(D, as.data.frame(covs)) 
-          else as.data.frame(covs)
+          if (is_null(D)) as.data.frame(covs)
+          else cbind(D, as.data.frame(covs)) 
         }
       }
       
@@ -581,7 +581,8 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
     val.List[[ti]] <- val.df
   }
   
-  val.df.lengths <- val.List |> clear_null() |>
+  val.df.lengths <- val.List |>
+    clear_null() |>
     vapply(nrow, numeric(1L))
   
   if (!all_the_same(val.df.lengths)) {
@@ -595,7 +596,7 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
   if (is.character(vec) && length(vec) == 1L && is_not_null(datalist)) {
     for (i in seq_along(datalist)) {
       if (is.matrix(datalist[[i]]) && vec %in% colnames(datalist[[i]])) {
-        vec <- datalist[[i]][,vec]
+        vec <- datalist[[i]][, vec]
         break
       }
       
@@ -705,7 +706,7 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
   }
   
   if (check.focal) {
-    if (is_not_null(focal) && NCOL(weights) == 1L) {
+    if (is_not_null(focal) && NCOL(weights) <= 1L) {
       s.d.denom <- focal
     }
     else {
@@ -850,7 +851,7 @@ strata2weights <- function(strata, treat, estimand = NULL, focal = NULL) {
   if (is.character(s.d.denom) && length(s.d.denom) == 1L) {
     if (is_null(bin.vars)) {
       bin.vars <- rep.int(FALSE, ncol(mat))
-      bin.vars[to.sd] <- is_binary_col(mat[subset, to.sd,drop = FALSE])
+      bin.vars[to.sd] <- is_binary_col(mat[subset, to.sd, drop = FALSE])
     }
     else if (!is.atomic(bin.vars) || length(bin.vars) != ncol(mat) ||
              anyNA(as.logical(bin.vars))) {
@@ -1189,7 +1190,7 @@ length_imp_process <- function(vectors = NULL, data.frames = NULL, lists = NULL,
           
           if (unsorted.imp) {
             for (i_ in levels(imp)) {
-              new_i[imp == i_,] <- i_obj
+              new_i[imp == i_, ] <- i_obj
             }
           }
         }
@@ -1214,7 +1215,7 @@ length_imp_process <- function(vectors = NULL, data.frames = NULL, lists = NULL,
             newj <- j[rep(seq_row(j), length(imp.lengths)), , drop = FALSE]
             if (unsorted.imp) {
               for (i_ in levels(imp)) {
-                newj[imp == i_,] <- j
+                newj[imp == i_, ] <- j
               }
             }
             
@@ -1422,6 +1423,7 @@ process_weights <- function(obj = NULL, A = NULL, treat = NULL, covs = NULL,
   A[["treat"]] <- NULL
   
   weights <- list()
+  
   if (is_not_null(obj)) {
     if (any(has_method(class(obj), "get.w"))) {
       weights <- do.call("get.w", c(list(obj, treat = treat), A))
@@ -1588,7 +1590,7 @@ process_distance <- function(distance = NULL, datalist = list(), obj.distance = 
     }
   }
   
-  if (!(is_not_null(obj.distance) && !all(is.na(obj.distance)))) {
+  if (is_null(obj.distance) || all(is.na(obj.distance))) {
     return(distance_t.c[["covs"]])
   }
   
@@ -1855,9 +1857,9 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
       return(cbind(ttfactor, addcol))
     }
     
-    cbind(ttfactor[,seq_len(after), drop = FALSE], 
+    cbind(ttfactor[, seq_len(after), drop = FALSE], 
           addcol, 
-          ttfactor[,-seq_len(after), drop = FALSE])
+          ttfactor[, -seq_len(after), drop = FALSE])
     
   }
   
@@ -1916,7 +1918,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
   if (any(rhs.df)) {
     term_is_interaction <- colSums(ttfactors != 0) > 1L
     
-    if (any_apply(which(rhs.df), function(x) any(ttfactors[x,] != 0 & term_is_interaction))) {
+    if (any_apply(which(rhs.df), function(x) any(ttfactors[x, ] != 0 & term_is_interaction))) {
       .err("interactions with data.frames are not allowed in the input formula")
     }
     
@@ -2150,7 +2152,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
                                labels = colnames(ttfactors)), colnames(mm)[-1L])
   
   vars_in_each_term <- setNames(lapply(colnames(ttfactors), function(x) {
-    rownames(ttfactors)[ttfactors[,x] != 0]
+    rownames(ttfactors)[ttfactors[, x] != 0]
   }), colnames(ttfactors))
   
   all_factor_levels <- lapply(vars_in_each_term, function(v) {
@@ -2257,7 +2259,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     if (drop && getOption("cobalt_remove_perfect_col", max(ncol(addl), ncol(covs)) <= 900)) {
       redundant.var.indices <- find_perfect_col(addl, covs)
       if (is_not_null(redundant.var.indices)) {
-        addl <- addl[,-redundant.var.indices, drop = FALSE]
+        addl <- addl[, -redundant.var.indices, drop = FALSE]
         addl.co.names[redundant.var.indices] <- NULL
       }
     }
@@ -2275,7 +2277,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     drop_vars <- vapply(seq_col(covs), 
                         function(i) {
                           # if (all_the_same(covs[,i], na.rm = FALSE)) return(TRUE)
-                          test.treat && !anyNA(covs[,i]) && equivalent.factors2(covs[,i], treat)
+                          test.treat && !anyNA(covs[, i]) && equivalent.factors2(covs[, i], treat)
                         }, logical(1L))
     
     if (any(drop_vars)) {
@@ -2333,8 +2335,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
                                      buddies[[1L]][["component"]][buddies[[1L]][["type"]] == "base"],
                                      sep = attr(co_list[["C"]], "seps")["factor"])[[1L]]
         tab <- table(cluster, unsplit_var)
-        tab <- tab[rowSums(tab == 0) < ncol(tab),,
-                   drop = FALSE]
+        tab <- tab[rowSums(tab == 0) < ncol(tab), , drop = FALSE]
         
         if (all(rowSums(tab > 0) == 1)) {
           drop_0_1[which_are_buddies] <- TRUE
@@ -2387,12 +2388,12 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     
     same.name <- names(distance.co.names) %in% unlist(lapply(co_list, names))
     if (any(same.name)) {
-      distance <- distance[,!same.name, drop = FALSE]
+      distance <- distance[, !same.name, drop = FALSE]
       distance.co.names[same.name] <- NULL
     }
     
     unique.distance.names <- unique(names(distance.co.names))
-    distance <- distance[,unique.distance.names, drop = FALSE]
+    distance <- distance[, unique.distance.names, drop = FALSE]
     distance.co.names <- distance.co.names[unique.distance.names]
     
     C_list[["distance"]] <- distance
@@ -2504,7 +2505,7 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
     if (npol > 0) {
       for (i in seq_len(poly)[-1L]) {
         poly_terms[[i - 1L]] <- apply(d[, !no.poly, drop = FALSE], 2L, function(x) {
-          if (orth) poly(x, degree = poly)[,i] else x^i
+          if (orth) poly(x, degree = poly)[, i] else x^i
         })
         poly_co.names[[i - 1L]] <- {
           if (cn) {
@@ -2544,12 +2545,14 @@ get_covs_from_formula <- function(f, data = NULL, factor_sep = "_", int_sep = " 
                   co.names[[x[2L]]][["component"]][co.names[[x[2L]]][["type"]] == "base"])
     }, logical(1L))] <- NULL
     
-    int_terms[[1L]] <- do.call("cbind", lapply(ints_to_make, function(i) d[,i[1L]] * d[,i[2L]]))
+    int_terms[[1L]] <- do.call("cbind", lapply(ints_to_make, function(i) d[, i[1L]] * d[, i[2L]]))
     
     int_co.names[[1L]] <- {
-      if (cn) lapply(ints_to_make, function(x) list(component = c(co.names[[x[1L]]][["component"]], sep, co.names[[x[2L]]][["component"]]),
+      if (cn)
+        lapply(ints_to_make, function(x) list(component = c(co.names[[x[1L]]][["component"]], sep, co.names[[x[2L]]][["component"]]),
                                                     type = c(co.names[[x[1L]]][["type"]], "isep", co.names[[x[2L]]][["type"]])))
-      else vapply(ints_to_make, paste, character(1L), collapse = sep)
+      else
+        vapply(ints_to_make, paste, character(1L), collapse = sep)
     }
   }
   else {
@@ -2630,21 +2633,21 @@ co.rbind <- function(..., deparse.level = 1) {
 .get_types <- function(C) {
   vapply(colnames(C), function(x) {
     if (any(attr(C, "distance.names") == x)) "Distance"
-    else if (all_the_same(C[,x]) || is_binary(C[,x]))  "Binary"
+    else if (all_the_same(C[, x]) || is_binary(C[, x]))  "Binary"
     else "Contin."
   }, character(1L))
 }
 find_perfect_col <- function(C1, C2 = NULL, fun = stats::cor) {
   
   #Finds indices of redundant vars in C1.
-  C1.no.miss <- C1[,colnames(C1) %nin% attr(C1, "missing.ind"), drop = FALSE]
+  C1.no.miss <- C1[, colnames(C1) %nin% attr(C1, "missing.ind"), drop = FALSE]
   if (is_null(C2)) {
     .use <- if (anyNA(C1)) "pairwise.complete.obs" else "everything"
     C.cor <- suppressWarnings(fun(C1.no.miss, use = .use))
     s <- !lower.tri(C.cor, diag = TRUE) & !is.na(C.cor) & check_if_zero(1 - abs(C.cor))
   }
   else {
-    C2.no.miss <- C2[,colnames(C2) %nin% attr(C2, "missing.ind"), drop = FALSE]
+    C2.no.miss <- C2[, colnames(C2) %nin% attr(C2, "missing.ind"), drop = FALSE]
     .use <- if (anyNA(C1) || anyNA(C2)) "pairwise.complete.obs" else "everything"
     C.cor <- suppressWarnings(fun(C2.no.miss, y = C1.no.miss, use = .use))
     s <- !is.na(C.cor) & check_if_zero(1 - abs(C.cor))
@@ -2686,16 +2689,16 @@ check_if_zero_weights <- function(weights.df, treat = NULL) {
                          logical(1L))
       
       if (any(problems)) {
-        prob.w.t.mat <- w.t.mat[problems,]
+        prob.w.t.mat <- w.t.mat[problems, ]
         if (NCOL(weights.df) == 1L) {
           error <- sprintf("All weights are zero when treat is %s.",
                            word_list(prob.w.t.mat[, "treat_vals"], "or", quotes = 2L))
         }
         else {
-          errors <- vapply(unique(prob.w.t.mat[,"weight_names"]), function(i) {
+          errors <- vapply(unique(prob.w.t.mat[, "weight_names"]), function(i) {
             sprintf("%s weights are zero when treat is %s",
                     add_quotes(i),
-                    word_list(prob.w.t.mat[prob.w.t.mat[,"weight_names"] == i, "treat_vals"], "or",
+                    word_list(prob.w.t.mat[prob.w.t.mat[, "weight_names"] == i, "treat_vals"], "or",
                               quotes = 2L))
           }, character(1L))
           errors <- paste(c("All", rep.int("all", length(errors) - 1L)), errors)
@@ -2741,7 +2744,7 @@ check_if_zero_weights <- function(weights.df, treat = NULL) {
   b
 }
 .max_imbal <- function(balance.table, col.name, thresh.col.name, abs_stat) {
-  balance.table.clean <- balance.table[balance.table$Type != "Distance" & is.finite(balance.table[, col.name]),]
+  balance.table.clean <- balance.table[balance.table$Type != "Distance" & is.finite(balance.table[, col.name]), ]
   maxed <- balance.table.clean[which.max(abs_stat(balance.table.clean[, col.name])), match(c(col.name, thresh.col.name), names(balance.table.clean))]
   
   cbind(Variable = rownames(maxed), as.data.frame(maxed))
@@ -2880,7 +2883,7 @@ balance_table <- function(C, type, weights = NULL, treat, continuous, binary, s.
         for (t in c("0", "1")) {
           sds <- rep.int(NA_real_, NCOL(C))
           if (any(sd.computable)) {
-            sds[sd.computable] <- col_w_sd(C[, sd.computable,drop = FALSE], weights = NULL, s.weights = s.weights,
+            sds[sd.computable] <- col_w_sd(C[, sd.computable, drop = FALSE], weights = NULL, s.weights = s.weights,
                                            bin.vars = bin.vars[sd.computable], subset = treat == tn01[t])
           }
           B[[paste.("SD", t, "Un")]] <- sds
@@ -2892,7 +2895,7 @@ balance_table <- function(C, type, weights = NULL, treat, continuous, binary, s.
           for (t in c("0", "1")) {
             sds <- rep.int(NA_real_, NCOL(C))
             if (any(sd.computable)) {
-              sds[sd.computable] <- col_w_sd(C[, sd.computable,drop = FALSE], weights = weights[[i]], s.weights = s.weights,
+              sds[sd.computable] <- col_w_sd(C[, sd.computable, drop = FALSE], weights = weights[[i]], s.weights = s.weights,
                                              bin.vars = bin.vars[sd.computable], subset = treat == tn01[t])
             }
             B[[paste.("SD", t, i)]] <- sds
@@ -2988,8 +2991,13 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
   # method is what method the weights are to be used for. 
   # method="subclassification" is for subclass sample sizes only.
   
-  if (is_null(s.weights)) s.weights <- rep.int(1, length(treat))
-  if (is_null(discarded)) discarded <- rep.int(FALSE, length(treat))
+  if (is_null(s.weights)) {
+    s.weights <- rep_with(1, treat)
+  }
+  
+  if (is_null(discarded)) {
+    discarded <- rep_with(FALSE, treat)
+  }
   
   if (type == "bin") {
     if (length(method) == 1L && method == "subclassification") {
@@ -3037,18 +3045,24 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
         if (method == "matching") {
           nn <- make_df(treat_names(treat), c("All (ESS)", "All (Unweighted)", "Matched (ESS)",
                                               "Matched (Unweighted)", "Unmatched", "Discarded"))
-          nn["All (ESS)", ] <- vapply(treat_vals(treat), function(tn) ESS(s.weights[treat == tn]), numeric(1L))
-          nn["All (Unweighted)", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & s.weights > 0), numeric(1L))
-          nn["Matched (ESS)", ] <- vapply(treat_vals(treat), function(tn) ESS(weights[treat == tn, 1L] * s.weights[treat == tn]), numeric(1L))
-          nn["Matched (Unweighted)", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & weights[,1L] > 0 & s.weights > 0), numeric(1L))
-          nn["Unmatched", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & weights[,1L] == 0 & !discarded), numeric(1L))
-          nn["Discarded", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & discarded), numeric(1L))
+          nn["All (ESS)", ] <- vapply(treat_vals(treat), function(tn) ESS(s.weights[treat == tn]),
+                                      numeric(1L))
+          nn["All (Unweighted)", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & s.weights > 0),
+                                             numeric(1L))
+          nn["Matched (ESS)", ] <- vapply(treat_vals(treat), function(tn) ESS(weights[treat == tn, 1L] * s.weights[treat == tn]),
+                                          numeric(1L))
+          nn["Matched (Unweighted)", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & weights[, 1L] > 0 & s.weights > 0),
+                                                 numeric(1L))
+          nn["Unmatched", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & weights[, 1L] == 0 & !discarded),
+                                      numeric(1L))
+          nn["Discarded", ] <- vapply(treat_vals(treat), function(tn) sum(treat == tn & discarded),
+                                      numeric(1L))
           
           attr(nn, "ss.type") <- rep.int("ss", NROW(nn))
           
           if (!any(discarded)) {
             attr(nn, "ss.type") <- attr(nn, "ss.type")[rownames(nn) != "Discarded"]
-            nn <- nn[rownames(nn) != "Discarded",, drop = FALSE]
+            nn <- nn[rownames(nn) != "Discarded", , drop = FALSE]
           }
         }
         else if (method == "weighting") {
@@ -3060,7 +3074,7 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
           
           if (!any(discarded)) {
             attr(nn, "ss.type") <- attr(nn, "ss.type")[rownames(nn) != "Discarded"]
-            nn <- nn[rownames(nn) != "Discarded",, drop = FALSE]
+            nn <- nn[rownames(nn) != "Discarded", , drop = FALSE]
           }
         }
       }
@@ -3068,9 +3082,9 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
         nn <- make_df(treat_names(treat), c("All", names(weights)))
         nn["All", ] <- vapply(treat_vals(treat), function(tn) ESS(s.weights[treat == tn]), numeric(1L))
         for (i in seq_col(weights)) {
-          nn[1L + i,] <- vapply(treat_vals(treat), function(tn) ESS(weights[treat == tn, i] * s.weights[treat == tn]), numeric(1L))
+          nn[1L + i, ] <- vapply(treat_vals(treat), function(tn) ESS(weights[treat == tn, i] * s.weights[treat == tn]), numeric(1L))
         }
-        attr(nn, "ss.type") <- c("ss", rep.int("ess", length(method)))
+        attr(nn, "ss.type") <- c("ss", rep_with("ess", method))
       }
       
       attr(nn, "tag") <- {
@@ -3128,7 +3142,7 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
           
           if (!any(discarded)) {
             attr(nn, "ss.type") <- attr(nn, "ss.type")[rownames(nn) != "Discarded"]
-            nn <- nn[rownames(nn) != "Discarded",, drop = FALSE]
+            nn <- nn[rownames(nn) != "Discarded", , drop = FALSE]
           }
         }
         else if (method == "weighting") {
@@ -3140,7 +3154,7 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
           
           if (!any(discarded)) {
             attr(nn, "ss.type") <- attr(nn, "ss.type")[rownames(nn) != "Discarded"]
-            nn <- nn[rownames(nn) != "Discarded",, drop = FALSE]
+            nn <- nn[rownames(nn) != "Discarded", , drop = FALSE]
           }
         }
       }
@@ -3149,13 +3163,13 @@ samplesize <- function(treat, type, weights = NULL, subclass = NULL, s.weights =
         nn["All", ] <- ESS(s.weights)
         
         for (i in seq_col(weights)) {
-          nn[1L + i,] <- switch(method[i],
+          nn[1L + i, ] <- switch(method[i],
                                 "matching" = ESS(weights[!discarded, i]),
                                 "weighting" = ESS(weights[!discarded, i] * s.weights[!discarded]))
           
         }
         
-        attr(nn, "ss.type") <- c("ss", rep.int("ess", length(method)))
+        attr(nn, "ss.type") <- c("ss", rep_with("ess", method))
       }
       
       attr(nn, "tag") <- {

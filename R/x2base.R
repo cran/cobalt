@@ -312,7 +312,7 @@ x2base.ps <- function(x, ...) {
   estimand <- x[["estimand"]]
   
   #Get method
-  method <- rep.int("weighting", length(s))
+  method <- rep_with("weighting", s)
   
   #Process addl 
   addl <- process_addl(...get("addl"), datalist = list(data, ps.data))
@@ -517,7 +517,7 @@ x2base.mnps <- function(x, ...) {
   estimand <- x[["estimand"]]
   
   #Get method
-  method <- rep.int("weighting", length(s))
+  method <- rep_with("weighting", s)
   
   #Process addl 
   addl <- process_addl(...get("addl"), datalist = list(data, mnps.data))
@@ -856,7 +856,7 @@ x2base.Match <- function(x, ...) {
   subset <- process_subset(...get("subset"), length(treat))
   
   #Process discarded
-  discarded <- rep.int(FALSE, length(treat))
+  discarded <- rep_with(FALSE, treat)
   if (is_not_null(x[["index.dropped"]])) {
     discarded[x[["index.dropped"]]] <- TRUE
   }
@@ -2271,6 +2271,7 @@ x2base.mimids <- function(x, ...) {
   
   imp <- m.data[[".imp"]]
   data <- ...get("data")
+  
   if (is_not_null(data)) {
     if (inherits(data, "mids")) {
       data <- .mids_complete(data)
@@ -2874,7 +2875,7 @@ x2base.iptw <- function(x, ...) {
   estimand <- substr(toupper(s), nchar(s) - 2L, nchar(s))
   
   #Get method
-  method <- rep.int("weighting", length(s))
+  method <- rep_with("weighting", s)
   
   #Process addl.list 
   addl.list <- process_addl.list(...get("addl.list", ...get("addl")),
@@ -3272,7 +3273,7 @@ x2base.CBMSM <- function(x, ...) {
   #Process CBMSM
   ID <- sort(unique(x[["id"]]))
   times <- sort(unique(x[["time"]]))
-  x[["data"]] <- x[["data"]][order(x[["id"]], x[["time"]]), ,drop = FALSE]
+  x[["data"]] <- x[["data"]][order(x[["id"]], x[["time"]]), , drop = FALSE]
   
   #Process data and get imp
   cbmsm.data <- x[["data"]][x[["time"]] == 1, , drop = FALSE]
@@ -3610,7 +3611,6 @@ x2base.weightitMSM <- function(x, ...) {
   
   setNames(X[X.names], X.names)
 }
-
 
 #' @exportS3Method NULL
 x2base.default <- function(x, ...) {

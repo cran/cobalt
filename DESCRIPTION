@@ -1,6 +1,6 @@
 Package: cobalt
 Title: Covariate Balance Tables and Plots
-Version: 4.6.0
+Version: 4.6.1
 Authors@R: c(
     person("Noah", "Greifer", role = c("aut", "cre"), 
            email = "noah.greifer@gmail.com",
@@ -32,8 +32,9 @@ BugReports: https://github.com/ngreifer/cobalt/issues
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2
 NeedsCompilation: no
-Packaged: 2025-04-15 19:55:37 UTC; NoahGreifer
-Author: Noah Greifer [aut, cre] (<https://orcid.org/0000-0003-3067-7154>)
+Packaged: 2025-08-20 19:26:03 UTC; NoahGreifer
+Author: Noah Greifer [aut, cre] (ORCID:
+    <https://orcid.org/0000-0003-3067-7154>)
 Maintainer: Noah Greifer <noah.greifer@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-04-15 20:40:02 UTC
+Date/Publication: 2025-08-20 20:40:10 UTC

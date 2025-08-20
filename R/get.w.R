@@ -51,7 +51,7 @@ get.w <- function(x, ...) {
 
 #' @rdname get.w
 #' @exportS3Method get.w matchit
-get.w.matchit <- function(x,...) {
+get.w.matchit <- function(x, ...) {
   x[["weights"]]
 }
 
@@ -98,7 +98,7 @@ get.w.ps <- function(x, stop.method = NULL, estimand, s.weights = FALSE, ...) {
     .err(sprintf("`estimand` must be %s", word_list(allowable.estimands, "or", quotes = 1L)))
   }
   else if (length(estimand) == 1L) {
-    estimand <- setNames(toupper(rep.int(estimand, length(s))), s)
+    estimand <- setNames(toupper(rep_with(estimand, s)), s)
   }
   else if (length(estimand) >= length(s)) {
     estimand <- setNames(toupper(estimand[seq_along(s)]), s)
@@ -123,7 +123,7 @@ get.w.ps <- function(x, stop.method = NULL, estimand, s.weights = FALSE, ...) {
       w[[p]][t1] <- (1 - x$ps[t1, p]) / x$ps[t1, p]
     }
     else {
-      w[[p]] <- x$w[,p]
+      w[[p]] <- x$w[, p]
     }
     
     if (s.weights) w[[p]] <- w[[p]] * x$sampw
@@ -306,7 +306,7 @@ get.w.CBPS <- function(x, estimand, ...) {
   
   estimand <- match_arg(tolower(estimand), c("att", "atc", "ate"))
   
-  w <- rep.int(1, length(tr))
+  w <- rep_with(1, tr)
   
   if (estimand == "att") {
     w[!t1] <- ps[!t1] / (1 - ps[!t1])
@@ -341,7 +341,7 @@ get.w.ebalance <- function(x, treat, ...) {
     .err("there are more control units in `treat` than weights in the `ebalance` object.")
   }
   
-  weights <- rep.int(1, length(treat))
+  weights <- rep_with(1, treat)
   
   weights[treat == treat_vals(treat)["Control"]] <- x$w
   

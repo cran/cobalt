@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2025-04-15" />
+<meta name="date" content="2025-08-20" />
 
 <title>Using cobalt with Other Preprocessing Packages</title>
 
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Using <code>cobalt</code> with Other
 Preprocessing Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2025-04-15</h4>
+<h4 class="date">2025-08-20</h4>
 
 
 <div id="TOC">
@@ -1195,15 +1195,15 @@ example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
 <span id="cb27-16"><a href="#cb27-16" tabindex="-1"></a><span class="fu">bal.tab</span>(mt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## distance    Distance       0.9425        0.9550       0.9685
-## age          Contin.      -0.0400        0.0125       0.0567
-## educ         Contin.      -0.1936       -0.1436      -0.0780
-## married       Binary      -0.0410       -0.0270       0.0138
+## distance    Distance       0.9445        0.9520       0.9590
+## age          Contin.      -0.0755       -0.0059       0.0529
+## educ         Contin.      -0.1936       -0.1586      -0.0887
+## married       Binary      -0.0669       -0.0336       0.0000
 ## race_black    Binary       1.0259        1.0259       1.0259
-## race_hispan   Binary      -0.7772       -0.7314      -0.6857
-## race_white    Binary      -0.7113       -0.6748      -0.6384
-## re74         Contin.      -0.0950       -0.0506      -0.0092
-## re75         Contin.      -0.0985       -0.0652      -0.0231
+## race_hispan   Binary      -0.8229       -0.7474      -0.7086
+## race_white    Binary      -0.6931       -0.6621      -0.6019
+## re74         Contin.      -0.0758       -0.0488      -0.0189
+## re75         Contin.      -0.1085       -0.0688      -0.0472
 ## 
 ## Average sample sizes across imputations
 ##             0   1
@@ -1221,20 +1221,20 @@ example of using <code>bal.tab()</code> with <code>MatchThem</code>:</p>
 <span id="cb29-9"><a href="#cb29-9" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## prop.score  Distance       0.1430        0.1566       0.1635
-## age          Contin.      -0.1930       -0.1881      -0.1828
-## educ         Contin.       0.0729        0.0830       0.0905
-## married       Binary      -0.2403       -0.2261      -0.1973
-## race_black    Binary       0.1361        0.1487       0.1564
-## race_hispan   Binary       0.0173        0.0343       0.0434
-## race_white    Binary      -0.1812       -0.1697      -0.1448
-## re74         Contin.      -0.2980       -0.2820      -0.2640
-## re75         Contin.      -0.1686       -0.1601      -0.1491
+## prop.score  Distance       0.1440        0.1538       0.1703
+## age          Contin.      -0.1911       -0.1869      -0.1838
+## educ         Contin.       0.0737        0.0817       0.0894
+## married       Binary      -0.2545       -0.2217      -0.1984
+## race_black    Binary       0.1346        0.1447       0.1603
+## race_hispan   Binary       0.0201        0.0309       0.0410
+## race_white    Binary      -0.1814       -0.1633      -0.1481
+## re74         Contin.      -0.3104       -0.2937      -0.2703
+## re75         Contin.      -0.1637       -0.1551      -0.1449
 ## 
 ## Average effective sample sizes across imputations
 ##                 0      1
 ## Unadjusted 429.   185.  
-## Adjusted   331.19  66.29</code></pre>
+## Adjusted   332.36  67.93</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <code>MatchIt</code> or <code>WeightIt</code>.</p>
 </div>
@@ -1322,8 +1322,8 @@ output compatible with the <code>default</code> method of
 <span id="cb33-7"><a href="#cb33-7" tabindex="-1"></a></span>
 <span id="cb33-8"><a href="#cb33-8" tabindex="-1"></a><span class="co">#Note the contents of the output object:</span></span>
 <span id="cb33-9"><a href="#cb33-9" tabindex="-1"></a><span class="fu">names</span>(ow.out)</span></code></pre></div>
-<pre><code>##  [1] &quot;weights&quot;   &quot;treat&quot;     &quot;covs&quot;      &quot;s.weights&quot; &quot;b.weights&quot; &quot;estimand&quot; 
-##  [7] &quot;focal&quot;     &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
+<pre><code>##  [1] &quot;weights&quot;   &quot;treat&quot;     &quot;covs&quot;      &quot;s.weights&quot; &quot;estimand&quot;  &quot;focal&quot;    
+##  [7] &quot;call&quot;      &quot;tols&quot;      &quot;duals&quot;     &quot;info&quot;</code></pre>
 <div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" tabindex="-1"></a><span class="co">#Use bal.tab() directly on the output</span></span>
 <span id="cb35-2"><a href="#cb35-2" tabindex="-1"></a><span class="fu">bal.tab</span>(ow.out)</span></code></pre></div>
 <pre><code>## Balance Measures
