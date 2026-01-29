@@ -1,4 +1,4 @@
-#' @title Balance Statistics for Longitudinal Datasets
+#' Balance Statistics for Longitudinal Datasets
 #' 
 #' @description
 #' Generates balance statistics for data coming from a longitudinal treatment scenario. The primary input is in the form of a list of formulas or `data.frame`s contain the covariates at each time point. `bal.tab()` automatically classifies this list as either a `data.frame.list` or `formula.list`, respectively.
@@ -25,7 +25,7 @@
 #' * [`class-bal.tab.imp`] for more information on multiply imputed data.
 #' * [`bal.tab.multi()`][class-bal.tab.multi] for more information on multi-category treatments.
 #' 
-#' @examplesIf requireNamespace("WeightIt", quietly = TRUE)
+#' @examplesIf rlang::is_installed("WeightIt")
 #' data("msmdata", package = "WeightIt")
 #' 
 #' ## Estimating longitudinal propensity scores and weights
@@ -81,7 +81,6 @@ bal.tab.formula.list <- function(x,
   args <- try_chk(c(as.list(environment()), list(...))[-1L])
   
   #Adjustments to arguments
-  
   args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
   args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
   
@@ -104,7 +103,6 @@ bal.tab.data.frame.list <- function(x, treat.list,
   args <- try_chk(c(as.list(environment()), list(...))[-1L])
   
   #Adjustments to arguments
-  
   args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
   args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
   

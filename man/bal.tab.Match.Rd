@@ -88,20 +88,26 @@ Generates balance statistics for output objects from \pkg{Matching}.
 \details{
 \code{bal.tab()} generates a list of balance summaries for the object given, and functions similarly to \pkgfun{Matching}{MatchBalance}. The input to \code{bal.tab.Match()} must include either both \code{formula} and \code{data} or both \code{covs} and \code{treat}. Using the \code{formula} + \code{data} inputs mirrors how \pkgfun{Matching}{MatchBalance} is used.
 
-\code{cobalt} functions do not support \code{Match} object with sampling weights, i.e., with an argument passed to the \code{weights} argument of \code{Matching::Match()}.
+\pkg{cobalt} functions do not support \code{Match} object with sampling weights, i.e., with an argument passed to the \code{weights} argument of \code{Matching::Match()}.
 }
 \examples{
-\dontshow{if (requireNamespace("Matching", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-library(Matching); data("lalonde", package = "cobalt")
+\dontshow{if (rlang::is_installed("Matching")) withAutoprint(\{ # examplesIf}
+data("lalonde", package = "cobalt")
+library(Matching)
 
-p.score <- glm(treat ~ age + educ + race + 
-                   married + nodegree + re74 + re75, 
-               data = lalonde, family = "binomial")$fitted.values
-Match.out <- Match(Tr = lalonde$treat, X = p.score)
+## Estimate propensity score
+p.fit <- glm(treat ~ age + educ + race + 
+               married + nodegree + re74 + re75, 
+             data = lalonde,
+             family = "binomial")
+
+Match.out <- Match(Tr = lalonde$treat,
+                   X = fitted(p.fit))
 
 ## Using formula and data
 bal.tab(Match.out, formula = treat ~ age + educ + race + 
-            married + nodegree + re74 + re75, data = lalonde)
+          married + nodegree + re74 + re75,
+        data = lalonde)
 \dontshow{\}) # examplesIf}
 }
 \seealso{

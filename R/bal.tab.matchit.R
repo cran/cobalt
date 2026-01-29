@@ -23,22 +23,24 @@
 #' @seealso
 #' * [bal.tab()] for details of calculations.
 #' 
-#' @examplesIf requireNamespace("MatchIt", quietly = TRUE)
+#' @examplesIf rlang::is_installed("MatchIt")
 #' library(MatchIt)
 #' data("lalonde", package = "cobalt")
 #' 
 #' ## Nearest Neighbor matching
 #' m.out1 <- matchit(treat ~ age + educ + race + 
-#'                       married + nodegree + re74 + re75, 
-#'                   data = lalonde, method = "nearest")
+#'                     married + nodegree + re74 + re75, 
+#'                   data = lalonde,
+#'                   method = "nearest")
 #' 
 #' bal.tab(m.out1, un = TRUE, 
 #'         thresholds = c(m = .1, v = 2))
 #' 
 #' ## Subclassification
 #' m.out2 <- matchit(treat ~ age + educ + race + 
-#'                       married + nodegree + re74 + re75, 
-#'                   data = lalonde, method = "subclass")
+#'                     married + nodegree + re74 + re75, 
+#'                   data = lalonde,
+#'                   method = "subclass")
 #' 
 #' bal.tab(m.out2, disp.subclass = TRUE)
 
@@ -50,7 +52,6 @@ bal.tab.matchit <- function(x,
   args <- try_chk(c(as.list(environment()), list(...))[-1L])
   
   #Adjustments to arguments
-  
   args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
   args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
   

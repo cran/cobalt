@@ -1,4 +1,4 @@
-#' @title Balance Statistics for `sbw` Objects
+#' Balance Statistics for `sbw` Objects
 #' 
 #' @description
 #' Generates balance statistics for `sbwcau` objects from \pkg{sbw}.
@@ -18,7 +18,7 @@
 #' @seealso
 #' * [bal.tab()] for details of calculations.
 #' 
-#' @examplesIf requireNamespace("sbw", quietly = TRUE)
+#' @examplesIf rlang::is_installed("sbw")
 #' library(sbw)
 #' data("lalonde", package = "cobalt")
 #' 
@@ -43,7 +43,6 @@ bal.tab.sbwcau <- function(x,
   args <- try_chk(c(as.list(environment()), list(...))[-1L])
   
   #Adjustments to arguments
-  
   args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
   args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
   

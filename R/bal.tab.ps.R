@@ -26,7 +26,7 @@
 #' * [`bal.tab.multi()`][class-bal.tab.multi] for more information on multi-category treatments.
 #' * [`class-bal.tab.msm`] for more information on longitudinal treatments.
 #' 
-#' @examplesIf requireNamespace("twang", quietly = TRUE)
+#' @examplesIf rlang::is_installed("twang")
 #' \donttest{library(twang)
 #' data("lalonde", package = "cobalt")
 #' 
@@ -49,7 +49,6 @@ bal.tab.ps <- function(x, stop.method,
   args <- try_chk(c(as.list(environment()), list(...))[-1L])
   
   #Adjustments to arguments
-  
   args[vapply(args, rlang::is_missing, logical(1L))] <- NULL
   args[lengths(args) == 0L & names(args) %nin% names(match.call())[-1L]] <- NULL
   
