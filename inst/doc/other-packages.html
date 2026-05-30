@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2026-01-29" />
+<meta name="date" content="2026-05-29" />
 
 <title>Using cobalt with Other Preprocessing Packages</title>
 
@@ -342,7 +342,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Using cobalt with Other Preprocessing
 Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2026-01-29</h4>
+<h4 class="date">2026-05-29</h4>
 
 
 <div id="TOC">
@@ -1028,9 +1028,9 @@ documentation instructs. Below is a simple example of using
 <span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>covs0 <span class="ot">&lt;-</span> <span class="fu">subset</span>(lalonde, <span class="at">select =</span> <span class="sc">-</span><span class="fu">c</span>(treat, re78, race))</span>
 <span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a></span>
 <span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="co">#Generating entropy balancing weights</span></span>
-<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>e.out <span class="ot">&lt;-</span> ebal<span class="sc">::</span><span class="fu">ebalance</span>(lalonde<span class="sc">$</span>treat, covs0)</span></code></pre></div>
-<pre><code>## Converged within tolerance</code></pre>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">bal.tab</span>(e.out, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">covs =</span> covs0)</span></code></pre></div>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>e.out <span class="ot">&lt;-</span> ebal<span class="sc">::</span><span class="fu">ebalance</span>(lalonde<span class="sc">$</span>treat, covs0)</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="fu">bal.tab</span>(e.out, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">covs =</span> covs0)</span></code></pre></div>
 <pre><code>## Balance Measures
 ##             Type Diff.Adj
 ## age      Contin.       -0
@@ -1067,21 +1067,35 @@ constraints. <code>bal.tab()</code> functions similarly to
 <em>designmatch</em>’s <code>meantab()</code> command but provides
 additional flexibility and convenience. Below is a simple example of
 using <code>bal.tab()</code> with <em>designmatch</em>:</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="co">#Mixed integer programming matching</span></span>
-<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;designmatch&quot;</span>)</span>
-<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span></span>
-<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>covs0 <span class="ot">&lt;-</span> <span class="fu">subset</span>(lalonde, <span class="at">select =</span> <span class="sc">-</span><span class="fu">c</span>(treat, re78, race))</span>
-<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a></span>
-<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a><span class="co">#Matching for balance on covariates</span></span>
-<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>dmout <span class="ot">&lt;-</span> <span class="fu">bmatch</span>(lalonde<span class="sc">$</span>treat,</span>
-<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a>                <span class="at">dist_mat =</span> <span class="cn">NULL</span>,</span>
-<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a>                <span class="at">subset_weight =</span> <span class="cn">NULL</span>,</span>
-<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a>                <span class="at">mom =</span> <span class="fu">list</span>(<span class="at">covs =</span> covs0,</span>
-<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a>                           <span class="at">tols =</span> <span class="fu">absstddif</span>(covs0, lalonde<span class="sc">$</span>treat, .<span class="dv">05</span>)),</span>
-<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a>                <span class="at">n_controls =</span> <span class="dv">1</span>,</span>
-<span id="cb19-13"><a href="#cb19-13" tabindex="-1"></a>                <span class="at">total_groups =</span> <span class="dv">185</span>)</span>
-<span id="cb19-14"><a href="#cb19-14" tabindex="-1"></a></span>
-<span id="cb19-15"><a href="#cb19-15" tabindex="-1"></a><span class="fu">bal.tab</span>(dmout, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">covs =</span> covs0)</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co">#Mixed integer programming matching</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;designmatch&quot;</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>covs0 <span class="ot">&lt;-</span> <span class="fu">subset</span>(lalonde, <span class="at">select =</span> <span class="sc">-</span><span class="fu">c</span>(treat, re78, race))</span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="co">#Matching for balance on covariates</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>dmout <span class="ot">&lt;-</span> <span class="fu">bmatch</span>(lalonde<span class="sc">$</span>treat,</span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>                <span class="at">dist_mat =</span> <span class="cn">NULL</span>,</span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a>                <span class="at">subset_weight =</span> <span class="cn">NULL</span>,</span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a>                <span class="at">mom =</span> <span class="fu">list</span>(<span class="at">covs =</span> covs0,</span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a>                           <span class="at">tols =</span> <span class="fu">absstddif</span>(covs0, lalonde<span class="sc">$</span>treat, .<span class="dv">05</span>)),</span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a>                <span class="at">n_controls =</span> <span class="dv">1</span>,</span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a>                <span class="at">total_groups =</span> <span class="dv">185</span>)</span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="fu">bal.tab</span>(dmout, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat, <span class="at">covs =</span> covs0)</span></code></pre></div>
+<pre><code>## Balance Measures
+##             Type Diff.Adj
+## age      Contin.   0.0559
+## educ     Contin.   0.0645
+## married   Binary  -0.0552
+## nodegree  Binary   0.0476
+## re74     Contin.  -0.0616
+## re75     Contin.   0.0502
+## 
+## Sample sizes
+##           Control Treated
+## All           429     185
+## Matched       185     185
+## Unmatched     244       0</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <em>Matching</em> or <em>optmatch</em>. In addition to the
 <code>bmatch()</code> output object, one must specify either both a
@@ -1096,23 +1110,23 @@ minimal variance. <code>bal.tab()</code> functions similarly to
 <em>sbw</em>’s <code>summarize()</code> function but provides additional
 flexibility and convenience. Below is a simple example of using
 <code>bal.tab()</code> with <em>sbw</em>:</p>
-<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="co">#Optimization-based weighting</span></span>
-<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span></span>
-<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a>lalonde_split <span class="ot">&lt;-</span> <span class="fu">splitfactor</span>(lalonde, <span class="at">drop.first =</span> <span class="st">&quot;if2&quot;</span>)</span>
-<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a>cov.names <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">names</span>(lalonde_split), <span class="fu">c</span>(<span class="st">&quot;treat&quot;</span>, <span class="st">&quot;re78&quot;</span>))</span>
-<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a></span>
-<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a><span class="co">#Estimating balancing weights for the ATT</span></span>
-<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a>sbw.out <span class="ot">&lt;-</span> sbw<span class="sc">::</span><span class="fu">sbw</span>(lalonde_split,</span>
-<span id="cb20-8"><a href="#cb20-8" tabindex="-1"></a>                    <span class="at">ind =</span> <span class="st">&quot;treat&quot;</span>,</span>
-<span id="cb20-9"><a href="#cb20-9" tabindex="-1"></a>                    <span class="at">bal =</span> <span class="fu">list</span>(<span class="at">bal_cov =</span> cov.names,</span>
-<span id="cb20-10"><a href="#cb20-10" tabindex="-1"></a>                               <span class="at">bal_alg =</span> <span class="cn">FALSE</span>, </span>
-<span id="cb20-11"><a href="#cb20-11" tabindex="-1"></a>                               <span class="at">bal_tol =</span> .<span class="dv">001</span>),</span>
-<span id="cb20-12"><a href="#cb20-12" tabindex="-1"></a>                    <span class="at">par =</span> <span class="fu">list</span>(<span class="at">par_est =</span> <span class="st">&quot;att&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="co">#Optimization-based weighting</span></span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span></span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a>lalonde_split <span class="ot">&lt;-</span> <span class="fu">splitfactor</span>(lalonde, <span class="at">drop.first =</span> <span class="st">&quot;if2&quot;</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>cov.names <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">names</span>(lalonde_split), <span class="fu">c</span>(<span class="st">&quot;treat&quot;</span>, <span class="st">&quot;re78&quot;</span>))</span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a></span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a><span class="co">#Estimating balancing weights for the ATT</span></span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>sbw.out <span class="ot">&lt;-</span> sbw<span class="sc">::</span><span class="fu">sbw</span>(lalonde_split,</span>
+<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a>                    <span class="at">ind =</span> <span class="st">&quot;treat&quot;</span>,</span>
+<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a>                    <span class="at">bal =</span> <span class="fu">list</span>(<span class="at">bal_cov =</span> cov.names,</span>
+<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a>                               <span class="at">bal_alg =</span> <span class="cn">FALSE</span>, </span>
+<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a>                               <span class="at">bal_tol =</span> .<span class="dv">001</span>),</span>
+<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a>                    <span class="at">par =</span> <span class="fu">list</span>(<span class="at">par_est =</span> <span class="st">&quot;att&quot;</span>))</span></code></pre></div>
 <pre><code>##   Building the weighting problem... 
 ##   quadprog optimizer is open... 
 ##   Finding the optimal weights... 
 ##   Optimal weights found.</code></pre>
-<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">bal.tab</span>(sbw.out, <span class="at">un =</span> <span class="cn">TRUE</span>, <span class="at">disp.means =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="fu">bal.tab</span>(sbw.out, <span class="at">un =</span> <span class="cn">TRUE</span>, <span class="at">disp.means =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <pre><code>## Balance Measures
 ##                Type    M.0.Un    M.1.Un Diff.Un   M.0.Adj   M.1.Adj Diff.Adj
 ## age         Contin.   28.0303   25.8162 -0.3094   25.8054   25.8162   0.0015
@@ -1151,64 +1165,64 @@ and aggregated across imputations. See <code>?bal.tab.imp</code> or
 <code>vignette(&quot;segmented-data&quot;)</code> for more information about using
 <em>cobalt</em> with multiply imputed data. Below is a simple example of
 using <code>bal.tab()</code> with <em>MatchThem</em>:</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="co">#PS weighting on multiply imputed data</span></span>
-<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde_mis&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
-<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a></span>
-<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a><span class="co">#Generate imputed data sets</span></span>
-<span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">10</span> <span class="co">#number of imputed data sets</span></span>
-<span id="cb24-6"><a href="#cb24-6" tabindex="-1"></a>imp.out <span class="ot">&lt;-</span> mice<span class="sc">::</span><span class="fu">mice</span>(lalonde_mis, <span class="at">m =</span> m, <span class="at">print =</span> <span class="cn">FALSE</span>) </span>
-<span id="cb24-7"><a href="#cb24-7" tabindex="-1"></a></span>
-<span id="cb24-8"><a href="#cb24-8" tabindex="-1"></a><span class="co">#Matching for balance on covariates</span></span>
-<span id="cb24-9"><a href="#cb24-9" tabindex="-1"></a>mt.out <span class="ot">&lt;-</span> MatchThem<span class="sc">::</span><span class="fu">matchthem</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span></span>
-<span id="cb24-10"><a href="#cb24-10" tabindex="-1"></a>                                   race <span class="sc">+</span> re74 <span class="sc">+</span> re75, </span>
-<span id="cb24-11"><a href="#cb24-11" tabindex="-1"></a>                               <span class="at">datasets =</span> imp.out,</span>
-<span id="cb24-12"><a href="#cb24-12" tabindex="-1"></a>                               <span class="at">approach =</span> <span class="st">&quot;within&quot;</span>, </span>
-<span id="cb24-13"><a href="#cb24-13" tabindex="-1"></a>                               <span class="at">method =</span> <span class="st">&quot;nearest&quot;</span>,</span>
-<span id="cb24-14"><a href="#cb24-14" tabindex="-1"></a>                               <span class="at">estimand =</span> <span class="st">&quot;ATT&quot;</span>)</span>
-<span id="cb24-15"><a href="#cb24-15" tabindex="-1"></a></span>
-<span id="cb24-16"><a href="#cb24-16" tabindex="-1"></a><span class="fu">bal.tab</span>(mt.out)</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="co">#PS weighting on multiply imputed data</span></span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde_mis&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a><span class="co">#Generate imputed data sets</span></span>
+<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">10</span> <span class="co">#number of imputed data sets</span></span>
+<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a>imp.out <span class="ot">&lt;-</span> mice<span class="sc">::</span><span class="fu">mice</span>(lalonde_mis, <span class="at">m =</span> m, <span class="at">print =</span> <span class="cn">FALSE</span>) </span>
+<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a></span>
+<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a><span class="co">#Matching for balance on covariates</span></span>
+<span id="cb23-9"><a href="#cb23-9" tabindex="-1"></a>mt.out <span class="ot">&lt;-</span> MatchThem<span class="sc">::</span><span class="fu">matchthem</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span></span>
+<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a>                                   race <span class="sc">+</span> re74 <span class="sc">+</span> re75, </span>
+<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a>                               <span class="at">datasets =</span> imp.out,</span>
+<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a>                               <span class="at">approach =</span> <span class="st">&quot;within&quot;</span>, </span>
+<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a>                               <span class="at">method =</span> <span class="st">&quot;nearest&quot;</span>,</span>
+<span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a>                               <span class="at">estimand =</span> <span class="st">&quot;ATT&quot;</span>)</span>
+<span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a></span>
+<span id="cb23-16"><a href="#cb23-16" tabindex="-1"></a><span class="fu">bal.tab</span>(mt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## distance    Distance       0.9475        0.9550       0.9608
-## age          Contin.      -0.0317        0.0164       0.0650
-## educ         Contin.      -0.1882       -0.1473      -0.0672
-## married       Binary      -0.0928       -0.0256       0.0273
+## distance    Distance       0.9476        0.9558       0.9703
+## age          Contin.      -0.0280        0.0178       0.0944
+## educ         Contin.      -0.1774       -0.1411      -0.0860
+## married       Binary      -0.0669       -0.0189       0.0131
 ## race_black    Binary       1.0259        1.0259       1.0259
-## race_hispan   Binary      -0.8457       -0.7520      -0.6629
-## race_white    Binary      -0.7296       -0.6584      -0.5837
-## re74         Contin.      -0.1128       -0.0633      -0.0169
-## re75         Contin.      -0.1373       -0.0672      -0.0207
+## race_hispan   Binary      -0.8000       -0.7337      -0.6629
+## race_white    Binary      -0.7296       -0.6730      -0.6201
+## re74         Contin.      -0.1084       -0.0535      -0.0213
+## re75         Contin.      -0.0837       -0.0606      -0.0356
 ## 
 ## Average sample sizes across imputations
 ##             0   1
 ## All       429 185
 ## Matched   185 185
 ## Unmatched 244   0</code></pre>
-<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="co">#Weighting for balance on covariates</span></span>
-<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>wt.out <span class="ot">&lt;-</span> MatchThem<span class="sc">::</span><span class="fu">weightthem</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span></span>
-<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a>                                    race <span class="sc">+</span> re74 <span class="sc">+</span> re75, </span>
-<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a>                                <span class="at">datasets =</span> imp.out,</span>
-<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a>                                <span class="at">approach =</span> <span class="st">&quot;within&quot;</span>, </span>
-<span id="cb26-6"><a href="#cb26-6" tabindex="-1"></a>                                <span class="at">method =</span> <span class="st">&quot;glm&quot;</span>,</span>
-<span id="cb26-7"><a href="#cb26-7" tabindex="-1"></a>                                <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>)</span>
-<span id="cb26-8"><a href="#cb26-8" tabindex="-1"></a></span>
-<span id="cb26-9"><a href="#cb26-9" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="co">#Weighting for balance on covariates</span></span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a>wt.out <span class="ot">&lt;-</span> MatchThem<span class="sc">::</span><span class="fu">weightthem</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span></span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a>                                    race <span class="sc">+</span> re74 <span class="sc">+</span> re75, </span>
+<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a>                                <span class="at">datasets =</span> imp.out,</span>
+<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a>                                <span class="at">approach =</span> <span class="st">&quot;within&quot;</span>, </span>
+<span id="cb25-6"><a href="#cb25-6" tabindex="-1"></a>                                <span class="at">method =</span> <span class="st">&quot;glm&quot;</span>,</span>
+<span id="cb25-7"><a href="#cb25-7" tabindex="-1"></a>                                <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>)</span>
+<span id="cb25-8"><a href="#cb25-8" tabindex="-1"></a></span>
+<span id="cb25-9"><a href="#cb25-9" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
 <pre><code>## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## prop.score  Distance       0.1356        0.1531       0.1732
-## age          Contin.      -0.1930       -0.1881      -0.1822
-## educ         Contin.       0.0763        0.0828       0.0875
-## married       Binary      -0.2402       -0.2145      -0.1848
-## race_black    Binary       0.1251        0.1451       0.1691
-## race_hispan   Binary       0.0264        0.0320       0.0417
-## race_white    Binary      -0.1950       -0.1645      -0.1443
-## re74         Contin.      -0.3099       -0.2891      -0.2686
-## re75         Contin.      -0.1672       -0.1558      -0.1360
+## prop.score  Distance       0.1322        0.1543       0.1664
+## age          Contin.      -0.1943       -0.1883      -0.1809
+## educ         Contin.       0.0757        0.0827       0.0922
+## married       Binary      -0.2507       -0.2227      -0.1831
+## race_black    Binary       0.1208        0.1459       0.1575
+## race_hispan   Binary       0.0190        0.0342       0.0427
+## race_white    Binary      -0.1796       -0.1670      -0.1404
+## re74         Contin.      -0.3018       -0.2863      -0.2659
+## re75         Contin.      -0.1734       -0.1630      -0.1509
 ## 
 ## Average effective sample sizes across imputations
 ##                 0      1
 ## Unadjusted 429.   185.  
-## Adjusted   331.86  67.16</code></pre>
+## Adjusted   331.48  66.42</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <em>MatchIt</em> or <em>WeightIt</em>.</p>
 </div>
@@ -1218,13 +1232,13 @@ using <code>bal.tab()</code> with <em>MatchThem</em>:</p>
 binary and multi-category treatments. <code>bal.tab()</code> functions
 similarly to <code>cems</code>’s <code>imbalance()</code>. Below is a
 simple example of using <code>bal.tab()</code> with <em>cem</em>:</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a><span class="co">#Coarsened exact matching</span></span>
-<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span></span>
-<span id="cb28-3"><a href="#cb28-3" tabindex="-1"></a></span>
-<span id="cb28-4"><a href="#cb28-4" tabindex="-1"></a><span class="co">#Matching for balance on covariates</span></span>
-<span id="cb28-5"><a href="#cb28-5" tabindex="-1"></a>cem.out <span class="ot">&lt;-</span> cem<span class="sc">::</span><span class="fu">cem</span>(<span class="st">&quot;treat&quot;</span>, <span class="at">data =</span> lalonde, <span class="at">drop =</span> <span class="st">&quot;re78&quot;</span>)</span>
-<span id="cb28-6"><a href="#cb28-6" tabindex="-1"></a></span>
-<span id="cb28-7"><a href="#cb28-7" tabindex="-1"></a><span class="fu">bal.tab</span>(cem.out, <span class="at">data =</span> lalonde, <span class="at">stats =</span> <span class="fu">c</span>(<span class="st">&quot;m&quot;</span>, <span class="st">&quot;ks&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a><span class="co">#Coarsened exact matching</span></span>
+<span id="cb27-2"><a href="#cb27-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>) <span class="co">#If not yet loaded</span></span>
+<span id="cb27-3"><a href="#cb27-3" tabindex="-1"></a></span>
+<span id="cb27-4"><a href="#cb27-4" tabindex="-1"></a><span class="co">#Matching for balance on covariates</span></span>
+<span id="cb27-5"><a href="#cb27-5" tabindex="-1"></a>cem.out <span class="ot">&lt;-</span> cem<span class="sc">::</span><span class="fu">cem</span>(<span class="st">&quot;treat&quot;</span>, <span class="at">data =</span> lalonde, <span class="at">drop =</span> <span class="st">&quot;re78&quot;</span>)</span>
+<span id="cb27-6"><a href="#cb27-6" tabindex="-1"></a></span>
+<span id="cb27-7"><a href="#cb27-7" tabindex="-1"></a><span class="fu">bal.tab</span>(cem.out, <span class="at">data =</span> lalonde, <span class="at">stats =</span> <span class="fu">c</span>(<span class="st">&quot;m&quot;</span>, <span class="st">&quot;ks&quot;</span>))</span></code></pre></div>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <em>Matching</em> or <em>optmatch</em>. In addition to the
 <code>cem()</code> output object, one must specify either both a formula
@@ -1241,19 +1255,19 @@ to <code>bal.tab()</code> or a <code>mids</code> object from the
 <code>vignette(&quot;segmented-data&quot;)</code> for more information about using
 <em>cobalt</em> with multiply imputed data. Below is an example of using
 <em>cem</em> with multiply imputed data from <em>mice</em>:</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" tabindex="-1"></a><span class="co">#Coarsened exact matching on multiply imputed data</span></span>
-<span id="cb29-2"><a href="#cb29-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde_mis&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
-<span id="cb29-3"><a href="#cb29-3" tabindex="-1"></a></span>
-<span id="cb29-4"><a href="#cb29-4" tabindex="-1"></a><span class="co">#Generate imputed data sets</span></span>
-<span id="cb29-5"><a href="#cb29-5" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">10</span> <span class="co">#number of imputed data sets</span></span>
-<span id="cb29-6"><a href="#cb29-6" tabindex="-1"></a>imp.out <span class="ot">&lt;-</span> mice<span class="sc">::</span><span class="fu">mice</span>(lalonde_mis, <span class="at">m =</span> m, <span class="at">print =</span> <span class="cn">FALSE</span>) </span>
-<span id="cb29-7"><a href="#cb29-7" tabindex="-1"></a>imp.data.list <span class="ot">&lt;-</span> mice<span class="sc">::</span><span class="fu">complete</span>(imp.out, <span class="st">&quot;all&quot;</span>)</span>
-<span id="cb29-8"><a href="#cb29-8" tabindex="-1"></a></span>
-<span id="cb29-9"><a href="#cb29-9" tabindex="-1"></a><span class="co">#Match within each imputed dataset</span></span>
-<span id="cb29-10"><a href="#cb29-10" tabindex="-1"></a>cem.out.imp <span class="ot">&lt;-</span> cem<span class="sc">::</span><span class="fu">cem</span>(<span class="st">&quot;treat&quot;</span>, <span class="at">datalist =</span> imp.data.list,</span>
-<span id="cb29-11"><a href="#cb29-11" tabindex="-1"></a>                        <span class="at">drop =</span> <span class="st">&quot;re78&quot;</span>)</span>
-<span id="cb29-12"><a href="#cb29-12" tabindex="-1"></a></span>
-<span id="cb29-13"><a href="#cb29-13" tabindex="-1"></a><span class="fu">bal.tab</span>(cem.out.imp, <span class="at">data =</span> imp.out)</span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a><span class="co">#Coarsened exact matching on multiply imputed data</span></span>
+<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde_mis&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb28-3"><a href="#cb28-3" tabindex="-1"></a></span>
+<span id="cb28-4"><a href="#cb28-4" tabindex="-1"></a><span class="co">#Generate imputed data sets</span></span>
+<span id="cb28-5"><a href="#cb28-5" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">10</span> <span class="co">#number of imputed data sets</span></span>
+<span id="cb28-6"><a href="#cb28-6" tabindex="-1"></a>imp.out <span class="ot">&lt;-</span> mice<span class="sc">::</span><span class="fu">mice</span>(lalonde_mis, <span class="at">m =</span> m, <span class="at">print =</span> <span class="cn">FALSE</span>) </span>
+<span id="cb28-7"><a href="#cb28-7" tabindex="-1"></a>imp.data.list <span class="ot">&lt;-</span> mice<span class="sc">::</span><span class="fu">complete</span>(imp.out, <span class="st">&quot;all&quot;</span>)</span>
+<span id="cb28-8"><a href="#cb28-8" tabindex="-1"></a></span>
+<span id="cb28-9"><a href="#cb28-9" tabindex="-1"></a><span class="co">#Match within each imputed dataset</span></span>
+<span id="cb28-10"><a href="#cb28-10" tabindex="-1"></a>cem.out.imp <span class="ot">&lt;-</span> cem<span class="sc">::</span><span class="fu">cem</span>(<span class="st">&quot;treat&quot;</span>, <span class="at">datalist =</span> imp.data.list,</span>
+<span id="cb28-11"><a href="#cb28-11" tabindex="-1"></a>                        <span class="at">drop =</span> <span class="st">&quot;re78&quot;</span>)</span>
+<span id="cb28-12"><a href="#cb28-12" tabindex="-1"></a></span>
+<span id="cb28-13"><a href="#cb28-13" tabindex="-1"></a><span class="fu">bal.tab</span>(cem.out.imp, <span class="at">data =</span> imp.out)</span></code></pre></div>
 </div>
 <div id="using-bal.tab-with-other-packages" class="section level3">
 <h3>Using <code>bal.tab()</code> with other packages</h3>
@@ -1284,23 +1298,23 @@ weighting using optimization, similar to <em>sbw</em>. No
 output in mind; rather, <em>optweight</em> was written to have output
 compatible with the <code>default</code> method of
 <code>bal.tab()</code>.</p>
-<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" tabindex="-1"></a><span class="co">#Optimization-based weighting</span></span>
-<span id="cb30-2"><a href="#cb30-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
-<span id="cb30-3"><a href="#cb30-3" tabindex="-1"></a></span>
-<span id="cb30-4"><a href="#cb30-4" tabindex="-1"></a><span class="co">#Estimate the weights using optimization</span></span>
-<span id="cb30-5"><a href="#cb30-5" tabindex="-1"></a>ow.out <span class="ot">&lt;-</span> optweight<span class="sc">::</span><span class="fu">optweight</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> race <span class="sc">+</span></span>
-<span id="cb30-6"><a href="#cb30-6" tabindex="-1"></a>                                 re74 <span class="sc">+</span> re75,</span>
-<span id="cb30-7"><a href="#cb30-7" tabindex="-1"></a>                               <span class="at">data =</span> lalonde,</span>
-<span id="cb30-8"><a href="#cb30-8" tabindex="-1"></a>                               <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
-<span id="cb30-9"><a href="#cb30-9" tabindex="-1"></a>                               <span class="at">tols =</span> .<span class="dv">01</span>)</span>
-<span id="cb30-10"><a href="#cb30-10" tabindex="-1"></a></span>
-<span id="cb30-11"><a href="#cb30-11" tabindex="-1"></a><span class="co">#Note the contents of the output object:</span></span>
-<span id="cb30-12"><a href="#cb30-12" tabindex="-1"></a><span class="fu">names</span>(ow.out)</span></code></pre></div>
+<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" tabindex="-1"></a><span class="co">#Optimization-based weighting</span></span>
+<span id="cb29-2"><a href="#cb29-2" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>, <span class="at">package =</span> <span class="st">&quot;cobalt&quot;</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" tabindex="-1"></a></span>
+<span id="cb29-4"><a href="#cb29-4" tabindex="-1"></a><span class="co">#Estimate the weights using optimization</span></span>
+<span id="cb29-5"><a href="#cb29-5" tabindex="-1"></a>ow.out <span class="ot">&lt;-</span> optweight<span class="sc">::</span><span class="fu">optweight</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> married <span class="sc">+</span> race <span class="sc">+</span></span>
+<span id="cb29-6"><a href="#cb29-6" tabindex="-1"></a>                                 re74 <span class="sc">+</span> re75,</span>
+<span id="cb29-7"><a href="#cb29-7" tabindex="-1"></a>                               <span class="at">data =</span> lalonde,</span>
+<span id="cb29-8"><a href="#cb29-8" tabindex="-1"></a>                               <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>,</span>
+<span id="cb29-9"><a href="#cb29-9" tabindex="-1"></a>                               <span class="at">tols =</span> .<span class="dv">01</span>)</span>
+<span id="cb29-10"><a href="#cb29-10" tabindex="-1"></a></span>
+<span id="cb29-11"><a href="#cb29-11" tabindex="-1"></a><span class="co">#Note the contents of the output object:</span></span>
+<span id="cb29-12"><a href="#cb29-12" tabindex="-1"></a><span class="fu">names</span>(ow.out)</span></code></pre></div>
 <pre><code>##  [1] &quot;weights&quot;     &quot;treat&quot;       &quot;covs&quot;        &quot;s.weights&quot;   &quot;b.weights&quot;  
 ##  [6] &quot;estimand&quot;    &quot;focal&quot;       &quot;norm&quot;        &quot;call&quot;        &quot;tols&quot;       
 ## [11] &quot;target.tols&quot; &quot;duals&quot;       &quot;info&quot;        &quot;solver&quot;</code></pre>
-<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" tabindex="-1"></a><span class="co">#Use bal.tab() directly on the output</span></span>
-<span id="cb32-2"><a href="#cb32-2" tabindex="-1"></a><span class="fu">bal.tab</span>(ow.out)</span></code></pre></div>
+<div class="sourceCode" id="cb31"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" tabindex="-1"></a><span class="co">#Use bal.tab() directly on the output</span></span>
+<span id="cb31-2"><a href="#cb31-2" tabindex="-1"></a><span class="fu">bal.tab</span>(ow.out)</span></code></pre></div>
 <pre><code>## Balance Measures
 ##                Type Diff.Adj
 ## age         Contin.  -0.0100

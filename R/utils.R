@@ -27,7 +27,7 @@ word_list <- function(word.list = NULL, and.or = "and", is.are = FALSE, quotes =
     out <- toString(word.list)
   }
   else {
-    and.or <- match_arg(and.or, c("and", "or"))
+    and.or <- arg::match_arg(and.or, c("and", "or"))
     
     if (L == 2L) {
       out <- sprintf("%s %s %s",
@@ -55,23 +55,23 @@ add_quotes <- function(x, quotes = 2L) {
   }
   
   if (isTRUE(quotes)) {
-    quotes <- '"'
+    quotes <- 2L
   }
   
-  if (chk::vld_string(quotes)) {
+  if (rlang::is_string(quotes)) {
     return(paste0(quotes, x, str_rev(quotes)))
   }
   
-  if (!chk::vld_count(quotes) || quotes > 2L) {
+  if (!rlang::is_scalar_integerish(quotes) || quotes > 2 || quotes < 0) {
     stop("`quotes` must be boolean, 1, 2, or a string.")
   }
   
-  if (quotes == 0L) {
+  if (quotes == 0) {
     return(x)
   }
   
   x <- {
-    if (quotes == 1L) sprintf("'%s'", x)
+    if (quotes == 1) sprintf("'%s'", x)
     else sprintf('"%s"', x)
   }
   
@@ -98,24 +98,33 @@ num_to_superscript <- function(x) {
   vapply(splitx, function(y) paste(nums[y], collapse = ""), character(1L))
 }
 ordinal <- function(x) {
-  if (is_null(x) || !is.numeric(x)) {
-    stop("'x' must be a numeric vector.")
+  if (is_null(x)) {
+    return(x)
   }
   
-  if (length(x) > 1L) {
-    out <- setNames(vapply(x, ordinal, character(1L)), names(x))
-    return(out)
-  }
+  arg::arg_whole_numeric(x)
   
-  x0 <- abs(x)
-  out <- paste0(x0, switch(substring(x0, nchar(x0), nchar(x0)),
-                           "1" = "st",
-                           "2" = "nd",
-                           "3" = "rd",
-                           "th"))
-  if (x < 0) out <- sprintf("-%s", out)
-  
-  setNames(out, names(x))
+  vapply(x, function(.x) {
+    x0 <- abs(.x) |> as.character()
+    
+    if (any(endsWith(x0, c("11", "12", "13")))) {
+      out <- paste0(x0, "th")
+    }
+    else {
+      out <- paste0(x0, switch(substring(x0, nchar(x0), nchar(x0)),
+                               "1" = "st",
+                               "2" = "nd",
+                               "3" = "rd",
+                               "th"))
+    }
+    
+    if (.x < 0) {
+      out <- sprintf("-%s", out)
+    }
+    
+    out
+  }, character(1L)) |>
+    setNames(names(x))
 }
 firstup <- function(x) {
   #Capitalize first letter
@@ -180,40 +189,10 @@ round_df_char <- function(df, digits, pad = "0", na_vals = "") {
   
   df
 }
-text_box_plot <- function(range.list, width = 12L) {
-  full.range <- range(unlist(range.list))
-  if (all_the_same(full.range)) {
-    for (i in seq_along(range.list)) {
-      range.list[[i]][1L] <- range.list[[i]][1L] - 1e-6
-      range.list[[i]][2L] <- range.list[[i]][2L] + 1e-6
-    }
-    full.range <- range(unlist(range.list))
-  }
-  ratio <- diff(full.range) / (width + 1)
-  rescaled.range.list <- lapply(range.list, function(x) round(x / ratio))
-  rescaled.full.range <- round(full.range / ratio)
-  d <- make_df(c("Min", space(width + 1L), "Max"),
-               names(range.list),
-               "character")
-  d[["Min"]] <- vapply(range.list, function(x) x[1L], numeric(1L))
-  d[["Max"]] <- vapply(range.list, function(x) x[2L], numeric(1L))
-  for (i in seq_row(d)) {
-    spaces1 <- rescaled.range.list[[i]][1L] - rescaled.full.range[1L]
-    dashes <- max(c(0L, diff(rescaled.range.list[[i]]) - 2L))
-    spaces2 <- max(c(0L, diff(rescaled.full.range) - (spaces1 + 1L + dashes + 1L)))
-    
-    d[i, 2L] <- sprintf("%s|%s|%s",
-                        space(spaces1),
-                        strrep("-", dashes),
-                        space(spaces2))
-  }
-  
-  d
-}
 
 equivalent.factors2 <- function(f1, f2) {
-  if (!chk::vld_character_or_factor(f1) ||
-      !chk::vld_character_or_factor(f2)) {
+  if ((!is.character(f1) && !is.factor(f1)) ||
+      (!is.character(f2) && !is.factor(f2))) {
     return(FALSE)
   }
   
@@ -337,9 +316,8 @@ str_rev <- function(x) {
 }
 
 #Numbers
-check_if_zero <- function(x) {
+check_if_zero <- function(x, tolerance = sqrt(.Machine$double.eps)) {
   # this is the default tolerance used in all.equal
-  tolerance <- .Machine$double.eps^0.5
   abs(x) < tolerance
 }
 between <- function(x, range, inclusive = TRUE, na.action = FALSE) {
@@ -371,13 +349,6 @@ between <- function(x, range, inclusive = TRUE, na.action = FALSE) {
   out
 }
 
-check_if_int <- function(x) {
-  #Checks if integer-like
-  if (is.integer(x)) rep.int(TRUE, length(x))
-  else if (is.numeric(x)) check_if_zero(x - round(x))
-  else rep.int(FALSE, length(x))
-}
-
 #Statistics
 binarize <- function(variable, zero = NULL, one = NULL) {
   var.name <- deparse1(substitute(variable))
@@ -394,12 +365,12 @@ binarize <- function(variable, zero = NULL, one = NULL) {
   }
   
   if (length(unique.vals) != 2L) {
-    .err("cannot binarize {.var {var.name}}: more than two levels")
+    arg::err("cannot binarize {.var {var.name}}: more than two levels")
   }
   
   if (is_not_null(zero)) {
     if (!any(unique.vals == zero)) {
-      .err("the argument to {.arg zero} is not the name of a level of {.var {var.name}}")
+      arg::err("the argument to {.arg zero} is not the name of a level of {.var {var.name}}")
     }
     
     return(setNames(as.integer(variable != zero), names(variable)))
@@ -407,7 +378,7 @@ binarize <- function(variable, zero = NULL, one = NULL) {
   
   if (is_not_null(one)) {
     if (!any(unique.vals == one)) {
-      .err("the argument to {.arg one} is not the name of a level of {.var {var.name}}")
+      arg::err("the argument to {.arg one} is not the name of a level of {.var {var.name}}")
     }
     
     return(setNames(as.integer(variable == one), names(variable)))
@@ -666,13 +637,13 @@ assign.treat.type <- function(treat, use.multi = FALSE) {
   nunique.treat <- nunique(treat)
   
   if (nunique.treat < 2L) {
-    .err("the treatment must have at least two unique values")
+    arg::err("the treatment must have at least two unique values")
   }
   
   if (!use.multi && nunique.treat == 2L) {
     treat.type <- "binary"
   }
-  else if (use.multi || chk::vld_character_or_factor(treat)) {
+  else if (use.multi || is.character(treat) || is.factor(treat)) {
     treat.type <- "multinomial"
     if (!inherits(treat, "processed.treat")) {
       treat <- factor(treat)
@@ -705,7 +676,7 @@ get_treated_level <- function(treat, estimand = NULL, focal = NULL) {
   
   if (is_not_null(focal)) {
     if (length(focal) > 1L || focal %nin% treat) {
-      .err("the argument supplied to `focal` must be the name of a level of treatment")
+      arg::err("the argument supplied to `focal` must be the name of a level of treatment")
     }
     
     if (is_null(estimand) || !isTRUE(estimand == "ATC")) {
@@ -713,7 +684,7 @@ get_treated_level <- function(treat, estimand = NULL, focal = NULL) {
     }
     
     unique.vals <- {
-      if (chk::vld_character_or_factor(treat))
+      if (is.character(treat) || is.factor(treat))
         levels(factor(treat, nmax = 2L))
       else
         sort(unique(treat, nmax = 2L))
@@ -732,7 +703,7 @@ get_treated_level <- function(treat, estimand = NULL, focal = NULL) {
   
   if (is_not_null(control)) {
     unique.vals <- {
-      if (chk::vld_character_or_factor(treat))
+      if (is.character(treat) || is.factor(treat))
         levels(factor(treat, nmax = 2L))
       else
         sort(unique(treat, nmax = 2L))
@@ -746,7 +717,7 @@ get_treated_level <- function(treat, estimand = NULL, focal = NULL) {
   }
   
   unique.vals <- {
-    if (chk::vld_character_or_factor(treat))
+    if (is.character(treat) || is.factor(treat))
       levels(factor(treat, nmax = 2L))
     else
       sort(unique(treat, nmax = 2L))
@@ -858,11 +829,15 @@ is_0_1 <- function(x) {
 
 #R Processing
 make_list <- function(n) {
-  if (length(n) == 1L && is.numeric(n)) {
+  if (is_null(n)) {
+    vector("list", 0L)
+  }
+  else if (rlang::is_scalar_integerish(n) && n >= 0) {
     vector("list", as.integer(n))
   }
-  else if (length(n) > 0L && is.atomic(n)) {
-    setNames(vector("list", length(n)), as.character(n))
+  else if (is.atomic(n)) {
+    setNames(vector("list", length(n)),
+             as.character(n))
   }
   else {
     stop("'n' must be an integer(ish) scalar or an atomic variable.")
@@ -873,7 +848,7 @@ make_df <- function(ncol, nrow = 0L, types = "numeric") {
     ncol <- 0L
   }
   
-  if (length(ncol) == 1L && is.numeric(ncol)) {
+  if (rlang::is_scalar_integerish(ncol)) {
     col_names <- NULL
     ncol <- as.integer(ncol)
   }
@@ -886,7 +861,7 @@ make_df <- function(ncol, nrow = 0L, types = "numeric") {
     nrow <- 0L
   }
   
-  if (length(nrow) == 1L && is.numeric(nrow)) {
+  if (rlang::is_scalar_integerish(nrow)) {
     row_names <- NULL
     nrow <- as.integer(nrow)
   }
@@ -993,7 +968,7 @@ is_ <- function(x, types, stop = FALSE, arg.to = FALSE) {
   #   s0 <- if (arg.to) "the argument to " else ""
   #   s2 <- if (any(types %in% c("factor", "character", "numeric", "logical"))) "vector" else ""
   #   
-  #   .err(sprintf("%s'%s' must be a %s %s",
+  #   arg::err(sprintf("%s'%s' must be a %s %s",
   #                s0, s1, word_list(types, and.or = "or"), s2))
   # }
   
@@ -1002,7 +977,7 @@ is_ <- function(x, types, stop = FALSE, arg.to = FALSE) {
 is_mat_like <- function(x) {
   length(dim(x)) == 2L
 }
-is_null <- function(x) length(x) == 0L
+is_null <- function(x) {identical(length(x), 0L)}
 is_not_null <- function(x) !is_null(x)
 `%or%` <- function(x, y) {
   # like `%||%` but works for non-NULL length 0 objects
@@ -1027,8 +1002,7 @@ clear_attr <- function(x, all = FALSE) {
 }
 probably.a.bug <- function() {
   fun <- paste(deparse(sys.call(-1L)), collapse = "\n")
-  .err(paste0("An error was produced and is likely a bug. Please let the maintainer know a bug was produced by the function\n",
-              fun), tidy = FALSE)
+  arg::err("An error was produced and is likely a bug. Please let the maintainer know a bug was produced by the function {.fun fun}")
 }
 `%nin%` <- function(x, table) is.na(match(x, table, nomatch = NA_integer_))
 `%pin%` <- function(x, table) {
@@ -1041,6 +1015,9 @@ probably.a.bug <- function() {
 }
 is_error <- function(x) {inherits(x, "try-error")}
 null_or_error <- function(x) {is_null(x) || is_error(x)}
+is_number <- function(x) {
+  is.numeric(x) && length(x) == 1L && !anyNA(x)
+}
 
 #Extract variables from ..., similar to ...elt(), by name without evaluating list(...)
 ...get <- function(x, ifnotfound = NULL) {
@@ -1050,9 +1027,7 @@ null_or_error <- function(x) {is_null(x) || is_error(x)}
       .ifnotfound
     }
     else {
-      .m2 <- ...elt(.m1[1L])
-      if (is_not_null(.m2)) .m2
-      else .ifnotfound
+      ...elt(.m1[1L]) %or% .ifnotfound
     }
   })
   
@@ -1074,55 +1049,6 @@ null_or_error <- function(x) {is_null(x) || is_error(x)}
          pairlist(.z = z),
          parent.frame(3L))
   }), x[!not_found])
-}
-
-#More informative and cleaner version of base::match.arg(). Uses chk and cli.
-match_arg <- function(arg, choices, several.ok = FALSE, context = NULL) {
-  #Replaces match.arg() but gives cleaner error message and processing
-  #of arg.
-  if (missing(arg)) {
-    .err("no argument was supplied to {.fn match_arg} (this is a bug)")
-  }
-  
-  arg.name <- deparse1(substitute(arg), width.cutoff = 500L)
-  
-  if (missing(choices)) {
-    sysP <- sys.parent()
-    formal.args <- formals(sys.function(sysP))
-    choices <- eval(formal.args[[as.character(substitute(arg))]],
-                    envir = sys.frame(sysP))
-  }
-  
-  if (is_null(arg)) {
-    return(choices[1L])
-  }
-  
-  if (several.ok) {
-    chk::chk_character(arg, x_name = add_quotes(arg.name, "`"))
-  }
-  else {
-    chk::chk_string(arg, x_name = add_quotes(arg.name, "`"))
-    
-    if (identical(arg, choices)) {
-      return(arg[1L])
-    }
-  }
-  
-  i <- pmatch(arg, choices, nomatch = 0L, duplicates.ok = TRUE)
-  
-  if (all(i == 0L)) {
-    one_of <- {
-      if (length(choices) <= 1L) NULL
-      else if (several.ok) "at least one of"
-      else "one of"
-    }
-    
-    .err("{context} the argument to {.arg {arg.name}} should be {one_of} {.or {.val {choices}}}")
-  }
-  
-  i <- i[i > 0L]
-  
-  choices[i]
 }
 
 grab <- function(x, what) {
@@ -1188,7 +1114,7 @@ check_if_call_from_fun <- function(fun) {
   FALSE
 }
 has_method <- function(class, fun) {
-  if (!is.character(fun) || length(fun) != 1) {
+  if (!rlang::is_string(fun)) {
     stop("'fun' must be a string of length 1.")
   }
   
@@ -1249,6 +1175,23 @@ all_apply <- function(X, FUN, ...) {
   }
   
   TRUE
+}
+
+try_arg <- function(expr, warn = TRUE) {
+  .e <- function(e) {
+    arg::err("{conditionMessage(e)}")
+  }
+  
+  .w <- function(w) {
+    arg::wrn("{conditionMessage(w)}")
+  }
+  
+  if (warn) {
+    rlang::try_fetch(expr, error = .e, warning = .w)
+  }
+  else {
+    rlang::try_fetch(expr, error = .e)
+  }
 }
 
 #cli utilities
