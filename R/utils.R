@@ -77,9 +77,6 @@ add_quotes <- function(x, quotes = 2L) {
   
   x
 }
-expand_grid_string <- function(..., collapse = "") {
-  do.call("paste", c(expand.grid(...), sep = collapse))
-}
 num_to_superscript <- function(x) {
   nums <- setNames(c("\u2070",
                      "\u00B9",
@@ -226,20 +223,6 @@ wrap <- function(s, nchar, ...) {
     paste(x, collapse = "\n")
   }, character(1L))
 }
-strsplits <- function(x, splits, fixed = TRUE, ...) {
-  #Link strsplit but takes multiple split values.
-  #Only works for one string at a time (in x).
-  for (split in splits) {
-    x <- unlist(strsplit(x, split, fixed = TRUE, ...))
-  }
-  
-  x[nzchar(x)] # Remove empty values
-}
-#' @exportS3Method NULL
-c.factor <- function(..., recursive = TRUE) {
-  #c() for factors
-  unlist(list(...), recursive = recursive)
-}
 can_str2num <- function(x) {
   if (is.numeric(x) || is.logical(x)) {
     return(TRUE)
@@ -307,9 +290,6 @@ trim_string <- function(x, char = " ", symmetrical = TRUE, recursive = TRUE) {
   }
   
   x
-}
-space <- function(n) {
-  strrep(" ", n)
 }
 str_rev <- function(x) {
   vapply(lapply(strsplit(x, NULL), rev), paste, character(1L), collapse = "")
@@ -551,17 +531,6 @@ col.w.cov <- function(mat, y, w = NULL, na.rm = TRUE) {
   
   cov
 }
-col.w.r <- function(mat, y, w = NULL, s.weights = NULL, bin.vars = NULL, na.rm = TRUE) {
-  if (is_null(w) && is_null(s.weights)) {
-    return(cor(mat, y, w, use = if (na.rm) "pair" else "everything"))
-  }
-  
-  cov <- col.w.cov(mat, y = y, w = w, na.rm = na.rm)
-  den <- sqrt(col.w.v(mat, w = s.weights, bin.vars = bin.vars, na.rm = na.rm)) *
-    sqrt(col.w.v(y, w = s.weights, na.rm = na.rm))
-  
-  cov / den
-}
 .mean_abs_dev <- function(x) {
   mean_fast(abs(x - mean_fast(x, TRUE)), TRUE)
 }
@@ -609,65 +578,7 @@ ave_w.m <- function(x, ..., w = NULL) {
   x
 }
 
-#Formulas
-subbars <- function(term) {
-  if (is.name(term) || !is.language(term)) {
-    return(term)
-  }
-  
-  if (length(term) == 2L) {
-    term[[2L]] <- subbars(term[[2L]])
-    return(term)
-  }
-  
-  if (is.call(term) && (term[[1L]] == as.name("|") || term[[1L]] == as.name("||"))) {
-    term[[1L]] <- as.name("+")
-  }
-  
-  for (j in seq_len(term)[-1L]) {
-    term[[j]] <- subbars(term[[j]])
-  }
-  
-  term
-}
-
 #treat/covs
-assign.treat.type <- function(treat, use.multi = FALSE) {
-  #Returns treat with treat.type attribute
-  nunique.treat <- nunique(treat)
-  
-  if (nunique.treat < 2L) {
-    arg::err("the treatment must have at least two unique values")
-  }
-  
-  if (!use.multi && nunique.treat == 2L) {
-    treat.type <- "binary"
-  }
-  else if (use.multi || is.character(treat) || is.factor(treat)) {
-    treat.type <- "multinomial"
-    if (!inherits(treat, "processed.treat")) {
-      treat <- factor(treat)
-    }
-  }
-  else {
-    treat.type <- "continuous"
-  }
-  
-  attr(treat, "treat.type") <- treat.type
-  treat
-}
-get.treat.type <- function(treat) {
-  out <- .attr(treat, "treat.type")
-  
-  if (identical(out, "multi-category")) {
-    return("multinomial")
-  }
-  
-  out
-}
-has.treat.type <- function(treat) {
-  is_not_null(get.treat.type(treat))
-}
 get_treated_level <- function(treat, estimand = NULL, focal = NULL) {
   if (is_not_null(.attr(treat, "control")) &&
       is_not_null(.attr(treat, "treated"))) {
@@ -676,7 +587,7 @@ get_treated_level <- function(treat, estimand = NULL, focal = NULL) {
   
   if (is_not_null(focal)) {
     if (length(focal) > 1L || focal %nin% treat) {
-      arg::err("the argument supplied to `focal` must be the name of a level of treatment")
+      arg::err("the argument supplied to {.arg focal} must be the name of a level of treatment")
     }
     
     if (is_null(estimand) || !isTRUE(estimand == "ATC")) {
@@ -964,20 +875,12 @@ is_ <- function(x, types, stop = FALSE, arg.to = FALSE) {
     it.is <- FALSE
   }
   
-  # if (stop && !it.is) {
-  #   s0 <- if (arg.to) "the argument to " else ""
-  #   s2 <- if (any(types %in% c("factor", "character", "numeric", "logical"))) "vector" else ""
-  #   
-  #   arg::err(sprintf("%s'%s' must be a %s %s",
-  #                s0, s1, word_list(types, and.or = "or"), s2))
-  # }
-  
   it.is
 }
 is_mat_like <- function(x) {
   length(dim(x)) == 2L
 }
-is_null <- function(x) {identical(length(x), 0L)}
+is_null <- function(x) {isTRUE(length(x) == 0L)}
 is_not_null <- function(x) !is_null(x)
 `%or%` <- function(x, y) {
   # like `%||%` but works for non-NULL length 0 objects
@@ -1002,16 +905,12 @@ clear_attr <- function(x, all = FALSE) {
 }
 probably.a.bug <- function() {
   fun <- paste(deparse(sys.call(-1L)), collapse = "\n")
-  arg::err("An error was produced and is likely a bug. Please let the maintainer know a bug was produced by the function {.fun fun}")
+  arg::err("an error was produced and is likely a bug. Please let the maintainer know a bug was produced by the function {.fun {fun}}")
 }
 `%nin%` <- function(x, table) is.na(match(x, table, nomatch = NA_integer_))
 `%pin%` <- function(x, table) {
   #Partial in. TRUE if x uniquely identifies values in table.
   !is.na(pmatch(x, table))
-}
-`%cin%` <- function(x, table) {
-  #Partial in w/ charmatch. TRUE if x at all in table.
-  !is.na(charmatch(x, table))
 }
 is_error <- function(x) {inherits(x, "try-error")}
 null_or_error <- function(x) {is_null(x) || is_error(x)}
@@ -1057,9 +956,6 @@ grab <- function(x, what) {
 last <- function(x) {
   x[[length(x)]]
 }
-`last<-` <- function(x, value) {
-  `[[<-`(x, length(x), value)
-}
 len <- function(x, recursive = TRUE) {
   if (is_null(x)) 0L
   else if (length(dim(x)) > 1) NROW(x)
@@ -1099,6 +995,9 @@ na.rem <- function(x) {
 anyNA_col <- function(x) {
   colSums(is.na(x)) > 0L
 }
+allNA <- function(x) {
+  anyNA(x) && all(is.na(x))
+}
 check_if_call_from_fun <- function(fun) {
   # Check if called from within function f
   if (missing(fun) || !exists(deparse1(substitute(fun)), mode = "function")) {
@@ -1114,14 +1013,9 @@ check_if_call_from_fun <- function(fun) {
   FALSE
 }
 has_method <- function(class, fun) {
-  if (!rlang::is_string(fun)) {
-    stop("'fun' must be a string of length 1.")
-  }
-  
-  if (!is.character(class)) {
-    stop("'class' must be a character vector.")
-  }
-  
+  arg::arg_string(fun)
+  arg::arg_character(class)
+
   vapply(class, function(cl) is_not_null(utils::getS3method(fun, cl, optional = TRUE,
                                                             envir = asNamespace(utils::packageName()))),
          logical(1L))
@@ -1145,6 +1039,25 @@ set_class <- function(x, .class, .replace = TRUE, .last = TRUE) {
 }
 .attr <- function(x, which, exact = TRUE) {
   attr(x, which, exact = exact)
+}
+
+#Put back the attributes `[` threw away. Subsetting or replicating the rows of a matrix
+#keeps `dim` and `dimnames` and drops everything else -- including the `co.names` that
+#says what each column of a covariate matrix is, without which the matrix reads as having
+#no covariates at all.
+#
+#Only the attributes `new` does not already have are copied, which is what makes this safe
+#for an operation that changes the number of rows: the row-shaped attributes (`dim`,
+#`dimnames`, `names`, `row.names`) are exactly the ones `[` rebuilds, so they are never
+#the ones carried over. What is left over describes the columns, and survives.
+.copy_attrs <- function(new, old) {
+  attrs <- attributes(old)
+
+  for (i in setdiff(names(attrs), names(attributes(new)))) {
+    attr(new, i) <- attrs[[i]]
+  }
+
+  new
 }
 
 #Efficient versions of any(vapply(...)) and all(vapply(...))
@@ -1182,11 +1095,11 @@ try_arg <- function(expr, warn = TRUE) {
     arg::err("{conditionMessage(e)}")
   }
   
-  .w <- function(w) {
-    arg::wrn("{conditionMessage(w)}")
-  }
-  
   if (warn) {
+    .w <- function(w) {
+      arg::wrn("{conditionMessage(w)}")
+    }
+    
     rlang::try_fetch(expr, error = .e, warning = .w)
   }
   else {
@@ -1197,4 +1110,3 @@ try_arg <- function(expr, warn = TRUE) {
 #cli utilities
 .it <- function(...) cli::style_italic(...)
 .ul <- function(...) cli::style_underline(...)
-.st <- function(...) cli::style_strikethrough(...)

@@ -52,7 +52,7 @@ base.bal.tab.imp <- function(X,
   
   if (is_null(A[["quick"]])) A[["quick"]] <- TRUE
   
-  imp <- factor(X$imp)
+  imp <- factor(X[["imp"]])
   
   if (missing(which.imp)) {
     which.imp <- NA
@@ -68,38 +68,14 @@ base.bal.tab.imp <- function(X,
   agg.fun <- as.character(imp.fun %or% A[["agg.fun"]] %or% all.agg.funs)
   agg.fun <- arg::match_arg(agg.fun, all.agg.funs, several.ok = TRUE)
   
-  X$covs <- do.call(".get_C2", c(X, A[setdiff(names(A), names(X))]), quote = TRUE)
-  
-  var_types <- .attr(X$covs, "var_types")
-  
-  if (is_null(A$continuous)) {
-    A$continuous <- getOption("cobalt_continuous", "std")
-  }
-  
-  if (is_null(A$binary)) {
-    A$binary <- getOption("cobalt_binary", switch(get.treat.type(X$treat),
-                                                  continuous = "std", "raw"))
-  }
-  
-  if (get.treat.type(X$treat) != "continuous" &&
-      "mean.diffs" %in% X$stats &&
-      ((A$binary == "std" && any(var_types == "Binary")) ||
-       (A$continuous == "std" && !all(var_types == "Binary")))) {
-    X$s.d.denom <- .get_s.d.denom(X$s.d.denom,
-                                  estimand = X$estimand,
-                                  weights = X$weights, 
-                                  subclass = X$subclass,
-                                  treat = X$treat,
-                                  focal = X$focal)
-  }
-  else if (get.treat.type(X$treat) == "continuous" &&
-           any(c("correlations", "spearman.correlations", "distance.correlations") %in% X$stats) &&
-           ((A$binary == "std" && any(var_types == "Binary")) ||
-            (A$continuous == "std" && !all(var_types == "Binary")))) {
-    X$s.d.denom <- .get_s.d.denom.cont(X$s.d.denom,
-                                       weights = X$weights,
-                                       subclass = X$subclass)
-  }
+  prep <- .bal.tab_prepare(X, A)
+  X <- prep[["X"]]
+  A <- prep[["A"]]
+
+  #A wrapper keeps the user's `s.d.denom` when nothing is standardized, so
+  #that each per-stratum child does not re-resolve it independently.
+  X[["s.d.denom"]] <- .resolve_s.d.denom(X, prep[["var_types"]], A[["continuous"]], A[["binary"]]) %or%
+    X[["s.d.denom"]]
   
   #Setup output object
   out.names <- c("Imputation.Balance", 
@@ -111,11 +87,14 @@ base.bal.tab.imp <- function(X,
   #Get list of bal.tabs for each imputation
   
   out[["Imputation.Balance"]] <- lapply(levels(imp), function(i) {
-    X_i <- subset_X(X, imp == i) |>
-      .assign_X_class()
-    
-    X_i$call <- NULL
+    #Subsetting is inside `tryCatch()` so that errors it raises (e.g., an imputation
+    #in which the treatment takes only one value) are labeled with the imputation.
     tryCatch({
+      X_i <- subset_X(X, imp == i) |>
+        .assign_X_class()
+
+      X_i[["call"]] <- NULL
+
       do.call("base.bal.tab", c(list(X_i), A[setdiff(names(A), names(X))]), quote = TRUE)
     },
     error = function(e) {
@@ -127,26 +106,20 @@ base.bal.tab.imp <- function(X,
   
   #Create summary of lists
   
-  if (imp.summary || !A$quick) {
-    out[["Balance.Across.Imputations"]] <- balance_summary(out[["Imputation.Balance"]], 
-                                                           agg.funs = agg.fun)
-    
-    if (length(agg.fun) == 1L) {
-      out <- c(out,
-               threshold_summary(compute = .attr(out[["Imputation.Balance"]][[1L]][["Balance"]], "compute"),
-                                 thresholds = .attr(out[["Imputation.Balance"]][[1L]][["Balance"]], "thresholds"),
-                                 no.adj = !.attr(out[["Imputation.Balance"]][[1L]], "print.options")$disp.adj,
-                                 balance.table = out[["Balance.Across.Imputations"]],
-                                 weight.names = .attr(out[["Imputation.Balance"]][[1L]], "print.options")$weight.names,
-                                 agg.fun = agg.fun))
-    }
-    
-    observations <- grab(out[["Imputation.Balance"]], "Observations")
-    
-    out[["Observations"]] <- samplesize_across_imps(observations)
+  if (imp.summary || !A[["quick"]]) {
+    summ <- .bal.tab_summarize(out[["Imputation.Balance"]], "Balance.Across.Imputations",
+                               agg.funs = agg.fun,
+                               obs.fun = function(cl) {
+                                 grab(cl, "Observations") |>
+                                   samplesize_across_imps()
+                               })
+
+    #This wrapper declares its slots up front, so fill them rather than appending
+    #duplicates that `$` would then look past.
+    out[names(summ)] <- summ
   }
   
-  out[["call"]] <- X$call
+  out[["call"]] <- X[["call"]]
   attr(out, "print.options") <- c(.attr(out[["Imputation.Balance"]][[1L]], "print.options"),
                                   list(which.imp = which.imp,
                                        imp.summary = imp.summary,

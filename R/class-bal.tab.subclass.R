@@ -6,8 +6,12 @@
 #'     
 #' There are two main components of the output of `bal.tab()` with subclassified data: the balance within subclasses and the balance summary across subclasses. The within-subclass balance displays essentially are standard balance displays for each subclass, except that only "adjusted" values are available, because the subclassification itself is the adjustment.
 #'     
-#' The balance summary is, for each variable, like a weighted average of the balance statistics across subclasses. This is computed internally by assigning each individual a weight based on their subclass and treatment group membership and then computing weighted balance statistics as usual with these weights. This summary is the same one would get if subclasses were supplied to the `match.strata` argument rather than to `subclass`. Because the means and mean differences are additive, their computed values will be weighted averages of the subclass-specific values, but for other statistics, the computed values will not be. 
-#'     
+#' The balance summary is, for each variable, like a weighted average of the balance statistics across subclasses. With a binary treatment, this is computed internally by assigning each individual a weight based on their subclass and treatment group membership and then computing weighted balance statistics as usual with these weights. This summary is the same one would get if subclasses were supplied to the `match.strata` argument rather than to `subclass`. Because the means and mean differences are additive, their computed values will be weighted averages of the subclass-specific values, but for other statistics, the computed values will not be.
+#'
+#' With a censoring indicator, subclassification is itself the solution: within each subclass the units still under observation should resemble every at-risk unit in it, and the summary across subclasses is that subclassification expressed as censoring weights. See [`class-bal.tab.cens`].
+#'
+#' With a continuous treatment, subclassification cannot be expressed as weights, because no set of weights makes a continuous treatment independent of the covariates within a subclass. The balance summary is therefore computed by combining the subclass-specific statistics directly, weighting each subclass by its share of the subclassified units (using `s.weights`, if supplied). Every statistic is a weighted average of the subclass-specific values, except the standard deviations, which are combined in quadrature so that the summary value is the pooled within-subclass standard deviation. The summary means are consequently the same as the means in the original sample, since subclassification does not change the distribution of the covariates.
+#'
 #' @section Allowable arguments:
 #' 
 #' There are three arguments for `bal.tab()` that relate to subclasses: `subclass`, `which.subclass`, and `subclass.summary`.
@@ -46,25 +50,30 @@ base.bal.tab.subclass <- function(X,
                                   subclass.summary = getOption("cobalt_subclass.summary"),
                                   disp.bal.tab = getOption("cobalt_disp.bal.tab", TRUE),
                                   disp.call = getOption("cobalt_disp.call", FALSE),
+                                  var.names = NULL,
                                   abs = FALSE,
                                   quick = TRUE,
+                                  .obs = NULL,
                                   ...) {
   #Preparations
   A <- clear_null(list(...))
-  A$subset <- NULL
+  A[["subset"]] <- NULL
   
-  if (type == "bin" && get.treat.type(X$treat) != "binary") {
+  if (type == "bin" && get.treat.type(X[["treat"]]) != "binary") {
     arg::err("the treatment must be a binary variable")
   }
   
-  if (missing(continuous)) continuous <- getOption("cobalt_continuous", "std")
-  if (missing(binary)) binary <- getOption("cobalt_binary", switch(type, bin = "raw", "std"))
+  std.defaults <- .get_std_defaults(X[["treat"]],
+                                    if (!missing(continuous)) continuous,
+                                    if (!missing(binary)) binary)
+  continuous <- std.defaults$continuous
+  binary <- std.defaults$binary
   
-  X$subclass <- factor(X$subclass)
+  X[["subclass"]] <- factor(X[["subclass"]])
   
   if (missing(which.subclass)) {
     which.subclass <- {
-      if (isTRUE(A[["disp.subclass"]])) seq_len(nlevels(X$subclass))
+      if (isTRUE(A[["disp.subclass"]])) seq_len(nlevels(X[["subclass"]]))
       else NA_integer_
     }
   }
@@ -76,13 +85,13 @@ base.bal.tab.subclass <- function(X,
   if (is_null(subclass.summary)) {
     subclass.summary <- is_not_null(which.subclass) && 
       (anyNA(which.subclass) || !is.numeric(which.subclass) || 
-         (is.numeric(which.subclass) && !any(which.subclass %in% seq_len(nlevels(X$subclass)))))
+         (is.numeric(which.subclass) && !any(which.subclass %in% seq_len(nlevels(X[["subclass"]])))))
   }
   
   no.adj <- FALSE
   
-  if (is_null(X$s.weights)) {
-    X$s.weights <- rep_with(1, X$treat)
+  if (is_null(X[["s.weights"]])) {
+    X[["s.weights"]] <- rep_with(1, X[["treat"]])
   }
   
   disp <- process_disp(disp, ...)
@@ -99,39 +108,24 @@ base.bal.tab.subclass <- function(X,
   
   var_types <- .attr(C, "var_types")
   
-  if (get.treat.type(X$treat) != "continuous" &&
-      "mean.diffs" %in% X$stats &&
-      ((binary == "std" && any(var_types == "Binary")) ||
-       (continuous == "std" && !all(var_types == "Binary")))) {
-    X$s.d.denom <- .get_s.d.denom(X$s.d.denom,
-                                  estimand = X$estimand,
-                                  weights = X$weights, 
-                                  subclass = X$subclass,
-                                  treat = X$treat,
-                                  focal = X$focal)
-  }
-  else if (get.treat.type(X$treat) == "continuous" &&
-           any(c("correlations", "spearman.correlations", "distance.correlations") %in% X$stats) &&
-           ((binary == "std" && any(var_types == "Binary")) ||
-            (continuous == "std" && !all(var_types == "Binary")))) {
-    X$s.d.denom <- .get_s.d.denom.cont(X$s.d.denom,
-                                       weights = X$weights,
-                                       subclass = X$subclass)
-  }
+  #A wrapper keeps the user's `s.d.denom` when nothing is standardized, so
+  #that each per-stratum child does not re-resolve it independently.
+  X[["s.d.denom"]] <- .resolve_s.d.denom(X, var_types, continuous, binary) %or%
+    X[["s.d.denom"]]
   
   out[["Subclass.Balance"]] <- do.call("balance_table_subclass", 
                                        c(list(C,
                                               type = type, 
                                               weights = NULL, 
-                                              treat = X$treat, 
-                                              subclass = X$subclass,
+                                              treat = X[["treat"]], 
+                                              subclass = X[["subclass"]],
                                               continuous = continuous,
                                               binary = binary, 
-                                              s.d.denom = X$s.d.denom[1L], 
-                                              thresholds = X$thresholds,
+                                              s.d.denom = X[["s.d.denom"]][1L], 
+                                              thresholds = X[["thresholds"]],
                                               disp = disp,
-                                              stats = X$stats, 
-                                              s.weights = X$s.weights, 
+                                              stats = X[["stats"]], 
+                                              s.weights = X[["s.weights"]], 
                                               abs = abs, 
                                               quick = quick), A), quote = TRUE)
   
@@ -141,45 +135,49 @@ base.bal.tab.subclass <- function(X,
         do.call("balance_table", 
                 c(list(C, 
                        type = type, 
-                       weights = data.frame(Adj = strata2weights(X$subclass, X$treat,
-                                                                 X$estimand, X$focal)), 
-                       treat = X$treat, 
-                       s.d.denom = X$s.d.denom[1L], 
-                       s.weights = X$s.weights, 
+                       weights = data.frame(Adj = strata2weights(X[["subclass"]], X[["treat"]],
+                                                                 X[["estimand"]], X[["focal"]])), 
+                       treat = X[["treat"]], 
+                       s.d.denom = X[["s.d.denom"]][1L], 
+                       s.weights = X[["s.weights"]], 
                        continuous = continuous, 
                        binary = binary, 
-                       thresholds = X$thresholds,
+                       thresholds = X[["thresholds"]],
                        un = un, 
                        disp = disp,
-                       stats = X$stats, 
+                       stats = X[["stats"]], 
                        abs = abs, 
                        no.adj = FALSE, quick = quick, 
                        var_types = .attr(C, "var_types"),
-                       s.d.denom.list = X$s.d.denom.list), A), quote = TRUE)
+                       s.d.denom.list = X[["s.d.denom.list"]]), A), quote = TRUE)
       }
       else if (type == "cont") {
-        do.call("balance_table_across_subclass_cont", 
-                c(list(do.call("balance_table", c(list(C, 
-                                                       type = type, 
-                                                       weights = NULL,
-                                                       treat = X$treat, 
-                                                       s.d.denom = X$s.d.denom[1L], 
-                                                       s.weights = X$s.weights, 
-                                                       continuous = continuous, 
-                                                       binary = binary, 
-                                                       thresholds = X$thresholds,
-                                                       un = un, 
-                                                       disp = disp,
-                                                       stats = X$stats, 
-                                                       abs = abs, 
-                                                       no.adj = TRUE, 
-                                                       quick = quick, 
-                                                       var_types = .attr(C, "var_types"),
-                                                       s.d.denom.list = X$s.d.denom.list), A),
-                               quote = TRUE), 
-                       balance.table.subclass.list = out[["Subclass.Balance"]], 
-                       subclass.obs = out[["Observations"]], 
-                       r.threshold = X$thresholds[["correlations"]]), A), quote = TRUE)
+        balance_table_across_subclass(
+          do.call("balance_table",
+                  c(list(C,
+                         type = type,
+                         weights = NULL,
+                         treat = X[["treat"]],
+                         s.d.denom = X[["s.d.denom"]][1L],
+                         s.weights = X[["s.weights"]],
+                         continuous = continuous,
+                         binary = binary,
+                         thresholds = X[["thresholds"]],
+                         un = un,
+                         disp = disp,
+                         stats = X[["stats"]],
+                         abs = abs,
+                         no.adj = TRUE,
+                         quick = quick,
+                         var_types = var_types,
+                         s.d.denom.list = X[["s.d.denom.list"]]), A),
+                  quote = TRUE),
+          subclass.balance = out[["Subclass.Balance"]],
+          subclass = X[["subclass"]],
+          type = type,
+          s.weights = X[["s.weights"]],
+          thresholds = X[["thresholds"]],
+          abs = abs)
       }
     }
   }
@@ -191,8 +189,8 @@ base.bal.tab.subclass <- function(X,
   
   for (s in compute) {
     if (is_not_null(thresholds[[s]])) {
-      out[[paste.("Balanced", s, "Subclass")]] <- setNames(do.call("data.frame", lapply(out[["Subclass.Balance"]], function(x) .baltal(x[[STATS[[s]]$Threshold]]))),
-                                                           paste("Subclass", levels(X$subclass)))
+      out[[paste.("Balanced", s, "Subclass")]] <- setNames(do.call("data.frame", lapply(out[["Subclass.Balance"]], function(x) .baltal(x[[STATS[[s]]$Threshold]], thresholds[[s]]))),
+                                                           paste("Subclass", levels(X[["subclass"]])))
       max.imbal.list <- lapply(out[["Subclass.Balance"]], function(x) {
         .max_imbal(x[x[["Type"]] != "Distance", , drop = FALSE], 
                    col.name = paste.(STATS[[s]]$bal.tab_column_prefix, "Adj"), 
@@ -200,24 +198,28 @@ base.bal.tab.subclass <- function(X,
                    abs_stat = STATS[[s]]$abs)
       })
       out[[paste.("Max.Imbalance", s, "Subclass")]] <- as.data.frame(do.call("rbind", max.imbal.list), 
-                                                                     row.names = paste("Subclass", levels(X$subclass)))
+                                                                     row.names = paste("Subclass", levels(X[["subclass"]])))
     }
   }
   
-  out[["Observations"]] <- samplesize(treat = X$treat, 
-                                      type = type,
-                                      weights = NULL, 
-                                      subclass = X$subclass,
-                                      s.weights = X$s.weights, 
-                                      method = X$method, 
-                                      discarded = X$discarded)
+  #`.obs` is for a caller whose `X` was reshaped before it got here; see
+  #`base.bal.tab.base()`.
+  out[["Observations"]] <- .obs %or%
+    samplesize(treat = X[["treat"]],
+               type = type,
+               weights = NULL,
+               subclass = X[["subclass"]],
+               s.weights = X[["s.weights"]],
+               method = X[["method"]],
+               discarded = X[["discarded"]])
   
-  out[["call"]] <- X$call
+  out[["call"]] <- X[["call"]]
   attr(out, "print.options") <- list(thresholds = thresholds,
                                      imbalanced.only = imbalanced.only,
-                                     un = un, 
+                                     un = un,
+                                     stats = X[["stats"]],
                                      disp = disp,
-                                     compute = compute, 
+                                     compute = compute,
                                      disp.adj = !no.adj, 
                                      which.subclass = which.subclass,
                                      disp.subclass = A[["disp.subclass"]],
@@ -228,10 +230,12 @@ base.bal.tab.subclass <- function(X,
                                      continuous = continuous,
                                      binary = binary,
                                      quick = quick,
-                                     treat_names = treat_vals(X$treat),
+                                     treat_names = treat_vals(X[["treat"]]),
+                                     group.labels = group_labels(X[["treat"]]),
                                      type = type,
-                                     co.names = co.names)
-  
+                                     co.names = co.names,
+                                     var.names = .process_var.names(var.names))
+
   set_class(out, c("bal.tab.subclass", "bal.tab"))
 }
 
@@ -240,6 +244,5 @@ base.bal.tab.subclass.binary <- function(X, ...) {
 }
 
 base.bal.tab.subclass.cont <- function(X, ...) {
-  arg::err("subclasses are not yet compatible with continuous treatments")
-  # base.bal.tab.subclass(X, type = "cont", ...)
+  base.bal.tab.subclass(X, type = "cont", ...)
 }

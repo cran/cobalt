@@ -59,7 +59,7 @@ get.w(x, ...)
 
 \item{...}{arguments passed to other methods.}
 
-\item{stop.method}{the name of the stop method used in the original call to \code{ps()} or \code{mnps()} in \pkg{twang}, e.g., \code{"es.mean"}. If empty, will return weights from all stop method available into a data.frame. Abbreviations allowed.}
+\item{stop.method}{the name of the stop method used in the original call to \code{ps()} or \code{mnps()} in \pkg{twang}, e.g., \code{"es.mean"}. If empty, will return weights from all stop method available into a data frame. Abbreviations allowed.}
 
 \item{estimand}{if weights are computed using the propensity score (i.e., for the \code{ps} and \code{CBPS} methods), which estimand to use to compute the weights. If \code{"ATE"}, weights will be computed as \code{1/ps} for the treated group and \code{1/(1-ps)} for the control group. If \code{"ATT"}, weights will be computed as \code{1} for the treated group and \code{ps/(1-ps)} for the control group. If not specified, \code{get.w()} will try to figure out which estimand is desired based on the object.
 
@@ -85,7 +85,7 @@ When sampling weights are used with \code{CBPS()} in \pkg{CBPS}, the returned we
 When \code{Match()} in \pkg{Matching} is used with \code{CommonSupport = TRUE}, the returned weights will be incorrect. This option is not recommended by the package authors.
 }
 \examples{
-\dontshow{if (all(sapply(c("WeightIt", "MatchIt"), rlang::is_installed))) withAutoprint(\{ # examplesIf}
+\dontshow{if (rlang::is_installed(c("WeightIt", "MatchIt"))) withAutoprint(\{ # examplesIf}
 data("lalonde", package = "cobalt")
 
 m.out <- MatchIt::matchit(treat ~ age + educ + race,

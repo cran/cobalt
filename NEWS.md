@@ -1,19 +1,168 @@
 *cobalt* News and Updates
 ======
 
-# cobalt 4.6.3
+# *cobalt* 5.0.0
+
+* New Features
+
+  * Added support for assessing the balance of a censoring model. A treatment marked with the new `.cens()` function is a censoring indicator rather than a treatment, and `bal.tab()` compares the units still under observation, weighted, against the full at-risk sample; with `un = TRUE` it also reports that comparison before weighting, which is the imbalance the weights were estimated to remove. All the statistics available for binary treatments are available, the moment columns are named for the two samples (`M.Uncensored`, `M.Full`), and `cluster`, `imp`, and `subclass` all apply -- subclassification is itself a way of solving a censoring problem. `bal.plot()` shows the weighted uncensored sample against the unweighted full sample. `bal.tab()` accepts a `weightit` object fit with a censoring model, a `.cens(C) ~ x1 + x2` formula, or `treat = .cens(C)` with a data frame of covariates. `cobalt::.cens()` is deliberately identical to `WeightIt::.cens()` so that the same code works whichever package is attached; *cobalt* defines its own only to avoid depending on *WeightIt*. See `?.cens` and `?class-bal.tab.cens`.
+
+  * A censoring indicator can also appear among longitudinal treatments, as in `bal.tab(list(A1 ~ x, .cens(C1) ~ x, A2 ~ x))`, which is how a joint treatment-and-censoring model is written for `WeightIt::weightitMSM()`; such an object is now accepted directly, where it previously failed with `Missing values must not exist in 'treat'`. `bal.tab()` produces one table per entry, of whichever kind that entry's model is, and assesses each among the units still under observation entering it. The risk set is accumulated from the censoring indicators themselves rather than from where treatments happen to be missing, so it makes no difference whether the data records a treatment for a unit that has already dropped out or leaves it blank; a missing treatment for a unit that is still under observation is now an error naming the time point it appeared in. A list that mixes censoring with treatment gets no balance summary across time points, as a list mixing continuous and binary treatments already does not. `bal.plot()` supports this too, showing whichever comparison the requested time point is about. See `?class-bal.tab.msm`.
+
+  * Added `as.data.frame()` and `format()` methods for `bal.tab` objects, to make it easier to report balance in a document. `as.data.frame()` returns the balance statistics as a tidy data frame, one row per covariate, sample, and statistic; segmented data (by cluster, imputation, treatment pair, time point, or subclass) put each level of segmentation in a column rather than a nested list, so the result is a single rectangle whatever the shape of the input. `format()` returns the balance table exactly as `print()` displays it, as a data frame of formatted strings, so `knitr::kable(format(b))` produces a publication-ready table with no further processing. Both accept every argument `print()` accepts and resolve them the same way. The `group` column of the tidy layout names the treatment group a mean or a standard deviation describes -- the group's own name, not the position its column takes in the balance table -- and is `NA` for a statistic that contrasts two groups. A continuous treatment has no groups, so its moments are reported for `"All"`. Because a group's own moments are the same in every pair of a multi-category treatment that group appears in, they are reported once, with no pair attached; only the contrasts carry a pair. The `threshold` and `threshold.value` columns are carried only when a threshold is on display for at least one statistic, since they would otherwise be empty throughout. See `?extract.bal.tab` and the FAQ vignette.
+
+  * `bal.tab()` now supports clustered longitudinal treatments. Previously, supplying `cluster` with a list of formulas or data frames failed with an uninformative error.
+
+  * `bal.tab()` now supports clustered subclassification, with the subclass tables nested within each cluster, as is already done for multi-category treatments and imputations. Previously, supplying both `subclass` and `cluster` silently ignored `cluster`.
+
+  * `var.names`, which supplies alternate names for the variables on display, is no longer confined to `love.plot()`. It can be given to `bal.tab()`, in which case it applies to everything that displays the resulting object -- `print()`, `format()`, `as.data.frame()`, and `love.plot()` -- so a set of readable names need be settled on only once. Each of those still takes a `var.names` of its own, which adds to the one `bal.tab()` was given and replaces any entry it names. It is specified the same way everywhere, including the shorthand by which a name given for a base variable reaches the factor levels, polynomials, and interactions it appears in, and it reaches the greatest-imbalance table along with the balance table. Only the names on display change: the variables are still stored, and still selected, under their own names, so `var.names()` continues to report those. Giving two variables the same name is now an error rather than silently drawing them on top of each other. Its documentation has moved to `?display-options`, where the other display options are described, from `?love.plot`, which now links there.
+
+  * `factor_sep` and `int_sep` are now taken in the same places `var.names` is: given to `bal.tab()` they apply to everything that displays the object afterwards, and given to `print()`, `format()`, `as.data.frame()`, or `love.plot()` they apply there, replacing the one in force. `love.plot(b, factor_sep = ": ")` therefore relabels the plot without the object having to be recomputed. A `bal.tab` object records what each name is made of, so the separators are changed by reassembling the names rather than by editing the strings, and a `var.names` replacement is still keyed by the name the covariate is stored under whichever separators are on display.
+
+  * `bal.tab()` now supports subclassification with continuous treatments, which previously failed with "subclasses are not yet compatible with continuous treatments". The output has the same shape as for a binary treatment: a balance table for each subclass, a balance summary across subclasses, and the subclass sample sizes. Because subclassification cannot be written as a set of weights for a continuous treatment, the summary across subclasses combines the subclass-specific statistics directly, weighting each subclass by its share of the subclassified units; see `?class-bal.tab.subclass`. `bal.plot()` already supported this case.
+
+* Changes
+
+  * *gtable* has moved from `Imports` to `Suggests`. It is used only to arrange the panels when `love.plot()` is given more than one statistic, and is now asked for at that point with `rlang::check_installed()`. In practice it will already be installed, since *ggplot2* and *gridExtra* both require it.
+
+  * `var.names()` now reports the names a `bal.tab` object is displayed under rather than always the stored ones, so a set of names given to `bal.tab()` comes back out to be edited instead of written out again. The `old` column, and the names of the vector, are the stored names as before -- they are what a replacement is resolved against -- and only the `new` column, and the values of the vector, have changed. With no `var.names` applied the two agree, as they always did. `var.names()` also now reports a covariate that appears at only some time points of a longitudinal treatment, which it previously omitted because it read the names of the first time point alone.
+  
+  * The `Observations` component of a `bal.tab` object for a longitudinal treatment is now always present, where previously it was computed only when the balance summary across time points was. It is still displayed only alongside that summary, since it gathers in one place what each time point's own table has already reported.
+  
+  * The divider naming each segment of a segmented `bal.tab` -- a cluster, an imputation, a subclass, a treatment pair, a time point -- is now the label centered in a rule, the form `WeightIt::summary.weightitMSM()` uses, in place of ` - - - Label - - - `. An unlabeled rule of the same width closes the set when a balance summary across the segments follows it, so that the summary is not read as another part of the last segment. Its width responds to what it introduces: every divider in one set is drawn to the width of the widest line any of those segments prints, which is normally the balance table, and never narrower than 44 characters or than the label itself. The headings within a segment (`Balance Measures`, `Sample sizes`, and the rest) are unchanged. Only the presentation changed; the objects `bal.tab()` returns are untouched.
+
+  * Time points are now named for their position in the list, whether the model there is a treatment or a censoring model, and the variable modeled, as in `1. Treatment: A_1` or `2. Censoring: C_1`. This is the form `WeightIt::summary.weightitMSM()` uses, so the same model goes by the same name in both packages. It replaces `Time 1` wherever `bal.tab()` and `bal.plot()` identify a time point. `which.time` is unchanged and still takes a position or a variable name.
+  
+  * `bal.tab()` now supports multiply imputed data supplied in stacked form (an `imp` longer than the data) with continuous longitudinal treatments, which previously failed with "`treat.list` can only contain vectors or data frames".
+  
+  * A processed treatment is now an object of class `treat`, documented at `?treat-class`, carrying its treatment type, its name, the names and values of its groups, and how those groups label the columns of a balance table. `[` preserves all of it, so a subset of a treatment is still one. This is the same class `WeightIt::.cens()` returns, so an indicator tagged by either package is accepted by both.
+  
+  * `bal.tab()` now honors `s.d.denom` with longitudinal treatments. Each time point's standardization factor was previously overwritten with the one the ATE implies -- `"pooled"` for binary and multi-category treatments, `"all"` for continuous ones -- so any value supplied to `s.d.denom` was silently discarded, and an unusable value went unreported. That value is still the default, since longitudinal treatments target the ATE, so results are unchanged unless `s.d.denom` was supplied.
+  
+  * Errors arising within a single cluster or imputation are now consistently labeled with that cluster or imputation. Previously, errors raised while subsetting the data escaped unlabeled.
+  
+  * Improvements to condition messages.
+
+  * Greatly expanded the test suite, including tests for `ps` and `iptw` objects fit with `version = "xgboost"`.
+
+* Bug fixes
+
+  * Fixed a bug in which a formula whose left-hand side was an expression rather than a bare name, as in `bal.tab(lalonde$treat ~ ps)`, failed with `unexpected '$'`. The left-hand side was taken apart into its pieces -- `lalonde$treat` into `$`, `lalonde`, and `treat` -- and each was then read as a variable of its own. It is now evaluated whole, so any expression giving the treatment is accepted, as is a name that needs backticks.
+
+  * `set.cobalt.options()` accepted `factor_sep` and `int_sep`, but nothing read them, so setting one had no effect. They are now honored.
+
+  * Fixed a bug in which a longitudinal treatment combined with `cluster` or `imp` took its default `s.d.denom` from the wrapper rather than from the treatment, so a continuous longitudinal treatment with clusters or imputations failed with an error naming `"pooled"` as an unusable value.
+
+  * Fixed a bug in which `bal.plot()` silently ignored `s.weights` for longitudinal treatments, on account of a misspelled name.
+
+  * Fixed a bug in which `which.time` given as a treatment name selected the wrong time point in `bal.plot()` when the plotted variable did not appear at every time point.
+
+  * Fixed a bug in which supplying the covariates once alongside an `imp` covering several imputations produced a balance table with no rows in it. Anything given for a single imputation is replicated up to the full data, and the replication dropped the record of what each column of the covariate matrix was, leaving a matrix that read as having no covariates at all. Sample sizes were reported correctly throughout, so the loss was easy to miss.
+
+  * Fixed a bug in which a covariate set left with no columns -- which happens when the only covariates supplied say nothing about the treatment, such as a factor that takes a single value within every cluster -- was not cut down along with everything else when the data was split by cluster or imputation, producing a stream of `longer object length is not a multiple of shorter object length` warnings.
+
+  * Errors raised for one time point of a longitudinal treatment now say which time point they came from, as they already did for clusters and imputations.
+
+  * Fixed a bug in which a formula whose response variable does not exist, as in `bal.tab(nope ~ age, data = lalonde)`, failed with R's own `object 'nope' not found` rather than saying which argument was at fault. Whether the response exists was decided from the class of the error raised by evaluating it, and R-devel now gives an unbound name an `objectNotFoundError` rather than a `simpleError`; on that version of R every such formula took the path meant for a response that exists but fails to evaluate. It is decided by looking for the binding instead, which does not depend on how R classes or words the error.
+
+  * Fixed a bug in the sample size table for subclassification in which the `Total` entry of the `Discarded` column reported the total number of units rather than the number discarded.
+
+  * Fixed a bug in which printing a `bal.tab` object for a multi-category treatment computed with `quick = FALSE` failed with `'names' attribute [7] must be the same length as the vector [3]`.
+
+  * Fixed a bug in which narrowing `cluster.fun` or `imp.fun` in `print()` failed with `undefined columns selected` when the original call to `bal.tab()` had requested more than one of them. For example, `bal.tab(..., cluster.fun = c("min", "mean", "max"))` followed by `print(., cluster.fun = "max")` now displays the maximum alone, as documented.
+
+  * Fixed a bug in which requesting `cluster.summary = TRUE` with clustered, subclassified data failed with `missing value where TRUE/FALSE needed`. A subclassified cluster has no single balance table to summarize across clusters, so the summary is now omitted, as it already is with multiply imputed data.
+
+  * `set.cobalt.options()` now accepts any statistic for `stats`. Previously only `"mean.diffs"` was allowed, even though `getOption("cobalt_stats")` was honored for all of them, so the option could not be set to anything else.
+
+  * The per-statistic display options (`disp.diff`, `disp.v.ratio`, `disp.ks`, `disp.ovl`, `disp.corr`, `disp.spear`, and `disp.dcorr`) now take effect when set with `set.cobalt.options()`. `disp.v.ratio` and `disp.ks` were previously accepted but never read; the rest were rejected. The full set is now generated from the statistic registry, and the vestigial `target.summary` option, which was never read, has been removed.
+
+  * `bal.tab()` now warns when `estimand` is not one of `"ATT"`, `"ATC"`, `"ATE"`, `"ATO"`, or `"ATM"`. Previously an unrecognized value was silently ignored, so a typo such as `estimand = "ATTT"` quietly produced the pooled standardization factor used for the ATE. The value is still ignored rather than treated as an error, and supplying `"ATT"` or `"ATC"` with a multi-category treatment remains silent, since the focal group determines the denominator in that case.
+
+  * `bal.init()` now treats `estimand = "ATC"` with a multi-category treatment identically to `estimand = "ATT"`, as documented: `focal` names the group every other group is compared against, and is required. The two were previously handled by separate branches that could disagree about what to do when `focal` was omitted.
+
+  * The error `bal.plot()` raises when `var.name` names one level of a factor rather than the factor itself now says which variable to supply instead. Splitting a factor into dummies is how `bal.tab()` summarizes it one level at a time, so a name like `race_black` appears in the balance table; `bal.plot()` plots the factor, so the dummy's name is still rejected.
+
+  * Fixed a bug in which supplying `imp` as the name of a variable in `data` failed for `ps` objects, though it worked for every other supported input.
+
+  * Fixed a bug in which `treatATT`, a documented alias for `focal` in `bal.tab()`'s default method, was silently ignored.
+
+  * The warning raised when a threshold falls outside its allowable range now names the argument (e.g., `ks.threshold`) rather than printing the internal expression used to look it up.
+
+  * Fixed inconsistencies in the sample size table in how discarded units are counted. A discarded unit now contributes only to the `Discarded` row, so `Matched`, `Unmatched`, and `Discarded` always sum to `All`; previously, for binary treatments, a discarded unit with a nonzero weight was counted as matched as well as discarded. Relatedly, the effective sample size of a weighted or matched sample now always excludes discarded units and always uses the product of `weights` and `s.weights`; for continuous treatments with more than one set of weights, `s.weights` were previously ignored when `method = "matching"`. These only differ from the previous values when a discarded unit has a nonzero weight, which does not arise for any object `bal.tab()` accepts.
+
+  * Fixed a bug in `love.plot()` in which a `bal.tab` object that did not include the default statistic (`"mean.diffs"` for binary and multi-category treatments, `"correlations"` for continuous treatments) could not be plotted at all: `love.plot(bal.tab(..., stats = "ks.statistics"))` failed with an error saying `"mean.diffs"` was not requested. `love.plot()` now falls back to a statistic that was computed. When the default statistic is available it is still used, so plots of objects that include it are unchanged.
+
+  * Fixed a bug in `print()` for `bal.tab` objects with subclasses in which supplying both `disp.thresholds` and `disp.call` failed with an uninformative error.
+
+  * Fixed a bug in the per-subclass balance tables in which every statistic was compared to its threshold using its absolute value, even when the statistic defines a different one. The across-subclass summary table was already correct.
+
+  * Fixed a bug in `bal.compute()` and `bal.init()` in which `stat = "r2"` failed for all inputs. The same underlying problem affected `bal.tab()` when `int = TRUE` was supplied with a single covariate or when `poly` was greater than 1 and all covariates were binary.
+
+  * Fixed a bug in `bal.compute()` and `bal.init()` in which the Spearman correlation statistics (`stat = "s.mean"`, `"s.max"`, or `"s.rms"`) failed for all inputs.
+
+  * Fixed a bug in `col_w_smd()`, `col_w_cov()`, `col_w_corr()`, `col_w_dcov()`, and `col_w_dcorr()` in which `s.weights` were applied twice to the standardization factor when `s.d.denom = "weighted"` and `weighted.weights` was left at its default. This made the resulting standardized statistics disagree with the corresponding values from `bal.tab()`, which were correct. Supplying `weighted.weights` explicitly was unaffected, as was the case where `s.weights` were absent.
+
+  * Fixed a bug in `col_w_dcov()` and `col_w_dcorr()` in which supplying a `mat` with more than one column failed unless `std` was given a value for each column.
+
+  * Fixed a bug in `col_w_ovl()` in which the `steps` argument was ignored. `steps` is now also validated when `integrate = TRUE`, since it is used if `integrate()` fails and the Riemann sum is used as a fallback.
+
+  * Fixed a bug in which `print()` failed on a `bal.init` object with `stat = "r2.2"` or `"r2.3"`.
+
+  * Fixed a bug in `bal.plot()` in which supplying `subclass` along with `which = "both"` failed when a subset of subclasses was requested, and dropped the sampling weights from the unadjusted sample otherwise.
+
+  * Fixed a bug in `bal.plot()` in which longitudinal treatments failed unless `which` was supplied explicitly.
+
+  * Fixed a bug in `get.w()` for `ps` objects in which `estimand = "ATC"` was ignored and the weights stored in the object were returned instead.
+
+  * Fixed a bug in `bal.tab()`'s default method in which a distance measure supplied as a component of the input object (using any of `distance`, `ps`, `pscore`, `p.score`, or `propensity.score`) was silently dropped. This also affected longitudinal treatments processed through the default method.
+
+  * `love.plot()` now gives an informative error when `stats` names a statistic that was not requested in the original call to `bal.tab()`, matching the behavior of `print()`. Previously this failed with an uninformative error about differing numbers of rows.
+
+  * For `ps` and `iptw` objects fit with `version = "xgboost"`, `bal.tab()` now asks for `formula`/`covs` (or `formula.list`/`covs.list`) when the fitted model records no feature names at all, rather than failing with an uninformative error from `reformulate()`. This is the case for models fit with *xgboost* 3.0.0 or later, which no longer store feature names in the model object.
+
+  * Fixed a bug in `splitfactor()` in which supplying `check = FALSE` along with a mix of valid and invalid variable names failed to produce the intended warning.
+
+  * `col_w_mean()` and `col_w_sd()` now reject an array with more than two dimensions rather than silently collapsing it into a single column, consistent with the other `col_w_*()` functions.
+
+  * Fixed several bugs in the display arguments of `print()` for `bal.tab` objects:
+
+    * `disp` was ignored, and produced a spurious warning, whenever the requested quantities had in fact been computed. The subclass method was unaffected.
+  
+    * `disp.means`, `disp.sds`, and the per-statistic `disp.<stat>` arguments could only turn a column on, never off. Setting `disp.ks = FALSE`, for example, displayed the KS statistics rather than hiding them.
+  
+    * Supplying `disp.thresholds` with a name that is not among the object's thresholds warned and then failed with an error about attribute lengths.
+  
+    * A `which.subclass` containing no valid subclass index warned and then failed rather than displaying no subclasses.
+
+  * Fixed a bug in which a `bal.tab` object with subclasses and `quick = FALSE` could not be printed at all, failing with "undefined columns selected". The columns of the across-subclass table are now selected by name rather than by position, which cannot fall out of step with the table's width.
+
+  * Fixed a bug in which the sample sizes for longitudinal treatments never collapsed the "All (ESS)" and "All (Unweighted)" rows when the two agreed, though the corresponding "Matched" rows did.
+
+  * Fixed a bug in which `bal.plot()` failed for a longitudinal treatment combined with `cluster`, and in the ordering of facets when neither `which` nor `imp` is displayed.
+
+  * Fixed bugs in `unsplitfactor()`:
+
+    * A dropped numeric level was not inferred for a `data.frame` that did not come from `splitfactor()` (e.g. one built with `model.matrix()`), because the level was extracted one character too early and so never parsed as a number.
+  
+    * `dropped.na` could not be given as the name of the column holding the missingness indicator, as documented; it was rejected as a non-logical value.
+
+
+  * The documentation for `integrate` in `bal.compute()` now correctly states that the default is `TRUE`; the documented default had been `FALSE` since the default changed in 4.6.0. The documentation for `steps` in `col_w_ovl()` now notes that it is also used when `integrate()` fails.
+
+# *cobalt* 4.6.3
 
 * [*arg*](https://ngreifer.github.io/arg/) is now used for errors and warning messages.
 
 * Documentation updates.
 
-# cobalt 4.6.2
+# *cobalt* 4.6.2
 
 * Fixed documentation issue when a package isn't available.
 
 * Converted all condition messages to use *cli*, which is now a dependency. *crayon* is no longer a dependency.
 
-# cobalt 4.6.1
+# *cobalt* 4.6.1
 
 * Fixed a bug when using `love.plot()` with multiple `stat`s supplied. Thanks to @jjharden for the report. (#93)
 
@@ -21,7 +170,7 @@
 
 * Fixed bugs when using `pairwise = FALSE` with `bal.compute()`.
 
-# cobalt 4.6.0
+# *cobalt* 4.6.0
 
 * Added two new functions, `col_w_dcov()` and `col_w_dcorr()` for computing univariate (weighted) distance covariances and distance correlations between a treatment and covariates. 
 
@@ -49,7 +198,7 @@
 
 * Code cleaning and refactoring to improve performance.
 
-# cobalt 4.5.5
+# *cobalt* 4.5.5
 
 * Minor updates to `bal.plot()` to prevent warnings due to `ggplot2` 3.5.0.
 
@@ -59,7 +208,7 @@
 
 * Documentation updates
 
-# cobalt 4.5.4
+# *cobalt* 4.5.4
 
 * Minor update to accommodate `ggplot2` 3.5.0. Thanks to @teunbrand. (#80)
 
@@ -69,7 +218,7 @@
 
 * Added a new vignette for frequently asked questions, which describes in further detail why some choices were made. See `vignette("faq")`.
 
-# cobalt 4.5.3
+# *cobalt* 4.5.3
 
 * Fixed a bug when missing values were present in continuous covariates. Thanks to @vnusinfo. (#76)
 
@@ -81,7 +230,7 @@
 
 * Variables with a single value are now more reliably categorized as "binary" in tables and calculations.
 
-# cobalt 4.5.2
+# *cobalt* 4.5.2
 
 * Fixed a bug when using `bal.compute()` with a treatment variable with levels named "treated" and "control".
 
@@ -91,7 +240,7 @@
 
 * Fixed a bug when using `subset` to remove clusters lacking full representation in all treatment groups when `cluster` is specified. (#70)
 
-# cobalt 4.5.1
+# *cobalt* 4.5.1
 
 * Added a new function `available.stats()` which lists the available balance statistics for use with `bal.init()` and `bal.compute()`.
 
@@ -111,13 +260,13 @@
 
 * Fixed a bug when using `bal.plot()` with longitudinal treatments.
 
-* Fixed a bug in while the display options `factor_sep` and `int_sep` were not functioning correctly.
+* Fixed a bug in which the display options `factor_sep` and `int_sep` were not functioning correctly.
 
 * Fixed a bug when no covariates are supplied.
 
 * Improved some errors all around, and particularly in `col_w_smd()` and friends, `bal.init()`, and `var.names()`.
 
-# cobalt 4.5.0
+# *cobalt* 4.5.0
 
 * Added new functions `bal.compute()` and `bal.init()`, which are used for compute scalar balance statistics efficiently for use in optimizing balance. A new vignette, `vignette("optimizing-balance")` is available as well.
 
@@ -133,7 +282,7 @@
 
 * Documentation updates, including some new pages and the use of `roxygen2`.
 
-# cobalt 4.4.1
+# *cobalt* 4.4.1
 
 * Fixed a bug when covariates with nonstandard names are extracted from model objects (#63). Thanks to @markdanese.
 
@@ -145,7 +294,7 @@
 
 * The call to the original balancing function is now hidden by default. To request it be displayed, set `disp.call = TRUE` in the call to `bal.tab()` or `print.bal.tab()` or use `set.cobalt.options(disp.call = TRUE)` to display it for the session.
 
-# cobalt 4.4.0
+# *cobalt* 4.4.0
 
 * Added support in `bal.plot()` for negative weights with `type = "density"`.
 
@@ -169,7 +318,7 @@
 
 * Updated the logo, thanks to [Ben Stillerman](https://stillben.com).
 
-# cobalt 4.3.2
+# *cobalt* 4.3.2
 
 * When `pairwise = FALSE` with binary or multi-category treatments, the balance statistics now refer to the difference between each group and the original full sample, unadjusted except possibly by `s.weights`. Previously, they referred to the difference between each group and the combined adjusted sample.
 
@@ -187,13 +336,13 @@
 
 * Fixed typos (#54, many identified and fixed by @jessecambon).
 
-# cobalt 4.3.1
+# *cobalt* 4.3.1
 
 * Added support for objects from the new version of `MatchThem`.
 
 * Fixed a bug and improved speed when using `match.strata`.
 
-# cobalt 4.3.0
+# *cobalt* 4.3.0
 
 * Returned `cem` to Suggests.
 
@@ -231,7 +380,7 @@
 
 * Updates to documentation.
 
-# cobalt 4.2.4
+# *cobalt* 4.2.4
 
 * Sampling weights now function correctly with subclassification.
 
@@ -243,7 +392,7 @@
 
 * Updated to support `MatchIt` 4.0.0, which includes sampling weights and improved processing of the covariates.
 
-# cobalt 4.2.3
+# *cobalt* 4.2.3
 
 * Fixed bugs in processing functions in formulas, including `rms` functions and `poly()`. (#40)
 
@@ -255,13 +404,13 @@
 
 * Effective sample sizes now print only up to two digits (believe me, you don't need three) and print more cleanly with whole numbers.
 
-# cobalt 4.2.2
+# *cobalt* 4.2.2
 
 * Fixed a bug due to new version of `sbw`.
 
 * Minor improvements to error messages and documentation.
 
-# cobalt 4.2.1
+# *cobalt* 4.2.1
 
 * Fixed a bug where `int` and `poly` were ignored with binary and continuous treatments.
 
@@ -279,7 +428,7 @@
 
 * Updated some warnings.
 
-# cobalt 4.2.0
+# *cobalt* 4.2.0
 
 * Added support for `Matchby` objects resulting from a call to `Matchby()` in the `Matching` package. These function identically to `Match` objects.
 
@@ -311,7 +460,7 @@
 
 * General speed and stability improvements.
 
-# cobalt 4.1.0
+# *cobalt* 4.1.0
 
 * Added support for `sbwcau` objects from `sbw`. See `vignette("other-packages")` or `?bal.tab.sbw` for an example.
 
@@ -351,7 +500,7 @@
 
 * Speedups and other small fixes.
 
-# cobalt 4.0.0
+# *cobalt* 4.0.0
 
 **Major Updates**
 
@@ -413,7 +562,7 @@
 
 * Other bug fixes and performance improvements here and there.
 
-# cobalt 3.9.0
+# *cobalt* 3.9.0
 
 * Added vignette for use of `love.plot`.
 
@@ -429,7 +578,7 @@
 
 * Other small bug fixes.
 
-# cobalt 3.8.0
+# *cobalt* 3.8.0
 
 * Added the ability to display balance on multiple measures (e.g., mean differences, variance ratios, KS statistics) at the same time with `love.plot()`.
 
@@ -449,7 +598,7 @@
 
 * Other bug fixes and improvements.
 
-# cobalt 3.7.0
+# *cobalt* 3.7.0
 
 * Changes to some `bal.tab()` defaults: `quick` is now set to `TRUE` by default. Adjusted and unadjusted means, standard deviations, and mean differences will always be computed, regardless of `quick`. Variance ratios and KS statistics will only be computed if `quick = FALSE` or `disp.v.ratio` or `disp.ks`, respectively, are `TRUE`.
 
@@ -469,11 +618,11 @@
 
 * Fixed bug occurring when using `bal.tab()` on `mnps` objects with multiple stop methods.
 
-# cobalt 3.6.1
+# *cobalt* 3.6.1
 
 * Fixed bug when installed version of R was earlier than 3.5.0.
 
-# cobalt 3.6.0
+# *cobalt* 3.6.0
 
 * Added `poly` argument to `bal.tab()` to display polynomials of continuous covariates (e.g., squares, cubes, etc.). This used to only be available with the `int` argument, which also displayed all interactions. Now, the polynomials can be requested separately. When `int = TRUE`, squares of the covariates will no longer be displayed; to replicate the old behavior, set `int = 2`, which is equivalent to `int = TRUE, poly = 2`.
 
@@ -489,7 +638,7 @@
 
 * Added `set.cobalt.options()` function to more easily set the global options that can be used as defaults to some arguments. For example, `set.global.options(binary = "std")` makes it so that standardized mean difference are always displayed for binary covariates (in the present R session). The options can be retrieved with `get.cobalt.options()`.
 
-# cobalt 3.5.0
+# *cobalt* 3.5.0
 
 * Several changes to `bal.tab()` display options (i.e., `imbalanced.only`, `un`, `disp.means`, `disp.v.ratio`, `disp.ks`, `disp.bal.tab`, `disp.subclass`, and parameters related to the display of balance tables with multinomial treatments, clusters, multiple imputations, and longitudinal treatments). First, the named arguments have been removed from the method-specific functions in order to clean them up and make it easier to add new functions, but they are still available to be specified. Second, a help page devoted just to these functions has been created, which can be accessed with `?options-display`. Third, global options for these arguments can be set with `options()` so they don't need to be typed each time. For example, if you wanted `un = TRUE` all the time, you could set `options(cobalt_un = TRUE)` once and not have to include it in the call to `bal.tab()`.
 
@@ -511,7 +660,7 @@
 
 * Major updates to the organization of the code and help files. Certain functions have simplified syntax, relying more on `...`, and help pages have been shorted and consolidated for some methods. In particular, the code and help documents for the `Matching`, `optmatch`, `ebal`, and `designmatch` methods of `bal.tab()` have been consolidated since they all rely on exactly the same syntax.
 
-# cobalt 3.4.1
+# *cobalt* 3.4.1
 
 * Fixed a bug that would occur when `imabalanced.only = TRUE` in `bal.tab()` but all variables were balanced.
 
@@ -529,7 +678,7 @@
 
 * Added `disp.means` option to `bal.tab()` with continuous treatments.
 
-# cobalt 3.4.0
+# *cobalt* 3.4.0
 
 * Added `default` method for `bal.tab()` so it can be used with specially formatted output from other packages (e.g., from `optweight`). `bal.plot()` should work with these outputs too. This, of course, will never be completely bug-free because infinite inputs are possible and cannot all be processed perfectly. Don't try to break this function :)
 
@@ -547,7 +696,7 @@
 
 * When weighted correlations are computed for continuous treatments, the denominator of the correlation now uses the unweighted standard deviations. See `?bal.tab` for the rationale.
 
-# cobalt 3.3.0
+# *cobalt* 3.3.0
 
 * Added methods for objects from the `designmatch` package.
 
@@ -565,7 +714,7 @@
 
 * Added `abs` option to `bal.tab` to display absolute values of statistics, which can be especially helpful for aggregated output. This also affects how `love.plot()` handles aggregated balance statistics.
 
-# cobalt 3.2.3
+# *cobalt* 3.2.3
 
 * Added support for data with missing covariates. `bal.tab()` will produce balance statistics for the non-missing values and will automatically create a new variable indicating whether the variable is missing or not and produce balance statistics on this variable as well. 
 
@@ -579,7 +728,7 @@
 
 * Objects in the environment are now handled better by `bal.tab()` with the formula interface. The `data` argument is now optional if all variables in the formula exist in the environment.
 
-# cobalt 3.2.2
+# *cobalt* 3.2.2
 
 * Fixed a bug when using `get.w()` (and `bal.tab()`) with `mnps` objects from `twang` with only one stop method.
 
@@ -595,7 +744,7 @@
 
 * Restored some vignettes that required `WeightIt`.
 
-# cobalt 3.2.1
+# *cobalt* 3.2.1
 
 * Edits to vignettes and help files to respond to missing packages. Some vignette items may not display if packages are (temporarily) unavailable.
 
@@ -603,7 +752,7 @@
 
 * Added more support for sampling weights in `get.w()` and help files.
 
-# cobalt 3.2.0
+# *cobalt* 3.2.0
 
 * Added support for longitudinal treatments in `bal.tab()`, `bal.plot()`, and `love.plot()`, including output from `iptw()` in `twang`, `CBMSM()` from `CBPS`, and `weightitMSM()` from `WeightIt`.
 
@@ -619,7 +768,7 @@
 
 * Fixed bug with multiple methods when weights were entered as a list.
 
-# cobalt 3.1.0
+# *cobalt* 3.1.0
 
 * Added full support for tibbles.
 
@@ -635,7 +784,7 @@
 
 * Fixes to the vignettes. Also, creation of a new vignette to simplify the main one.
 
-# cobalt 3.0.0
+# *cobalt* 3.0.0
 
 * Added support for multinomial treatments in `bal.tab()`, including output from `CBPS` and `twang`.
 
@@ -649,7 +798,7 @@
 
 * Fixed bug when using `bal.tab()` with multiply imputed data without adjustment. Fixed bug when using `s.weights` with the `formula` method of `bal.tab()`.
 
-# cobalt 2.2.0
+# *cobalt* 2.2.0
 
 * Added `disp.ks` and `ks.threshold` options to `bal.tab()` to display Kolmogorov-Smirnov statistics before and after preprocessing.
 
@@ -663,7 +812,7 @@
 
 * Fixed a bug in `love.plot()` caused when `var.order` was specified to be a sample that was not present.
 
-# cobalt 2.1.0
+# *cobalt* 2.1.0
 
 * Added support in `bal.tab()`, `bal.plot()`, and `love.plot()` for examining balance on multiple weight specifications at a time
 
@@ -683,7 +832,7 @@
 
 * `distance`, `addl`, and `weights` can now be specified as lists of the usual arguments
 
-# cobalt 2.0.0
+# *cobalt* 2.0.0
 
 * Added support for matching using the `optmatch` package or by specifying matching strata.
 
@@ -705,11 +854,11 @@
 
 * Speed improvements
 
-* Fixed a bug causing mislabelling of categorical variables
+* Fixed a bug causing mislabeling of categorical variables
 
 * Changed calculation of weighted variance to be in line with recommendations; `CBPS` can now be used with standardized weights
 
-# cobalt 1.3.1
+# *cobalt* 1.3.1
 
 * Added support for entropy balancing through the `ebal` package.
 
@@ -719,7 +868,7 @@
 
 * Edits to the vignette.
     
-# cobalt 1.3.0
+# *cobalt* 1.3.0
 
 * Increased capabilities for cluster balance in `bal.tab()` and `love.plot()`
 
@@ -735,7 +884,7 @@
 
 * Edits to the vignette
 
-# cobalt 1.2.0
+# *cobalt* 1.2.0
 
 * Added support for continuous treatment variables in `bal.tab()`, `bal.plot()`, and `love.plot()`
 
@@ -745,7 +894,7 @@
 
 * Major revisions and adjustments to the vignette
 
-# cobalt 1.1.0
+# *cobalt* 1.1.0
 
 * Added a vignette.
 

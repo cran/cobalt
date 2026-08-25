@@ -2,8 +2,10 @@ base.bal.tab <- function(X, ...) {
   fun <- switch(.attr(X, "X.class"),
                 "binary" = base.bal.tab.binary,
                 "cont" = base.bal.tab.cont,
+                "cens" = base.bal.tab.cens,
                 "subclass.binary" = base.bal.tab.subclass.binary,
                 "subclass.cont" = base.bal.tab.subclass.cont,
+                "subclass.cens" = base.bal.tab.subclass.cens,
                 "cluster" = base.bal.tab.cluster,
                 "msm" = base.bal.tab.msm,
                 "multi" = base.bal.tab.multi,
@@ -30,35 +32,38 @@ base.bal.tab.base <- function(X,
                               disp = NULL,
                               disp.bal.tab = getOption("cobalt_disp.bal.tab", TRUE),
                               disp.call = getOption("cobalt_disp.call", FALSE),
+                              var.names = NULL,
                               abs = FALSE,
                               quick = TRUE,
+                              .obs = NULL,
                               ...) {
   #Preparations
   A <- clear_null(list(...))
-  A$subset <- NULL
+  A[["subset"]] <- NULL
   
-  if (type == "bin" && get.treat.type(X$treat) != "binary") {
+  if (type == "bin" && get.treat.type(X[["treat"]]) != "binary") {
     arg::err("the treatment must be a binary variable")
   }
   
-  if (is_null(continuous)) continuous <- getOption("cobalt_continuous", "std")
-  if (is_null(binary)) binary <- getOption("cobalt_binary", switch(type, bin = "raw", "std"))
+  std.defaults <- .get_std_defaults(X[["treat"]], continuous, binary)
+  continuous <- std.defaults$continuous
+  binary <- std.defaults$binary
   
-  if (is_null(X$weights)) {
+  if (is_null(X[["weights"]])) {
     un <- TRUE
     no.adj <- TRUE
   }
   else {
     no.adj <- FALSE
     
-    if (type == "bin") check_if_zero_weights(X$weights, X$treat)
-    else if (type == "cont") check_if_zero_weights(X$weights)
+    if (type == "bin") check_if_zero_weights(X[["weights"]], X[["treat"]])
+    else if (type == "cont") check_if_zero_weights(X[["weights"]])
     
-    if (ncol(X$weights) == 1L) names(X$weights) <- "Adj"
+    if (ncol(X[["weights"]]) == 1L) names(X[["weights"]]) <- "Adj"
   }
   
-  if (is_null(X$s.weights)) {
-    X$s.weights <- rep_with(1, X$treat)
+  if (is_null(X[["s.weights"]])) {
+    X[["s.weights"]] <- rep_with(1, X[["treat"]])
   }
   
   disp <- process_disp(disp, ...)
@@ -72,42 +77,19 @@ base.bal.tab.base <- function(X,
   
   var_types <- .attr(C, "var_types")
   
-  if (is_not_null(X$s.d.denom.list)) {
-    X$s.d.denom <- NULL
-  }
-  else if (get.treat.type(X$treat) != "continuous" &&
-           "mean.diffs" %in% X$stats &&
-           ((binary == "std" && any(var_types == "Binary")) ||
-            (continuous == "std" && !all(var_types == "Binary")))) {
-    X$s.d.denom <- .get_s.d.denom(X$s.d.denom,
-                                  estimand = X$estimand,
-                                  weights = X$weights, 
-                                  subclass = X$subclass,
-                                  treat = X$treat,
-                                  focal = X$focal)
-  }
-  else if (get.treat.type(X$treat) == "continuous" &&
-           any(c("correlations", "spearman.correlations", "distance.correlations") %in% X$stats) &&
-           ((binary == "std" && any(var_types == "Binary")) ||
-            (continuous == "std" && !all(var_types == "Binary")))) {
-    X$s.d.denom <- .get_s.d.denom.cont(X$s.d.denom,
-                                       weights = X$weights,
-                                       subclass = X$subclass)
-  }
-  else {
-    X$s.d.denom <- NULL
-  }
+  #The leaf clears `s.d.denom` when nothing is standardized; a wrapper keeps it.
+  X[["s.d.denom"]] <- .resolve_s.d.denom(X, var_types, continuous, binary)
   
   out[["Balance"]] <- do.call("balance_table",
-                              c(list(C, type = type, weights = X$weights, treat = X$treat, 
-                                     s.d.denom = X$s.d.denom, s.weights = X$s.weights, 
+                              c(list(C, type = type, weights = X[["weights"]], treat = X[["treat"]], 
+                                     s.d.denom = X[["s.d.denom"]], s.weights = X[["s.weights"]], 
                                      continuous = continuous, binary = binary, 
-                                     thresholds = X$thresholds,
+                                     thresholds = X[["thresholds"]],
                                      un = un, disp = disp, 
-                                     stats = X$stats, abs = abs, 
+                                     stats = X[["stats"]], abs = abs, 
                                      no.adj = no.adj, quick = quick, 
                                      var_types = var_types,
-                                     s.d.denom.list = X$s.d.denom.list),
+                                     s.d.denom.list = X[["s.d.denom.list"]]),
                                 A),
                               quote = TRUE)
   
@@ -121,17 +103,22 @@ base.bal.tab.base <- function(X,
                              thresholds = thresholds,
                              no.adj = no.adj,
                              balance.table = out[["Balance"]],
-                             weight.names = names(X$weights)))
+                             weight.names = names(X[["weights"]])))
   
-  out[["Observations"]] <- samplesize(treat = X$treat, type = type, weights = X$weights,
-                                      s.weights = X$s.weights, method = X$method,
-                                      discarded = X$discarded)
+  #`.obs` is for a caller whose `X` has been reshaped before it got here and so cannot
+  #be counted from: the censoring leaf stacks two samples into one `X`, and the sample
+  #sizes that describe are of the units, not of the stack.
+  out[["Observations"]] <- .obs %or%
+    samplesize(treat = X[["treat"]], type = type, weights = X[["weights"]],
+               s.weights = X[["s.weights"]], method = X[["method"]],
+               discarded = X[["discarded"]])
   
-  out[["call"]] <- X$call
+  out[["call"]] <- X[["call"]]
   attr(out, "print.options") <- list(thresholds = thresholds,
                                      imbalanced.only = imbalanced.only,
-                                     un = un, 
-                                     compute = compute, 
+                                     un = un,
+                                     stats = X[["stats"]],
+                                     compute = compute,
                                      disp = disp,
                                      disp.adj = !no.adj,
                                      disp.bal.tab = disp.bal.tab,
@@ -140,11 +127,13 @@ base.bal.tab.base <- function(X,
                                      continuous = continuous,
                                      binary = binary,
                                      quick = quick,
-                                     nweights = if (no.adj) 0L else ncol(X$weights),
-                                     weight.names = names(X$weights),
-                                     treat_names = treat_names(X$treat),
+                                     nweights = if (no.adj) 0L else ncol(X[["weights"]]),
+                                     weight.names = names(X[["weights"]]),
+                                     treat_names = treat_names(X[["treat"]]),
+                                     group.labels = group_labels(X[["treat"]]),
                                      type = type,
-                                     co.names = co.names)
-  
+                                     co.names = co.names,
+                                     var.names = .process_var.names(var.names))
+
   set_class(out, c(paste.("bal.tab", type), "bal.tab"))
 }

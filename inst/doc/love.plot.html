@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2026-05-29" />
+<meta name="date" content="2026-08-24" />
 
 <title>Using love.plot() To Generate Love Plots</title>
 
@@ -364,7 +364,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Using <code>love.plot()</code> To Generate
 Love Plots</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2026-05-29</h4>
+<h4 class="date">2026-08-24</h4>
 
 
 
@@ -435,8 +435,11 @@ be a burden to type out all the names, you can use the
 <code>var.names()</code> function to create a CSV file (i.e.,
 spreadsheet) that can be customized and loaded back into R to be used
 with <code>love.plot()</code>. See <code>?var.names</code> for more
-information. Because we only have a few variable names, we’ll just
-manually create a vector of names.</p>
+information, and <code>?display-options</code> for the several ways
+<code>var.names</code> can be specified and for how to supply it to
+<code>bal.tab()</code> once instead of to each display. Because we only
+have a few variable names, we’ll just manually create a vector of
+names.</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>new.names <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">age =</span> <span class="st">&quot;Age (Years)&quot;</span>,</span>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>               <span class="at">educ =</span> <span class="st">&quot;Education (Years)&quot;</span>,</span>
 <span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>               <span class="at">married =</span> <span class="st">&quot;Married (Y/N)&quot;</span>,</span>

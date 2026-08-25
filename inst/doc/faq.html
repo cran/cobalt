@@ -575,65 +575,138 @@ problems <a href="https://stats.stackexchange.com/a/565705/116195">here</a>.</p>
 <div id="how-do-i-extract-the-balance-tables-from-the-bal.tab-object" class="section level3">
 <h3>How do I extract the balance tables from the <code>bal.tab()</code>
 object?</h3>
-<p>The output of a call to <code>bal.tab()</code> is a
-<code>bal.tab</code> object, which has several components depending on
-the features of the dataset (e.g., whether the data are multiply imputed
-or clustered or whether the treatment is binary or multi-category,
-etc.). In the most basic case, a binary or continuous treatment with no
-clustering, no multiple imputations, a single time point, and
-subclassification is not used, the balance table is stored in the
-<code>Balance</code> component of the output object. Let’s take a
-look:</p>
+<p>Use <code>as.data.frame()</code> to get the balance statistics as
+data, or <code>format()</code> to get the table exactly as
+<code>print()</code> displays it.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">data</span>(<span class="st">&quot;lalonde&quot;</span>)</span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>b <span class="ot">&lt;-</span> <span class="fu">bal.tab</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> race <span class="sc">+</span> married <span class="sc">+</span> re74,</span>
 <span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>             <span class="at">data =</span> lalonde, <span class="at">s.d.denom =</span> <span class="st">&quot;treated&quot;</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>             <span class="at">disp =</span> <span class="st">&quot;means&quot;</span>, <span class="at">stats =</span> <span class="fu">c</span>(<span class="st">&quot;m&quot;</span>, <span class="st">&quot;v&quot;</span>))</span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co"># View the structure of the object</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="fu">str</span>(b, <span class="at">give.attr =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; List of 2</span></span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;  $ Balance     :&#39;data.frame&#39;:    7 obs. of  9 variables:</span></span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt;   ..$ Type       : chr [1:7] &quot;Contin.&quot; &quot;Contin.&quot; &quot;Binary&quot; &quot;Binary&quot; ...</span></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;   ..$ M.0.Un     : num [1:7] 28.03 10.235 0.203 0.142 0.655 ...</span></span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt;   ..$ M.1.Un     : num [1:7] 25.8162 10.3459 0.8432 0.0595 0.0973 ...</span></span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt;   ..$ Diff.Un    : num [1:7] -0.3094 0.055 0.6404 -0.0827 -0.5577 ...</span></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt;   ..$ V.Ratio.Un : num [1:7] 0.44 0.496 NA NA NA ...</span></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt;   ..$ M.0.Adj    : num [1:7] NA NA NA NA NA NA NA</span></span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt;   ..$ M.1.Adj    : num [1:7] NA NA NA NA NA NA NA</span></span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt;   ..$ Diff.Adj   : num [1:7] NA NA NA NA NA NA NA</span></span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt;   ..$ V.Ratio.Adj: num [1:7] NA NA NA NA NA NA NA</span></span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt;  $ Observations:&#39;data.frame&#39;:    1 obs. of  2 variables:</span></span>
-<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt;   ..$ Control: num 429</span></span>
-<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt;   ..$ Treated: num 185</span></span>
-<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a></span>
-<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a>b<span class="sc">$</span>Balance</span>
-<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt;                Type       M.0.Un       M.1.Un     Diff.Un V.Ratio.Un M.0.Adj</span></span>
-<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; age         Contin.   28.0303030 2.581622e+01 -0.30944526  0.4399955      NA</span></span>
-<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="co">#&gt; educ        Contin.   10.2354312 1.034595e+01  0.05496466  0.4958934      NA</span></span>
-<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="co">#&gt; race_black   Binary    0.2027972 8.432432e-01  0.64044604         NA      NA</span></span>
-<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="co">#&gt; race_hispan  Binary    0.1421911 5.945946e-02 -0.08273168         NA      NA</span></span>
-<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; race_white   Binary    0.6550117 9.729730e-02 -0.55771436         NA      NA</span></span>
-<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="co">#&gt; married      Binary    0.5128205 1.891892e-01 -0.32363132         NA      NA</span></span>
-<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="co">#&gt; re74        Contin. 5619.2365064 2.095574e+03 -0.72108381  0.5181285      NA</span></span>
-<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt;             M.1.Adj Diff.Adj V.Ratio.Adj</span></span>
-<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a><span class="co">#&gt; age              NA       NA          NA</span></span>
-<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a><span class="co">#&gt; educ             NA       NA          NA</span></span>
-<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a><span class="co">#&gt; race_black       NA       NA          NA</span></span>
-<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a><span class="co">#&gt; race_hispan      NA       NA          NA</span></span>
-<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a><span class="co">#&gt; race_white       NA       NA          NA</span></span>
-<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a><span class="co">#&gt; married          NA       NA          NA</span></span>
-<span id="cb3-40"><a href="#cb3-40" tabindex="-1"></a><span class="co">#&gt; re74             NA       NA          NA</span></span></code></pre></div>
-<p>It’s not a very pretty object, which is why the <code>print()</code>
-method makes it look nicer. If you are willing to process this table
-yourself, you can easily extract it from the <code>bal.tab()</code>
-output and do what you want with it, e.g., saving it to a CSV file or
-making a pretty table using another package. Although I have been
-working on a way to do this more easily (i.e., to create a
-publication-ready table from a <code>bal.tab</code> object), it might be
-a while because the main purpose of this package is balance assessment,
-not formatting for publication (although I did put a lot of work into
-<code>love.plot()</code> to make it customizable for publication).</p>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>             <span class="at">disp =</span> <span class="st">&quot;means&quot;</span>, <span class="at">stats =</span> <span class="fu">c</span>(<span class="st">&quot;m&quot;</span>, <span class="st">&quot;v&quot;</span>),</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>             <span class="at">thresholds =</span> <span class="fu">c</span>(<span class="at">m =</span> .<span class="dv">1</span>))</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">as.data.frame</span>(b))</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;   variable    type     sample            stat   group   estimate</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; 1      age Contin. Unadjusted            mean Control 28.0303030</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; 2      age Contin. Unadjusted            mean Treated 25.8162162</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; 3      age Contin. Unadjusted      mean.diffs    &lt;NA&gt; -0.3094453</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; 4      age Contin. Unadjusted variance.ratios    &lt;NA&gt;  0.4399955</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; 5     educ Contin. Unadjusted            mean Control 10.2354312</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; 6     educ Contin. Unadjusted            mean Treated 10.3459459</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt;            threshold threshold.value</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; 1               &lt;NA&gt;              NA</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; 2               &lt;NA&gt;              NA</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; 3 Not Balanced, &gt;0.1             0.1</span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; 4               &lt;NA&gt;              NA</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; 5               &lt;NA&gt;              NA</span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; 6               &lt;NA&gt;              NA</span></span></code></pre></div>
+<p>The result is tidy: one row per covariate, sample, and statistic,
+with the balance verdict and the threshold alongside. Those last two
+columns appear only when a threshold is on display, since they would
+otherwise be empty throughout; the rest are always there. That shape is
+the same whatever the input, which makes it convenient for plotting or
+for your own aggregation. When the data are segmented—by cluster,
+imputation, treatment pair, time point, or subclass—each level of
+segmentation becomes a column rather than a nested list, so the result
+is always a single rectangle.</p>
+<p>Set <code>wide = TRUE</code> to get the layout <code>print()</code>
+uses instead, with one column per sample and statistic:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">as.data.frame</span>(b, <span class="at">wide =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt;      variable    Type       M.0.Un       M.1.Un     Diff.Un     M.Threshold.Un</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt; 1         age Contin.   28.0303030 2.581622e+01 -0.30944526 Not Balanced, &gt;0.1</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt; 2        educ Contin.   10.2354312 1.034595e+01  0.05496466     Balanced, &lt;0.1</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; 3  race_black  Binary    0.2027972 8.432432e-01  0.64044604 Not Balanced, &gt;0.1</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; 4 race_hispan  Binary    0.1421911 5.945946e-02 -0.08273168     Balanced, &lt;0.1</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; 5  race_white  Binary    0.6550117 9.729730e-02 -0.55771436 Not Balanced, &gt;0.1</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; 6     married  Binary    0.5128205 1.891892e-01 -0.32363132 Not Balanced, &gt;0.1</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; 7        re74 Contin. 5619.2365064 2.095574e+03 -0.72108381 Not Balanced, &gt;0.1</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt;   V.Ratio.Un</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; 1  0.4399955</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; 2  0.4958934</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; 3         NA</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; 4         NA</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; 5         NA</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; 6         NA</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; 7  0.5181285</span></span></code></pre></div>
+<p><code>format()</code> returns the printed table as a data frame of
+formatted strings—rounded, decimal-aligned, with missing values shown as
+<code>.</code>—which is what you want when the destination is a document
+rather than more code:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">format</span>(b)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt;                Type    M.0.Un    M.1.Un Diff.Un     M.Threshold.Un V.Ratio.Un</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt; age         Contin.   28.0303   25.8162 -0.3094 Not Balanced, &gt;0.1     0.4400</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt; educ        Contin.   10.2354   10.3459  0.0550     Balanced, &lt;0.1     0.4959</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; race_black   Binary    0.2028    0.8432  0.6404 Not Balanced, &gt;0.1          .</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; race_hispan  Binary    0.1422    0.0595 -0.0827     Balanced, &lt;0.1          .</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; race_white   Binary    0.6550    0.0973 -0.5577 Not Balanced, &gt;0.1          .</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; married      Binary    0.5128    0.1892 -0.3236 Not Balanced, &gt;0.1          .</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; re74        Contin. 5619.2365 2095.5737 -0.7211 Not Balanced, &gt;0.1     0.5181</span></span></code></pre></div>
+<p>Because it is an ordinary data frame, it goes straight into any table
+renderer, so a balance table in a Quarto or R Markdown document is one
+line:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">format</span>(b))</span></code></pre></div>
+<p>Use <code>component = &quot;observations&quot;</code> for the sample size
+table.</p>
+<p>Both functions accept every argument <code>print()</code>
+accepts—<code>stats</code>, <code>disp</code>, <code>un</code>,
+<code>imbalanced.only</code>, <code>disp.thresholds</code>, the
+<code>which.*</code> arguments—and resolve them the same way, so you can
+select what to report without recomputing anything:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">as.data.frame</span>(b, <span class="at">stats =</span> <span class="st">&quot;v&quot;</span>, <span class="at">un =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt;       variable    type     sample            stat   group     estimate</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; 1          age Contin. Unadjusted            mean Control 2.803030e+01</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; 2          age Contin. Unadjusted            mean Treated 2.581622e+01</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; 3          age Contin. Unadjusted variance.ratios    &lt;NA&gt; 4.399955e-01</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; 4         educ Contin. Unadjusted            mean Control 1.023543e+01</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; 5         educ Contin. Unadjusted            mean Treated 1.034595e+01</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; 6         educ Contin. Unadjusted variance.ratios    &lt;NA&gt; 4.958934e-01</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt; 7   race_black  Binary Unadjusted            mean Control 2.027972e-01</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt; 8   race_black  Binary Unadjusted            mean Treated 8.432432e-01</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt; 9   race_black  Binary Unadjusted variance.ratios    &lt;NA&gt;           NA</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt; 10 race_hispan  Binary Unadjusted            mean Control 1.421911e-01</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; 11 race_hispan  Binary Unadjusted            mean Treated 5.945946e-02</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt; 12 race_hispan  Binary Unadjusted variance.ratios    &lt;NA&gt;           NA</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co">#&gt; 13  race_white  Binary Unadjusted            mean Control 6.550117e-01</span></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#&gt; 14  race_white  Binary Unadjusted            mean Treated 9.729730e-02</span></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co">#&gt; 15  race_white  Binary Unadjusted variance.ratios    &lt;NA&gt;           NA</span></span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co">#&gt; 16     married  Binary Unadjusted            mean Control 5.128205e-01</span></span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a><span class="co">#&gt; 17     married  Binary Unadjusted            mean Treated 1.891892e-01</span></span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a><span class="co">#&gt; 18     married  Binary Unadjusted variance.ratios    &lt;NA&gt;           NA</span></span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a><span class="co">#&gt; 19        re74 Contin. Unadjusted            mean Control 5.619237e+03</span></span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a><span class="co">#&gt; 20        re74 Contin. Unadjusted            mean Treated 2.095574e+03</span></span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a><span class="co">#&gt; 21        re74 Contin. Unadjusted variance.ratios    &lt;NA&gt; 5.181285e-01</span></span></code></pre></div>
+<p>They also take <code>var.names</code>, which gives the covariates the
+names you want to report them under. Give it to <code>bal.tab()</code>
+and it applies wherever the object is displayed afterwards, including
+<code>love.plot()</code>; give it here and it adds to that:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">format</span>(b, <span class="at">var.names =</span> <span class="fu">c</span>(<span class="at">age =</span> <span class="st">&quot;Age&quot;</span>, <span class="at">race =</span> <span class="st">&quot;Race/Ethnicity&quot;</span>,</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>                        <span class="at">re74 =</span> <span class="st">&quot;Earnings, 1974&quot;</span>))</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt;                          Type    M.0.Un    M.1.Un Diff.Un     M.Threshold.Un</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt; Age                   Contin.   28.0303   25.8162 -0.3094 Not Balanced, &gt;0.1</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt; educ                  Contin.   10.2354   10.3459  0.0550     Balanced, &lt;0.1</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; Race/Ethnicity_black   Binary    0.2028    0.8432  0.6404 Not Balanced, &gt;0.1</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt; Race/Ethnicity_hispan  Binary    0.1422    0.0595 -0.0827     Balanced, &lt;0.1</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; Race/Ethnicity_white   Binary    0.6550    0.0973 -0.5577 Not Balanced, &gt;0.1</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt; married                Binary    0.5128    0.1892 -0.3236 Not Balanced, &gt;0.1</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt; Earnings, 1974        Contin. 5619.2365 2095.5737 -0.7211 Not Balanced, &gt;0.1</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt;                       V.Ratio.Un</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt; Age                       0.4400</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#&gt; educ                      0.4959</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="co">#&gt; Race/Ethnicity_black           .</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt; Race/Ethnicity_hispan          .</span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co">#&gt; Race/Ethnicity_white           .</span></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="co">#&gt; married                        .</span></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a><span class="co">#&gt; Earnings, 1974            0.5181</span></span></code></pre></div>
+<p>A name given for a base variable reaches every name it appears in,
+which is why one entry for <code>race</code> renames all three of its
+levels. Only the displayed names change—<code>b$Balance</code> still has
+the stored ones—so nothing downstream has to know about them. See
+<code>?display-options</code> for the other ways to specify it.</p>
+<p>The underlying components are still there if you want them: the
+balance table lives in <code>b$Balance</code> for an unsegmented object,
+and in a differently named component otherwise
+(<code>b$Cluster.Balance</code> and so on).
+<code>str(b, give.attr = FALSE)</code> shows the structure.</p>
 </div>
 <div id="how-are-balance-statistics-computed-when-using-subclassification" class="section level3">
 <h3>How are balance statistics computed when using
@@ -646,37 +719,39 @@ subclasses.</p>
 the standardization factor computed in the original sample, i.e., prior
 to subclassification. Let’s take a look below using
 <em>MatchIt</em>:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># PS Subclassification</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>msub <span class="ot">&lt;-</span> MatchIt<span class="sc">::</span><span class="fu">matchit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> race <span class="sc">+</span> married <span class="sc">+</span> re74,</span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>                         <span class="at">data =</span> lalonde, <span class="at">method =</span> <span class="st">&quot;subclass&quot;</span>,</span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>                         <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>, <span class="at">min.n =</span> <span class="dv">4</span>)</span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a></span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co"># Balance in the first subclass</span></span>
-<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="fu">bal.tab</span>(msub, <span class="at">which.sub =</span> <span class="dv">1</span>, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>)</span>
-<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; Balance by subclass</span></span>
-<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt;  - - - Subclass 1 - - - </span></span>
-<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt;                 Type Diff.Adj</span></span>
-<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; distance    Distance   0.1574</span></span>
-<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; age          Contin.  -1.0433</span></span>
-<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; educ         Contin.  -0.2759</span></span>
-<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; race_black    Binary   0.0000</span></span>
-<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; race_hispan   Binary   0.0000</span></span>
-<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; race_white    Binary   0.0000</span></span>
-<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; married       Binary  -1.1135</span></span>
-<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; re74         Contin.  -1.8353</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># PS Subclassification</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>msub <span class="ot">&lt;-</span> MatchIt<span class="sc">::</span><span class="fu">matchit</span>(treat <span class="sc">~</span> age <span class="sc">+</span> educ <span class="sc">+</span> race <span class="sc">+</span> married <span class="sc">+</span> re74,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>                         <span class="at">data =</span> lalonde, <span class="at">method =</span> <span class="st">&quot;subclass&quot;</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>                         <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>, <span class="at">min.n =</span> <span class="dv">4</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co"># Balance in the first subclass</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="fu">bal.tab</span>(msub, <span class="at">which.sub =</span> <span class="dv">1</span>, <span class="at">binary =</span> <span class="st">&quot;std&quot;</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; Balance by subclass</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; ─── Subclass 1 ──────────────</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt;                 Type Diff.Adj</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; distance    Distance   0.1574</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; age          Contin.  -1.0433</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; educ         Contin.  -0.2759</span></span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="co">#&gt; race_black    Binary   0.0000</span></span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="co">#&gt; race_hispan   Binary   0.0000</span></span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a><span class="co">#&gt; race_white    Binary   0.0000</span></span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a><span class="co">#&gt; married       Binary  -1.1135</span></span>
+<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a><span class="co">#&gt; re74         Contin.  -1.8353</span></span></code></pre></div>
 <p>Let’s see where the number <code>-1.0433</code> came from (the
 standardized mean difference for <code>age</code>). We compute the mean
 of <code>age</code> in each treatment group in subclass 1, and then
 divide it by the pooled standard deviation of age (because we requested
 the ATE) in <em>the original sample</em>.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>m0 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> <span class="dv">1</span>])</span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>m1 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> <span class="dv">1</span>])</span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>s0 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span>])</span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>])</span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a></span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>(m1 <span class="sc">-</span> m0) <span class="sc">/</span> <span class="fu">sqrt</span>((s1<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> s0<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> <span class="dv">2</span>)</span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; [1] -1.043294</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>m0 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> <span class="dv">1</span>])</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>m1 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> <span class="dv">1</span>])</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>s0 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span>])</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>])</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>(m1 <span class="sc">-</span> m0) <span class="sc">/</span> <span class="fu">sqrt</span>((s1<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> s0<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; [1] -1.043294</span></span></code></pre></div>
 <p>A common mistake is to compute the standard deviation within each
 subclass. There are a few reasons why this is bad: 1) it suffers from
 the same problem that changing the standardization factor does with
@@ -696,41 +771,41 @@ corresponding to the number of units in the subclass in the target group
 (e.g., the treated units for the ATT, all units for the ATE, etc.).
 Below I’ll demonstrate how to do that manually for the <code>age</code>
 covariate:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># SMDs across subclasses for age</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>smds <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>, <span class="cf">function</span>(s) {</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>    m0 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> s])</span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>    m1 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> s])</span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>    </span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>    s0 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span>])</span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>    s1 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>])</span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>    </span>
-<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>    (m1 <span class="sc">-</span> m0) <span class="sc">/</span> <span class="fu">sqrt</span>((s1<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> s0<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> <span class="dv">2</span>)</span>
-<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>})</span>
-<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a></span>
-<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co"># Sample size in each subclass</span></span>
-<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>ns <span class="ot">&lt;-</span> <span class="fu">table</span>(msub<span class="sc">$</span>subclass)</span>
-<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a></span>
-<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co"># Summary SMD for age</span></span>
-<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="fu">weighted.mean</span>(smds, ns)</span>
-<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; [1] -0.2354095</span></span>
-<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a></span>
-<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="fu">bal.tab</span>(msub)</span>
-<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; Balance measures across subclasses</span></span>
-<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt;                 Type Diff.Adj</span></span>
-<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; distance    Distance   0.1081</span></span>
-<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; age          Contin.  -0.2354</span></span>
-<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt; educ         Contin.   0.0075</span></span>
-<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt; race_black    Binary   0.0535</span></span>
-<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt; race_hispan   Binary  -0.0420</span></span>
-<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt; race_white    Binary  -0.0115</span></span>
-<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt; married       Binary  -0.1160</span></span>
-<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; re74         Contin.  -0.3200</span></span>
-<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a><span class="co">#&gt; Sample sizes by subclass</span></span>
-<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a><span class="co">#&gt;           1   2  3   4   5   6 All</span></span>
-<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a><span class="co">#&gt; Control 102 100 88  72  39  28 429</span></span>
-<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a><span class="co">#&gt; Treated   4   4  9  30  62  76 185</span></span>
-<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a><span class="co">#&gt; Total   106 104 97 102 101 104 614</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># SMDs across subclasses for age</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>smds <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>, <span class="cf">function</span>(s) {</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>    m0 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> s])</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>    m1 <span class="ot">&lt;-</span> <span class="fu">mean</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> msub<span class="sc">$</span>subclass <span class="sc">==</span> s])</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>    </span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>    s0 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">0</span>])</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>    s1 <span class="ot">&lt;-</span> <span class="fu">sd</span>(lalonde<span class="sc">$</span>age[lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>])</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>    </span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>    (m1 <span class="sc">-</span> m0) <span class="sc">/</span> <span class="fu">sqrt</span>((s1<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> s0<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>})</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a></span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co"># Sample size in each subclass</span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>ns <span class="ot">&lt;-</span> <span class="fu">table</span>(msub<span class="sc">$</span>subclass)</span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co"># Summary SMD for age</span></span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a><span class="fu">weighted.mean</span>(smds, ns)</span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="co">#&gt; [1] -0.2354095</span></span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a></span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a><span class="fu">bal.tab</span>(msub)</span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="co">#&gt; Balance measures across subclasses</span></span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="co">#&gt;                 Type Diff.Adj</span></span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="co">#&gt; distance    Distance   0.1081</span></span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a><span class="co">#&gt; age          Contin.  -0.2354</span></span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a><span class="co">#&gt; educ         Contin.   0.0075</span></span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a><span class="co">#&gt; race_black    Binary   0.0535</span></span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a><span class="co">#&gt; race_hispan   Binary  -0.0420</span></span>
+<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a><span class="co">#&gt; race_white    Binary  -0.0115</span></span>
+<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a><span class="co">#&gt; married       Binary  -0.1160</span></span>
+<span id="cb11-30"><a href="#cb11-30" tabindex="-1"></a><span class="co">#&gt; re74         Contin.  -0.3200</span></span>
+<span id="cb11-31"><a href="#cb11-31" tabindex="-1"></a><span class="co">#&gt; Sample sizes by subclass</span></span>
+<span id="cb11-32"><a href="#cb11-32" tabindex="-1"></a><span class="co">#&gt;           1   2  3   4   5   6 All</span></span>
+<span id="cb11-33"><a href="#cb11-33" tabindex="-1"></a><span class="co">#&gt; Control 102 100 88  72  39  28 429</span></span>
+<span id="cb11-34"><a href="#cb11-34" tabindex="-1"></a><span class="co">#&gt; Treated   4   4  9  30  62  76 185</span></span>
+<span id="cb11-35"><a href="#cb11-35" tabindex="-1"></a><span class="co">#&gt; Total   106 104 97 102 101 104 614</span></span></code></pre></div>
 <p>This works for mean differences but not other statistics. So the way
 <em>cobalt</em> actually does this is compute stratification weights,
 and then compute the balance statistics using the stratification weights
@@ -738,37 +813,37 @@ in the full sample. Stratification weights are first computed by
 computing the proportion of treated units in each sample, and then using
 the formulas to compute propensity score weights from propensity scores.
 Here’s how I do that manually for <code>age</code>:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Compute proportion of treated units in each subclass</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>prop1 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>, <span class="cf">function</span>(s) <span class="fu">mean</span>(lalonde<span class="sc">$</span>treat[msub<span class="sc">$</span>subclass <span class="sc">==</span> s]))</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># Assign to each unit</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>ps <span class="ot">&lt;-</span> prop1[msub<span class="sc">$</span>subclass]</span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co"># Compute ATE weights</span></span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>w <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">1</span> <span class="sc">/</span> ps, <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> ps))</span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a></span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co"># Compute weighted KS statistic</span></span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="fu">col_w_ks</span>(lalonde<span class="sc">$</span>age, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
-<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>         <span class="at">weights =</span> w)</span>
-<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; [1] 0.1658923</span></span>
-<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a></span>
-<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="fu">bal.tab</span>(msub, <span class="at">stats =</span> <span class="st">&quot;ks&quot;</span>)</span>
-<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#&gt; Balance measures across subclasses</span></span>
-<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co">#&gt;                 Type KS.Adj</span></span>
-<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co">#&gt; distance    Distance 0.2187</span></span>
-<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a><span class="co">#&gt; age          Contin. 0.1659</span></span>
-<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a><span class="co">#&gt; educ         Contin. 0.0627</span></span>
-<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a><span class="co">#&gt; race_black    Binary 0.0535</span></span>
-<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a><span class="co">#&gt; race_hispan   Binary 0.0420</span></span>
-<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a><span class="co">#&gt; race_white    Binary 0.0115</span></span>
-<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a><span class="co">#&gt; married       Binary 0.1160</span></span>
-<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a><span class="co">#&gt; re74         Contin. 0.3038</span></span>
-<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a><span class="co">#&gt; Sample sizes by subclass</span></span>
-<span id="cb7-28"><a href="#cb7-28" tabindex="-1"></a><span class="co">#&gt;           1   2  3   4   5   6 All</span></span>
-<span id="cb7-29"><a href="#cb7-29" tabindex="-1"></a><span class="co">#&gt; Control 102 100 88  72  39  28 429</span></span>
-<span id="cb7-30"><a href="#cb7-30" tabindex="-1"></a><span class="co">#&gt; Treated   4   4  9  30  62  76 185</span></span>
-<span id="cb7-31"><a href="#cb7-31" tabindex="-1"></a><span class="co">#&gt; Total   106 104 97 102 101 104 614</span></span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># Compute proportion of treated units in each subclass</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>prop1 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>, <span class="cf">function</span>(s) <span class="fu">mean</span>(lalonde<span class="sc">$</span>treat[msub<span class="sc">$</span>subclass <span class="sc">==</span> s]))</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co"># Assign to each unit</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>ps <span class="ot">&lt;-</span> prop1[msub<span class="sc">$</span>subclass]</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="co"># Compute ATE weights</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>w <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(lalonde<span class="sc">$</span>treat <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">1</span> <span class="sc">/</span> ps, <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> ps))</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="co"># Compute weighted KS statistic</span></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="fu">col_w_ks</span>(lalonde<span class="sc">$</span>age, <span class="at">treat =</span> lalonde<span class="sc">$</span>treat,</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>         <span class="at">weights =</span> w)</span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt; [1] 0.1658923</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="fu">bal.tab</span>(msub, <span class="at">stats =</span> <span class="st">&quot;ks&quot;</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co">#&gt; Balance measures across subclasses</span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt;                 Type KS.Adj</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt; distance    Distance 0.2187</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a><span class="co">#&gt; age          Contin. 0.1659</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="co">#&gt; educ         Contin. 0.0627</span></span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a><span class="co">#&gt; race_black    Binary 0.0535</span></span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a><span class="co">#&gt; race_hispan   Binary 0.0420</span></span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a><span class="co">#&gt; race_white    Binary 0.0115</span></span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a><span class="co">#&gt; married       Binary 0.1160</span></span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a><span class="co">#&gt; re74         Contin. 0.3038</span></span>
+<span id="cb12-27"><a href="#cb12-27" tabindex="-1"></a><span class="co">#&gt; Sample sizes by subclass</span></span>
+<span id="cb12-28"><a href="#cb12-28" tabindex="-1"></a><span class="co">#&gt;           1   2  3   4   5   6 All</span></span>
+<span id="cb12-29"><a href="#cb12-29" tabindex="-1"></a><span class="co">#&gt; Control 102 100 88  72  39  28 429</span></span>
+<span id="cb12-30"><a href="#cb12-30" tabindex="-1"></a><span class="co">#&gt; Treated   4   4  9  30  62  76 185</span></span>
+<span id="cb12-31"><a href="#cb12-31" tabindex="-1"></a><span class="co">#&gt; Total   106 104 97 102 101 104 614</span></span></code></pre></div>
 </div>
 <div id="why-dont-i-get-the-same-balance-statistics-when-using-cobalt-as-i-do-when-using-tableone" class="section level3">
 <h3>Why don’t I get the same balance statistics when using
@@ -790,7 +865,7 @@ SMD.</p>
 <em>tableone</em> and <em>cobalt</em>:</p>
 <ul>
 <li><em>tableone</em> always uses the pooled standard deviation (i.e.,
-the standardizaton factor setting <code>s.d.denom = &quot;pooled&quot;</code>) as
+the standardization factor setting <code>s.d.denom = &quot;pooled&quot;</code>) as
 the standardization factor, while <em>cobalt</em> determines the
 standardization factor based on the estimand (though by default or when
 the ATE is the estimand, the two should be aligned).</li>

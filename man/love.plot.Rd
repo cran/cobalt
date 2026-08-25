@@ -66,7 +66,7 @@ love.plot(
 
 \item{wrap}{\code{numeric}; the number of characters at which to wrap axis labels to the next line. Defaults to 30. Decrease this if the axis labels are excessively long.}
 
-\item{var.names}{an optional object providing alternate names for the variables in the plot, which will otherwise be the variable names as they are stored. This may be useful when variables have ugly names. See Details on how to specify \code{var.names}. \code{\link[=var.names]{var.names()}} can be a useful tool for extracting and editing the names from the \code{bal.tab} object.}
+\item{var.names}{an optional object providing alternate names for the variables in the plot, which will otherwise be the variable names as they are stored. This may be useful when variables have ugly names. See \code{\link{display-options}} for how to specify \code{var.names}. Names given in the original call to \code{\link[=bal.tab]{bal.tab()}} are used as well; those given here add to them and replace any entry they name. \code{\link[=var.names]{var.names()}} can be a useful tool for extracting and editing the names from the \code{bal.tab} object.}
 
 \item{title}{\code{character}; the title of the plot.}
 
@@ -89,13 +89,13 @@ Additionally, any of the \code{which.} arguments used with clustered or multiply
 \value{
 When only one type of balance statistic is requested, the returned object is a standard \code{ggplot} object that can be manipulated using \pkg{ggplot2} syntax. This facilitates changing fonts, background colors, and features of the legend outside of what \code{love.plot()} provides automatically.
 
-When more than one type of balance statistic is requested, the plot is constructed using \code{\link[gridExtra:arrangeGrob]{gridExtra::arrangeGrob()}} in \code{gridExtra}, which arranges multiple plots and their shared legend into one plot. Because the output of \code{arrangeGrob} is a \code{gtable} object, its features cannot be manipulated in the standard way. Use the \code{themes} argument to change theme elements of the component plots. The original plots are stored in the \code{"plots"} attribute of the output object.
+When more than one type of balance statistic is requested, the plot is constructed using \code{\link[gridExtra:arrangeGrob]{gridExtra::arrangeGrob()}}, which arranges multiple plots and their shared legend into one plot. Because the output of \code{arrangeGrob()} is a \code{gtable} object, its features cannot be manipulated in the standard way. Use the \code{themes} argument to change theme elements of the component plots. The original plots are stored in the \code{"plots"} attribute of the output object.
 }
 \description{
 Generates a "Love" plot graphically displaying covariate balance before and after adjusting. Options are available for producing publication-ready plots. Detailed examples are available in \code{vignette("love.plot")}.
 }
 \details{
-\code{love.plot} can be used with clusters, imputations, and multi-category and longitudinal treatments in addition to the standard case. Setting the corresponding \code{which.} argument to \code{.none} will aggregate across that dimension. When aggregating, an argument should be specified to \code{agg.fun} referring to whether the mean, minimum ("min"), or maximum ("max") balance statistic or range ("range", the default) of balance statistics for each covariate should be presented in the plot. See \code{vignette("segmented-data")} for examples.
+\code{love.plot()} can be used with clusters, imputations, and multi-category and longitudinal treatments in addition to the standard case. Setting the corresponding \code{which.} argument to \code{.none} will aggregate across that dimension. When aggregating, an argument should be specified to \code{agg.fun} referring to whether the mean, minimum ("min"), or maximum ("max") balance statistic or range ("range", the default) of balance statistics for each covariate should be presented in the plot. See \code{vignette("segmented-data")} for examples.
 
 With subclasses, balance will be displayed for the unadjusted sample and the aggregated subclassified sample. If \code{disp.subclass} is \code{TRUE}, each subclass will be displayed additionally as a number on the plot.
 \subsection{Variable order using \code{var.order}}{
@@ -109,11 +109,9 @@ If a \code{love.plot} object is supplied, the plot being drawn will use the vari
 
 \subsection{Variable names using \code{var.names}}{
 
-The default in \code{love.plot()} is to present variables as they are named in the output of the call to \code{bal.tab()}, so it is important to know this output before specifying alternate variable names when using \code{var.names}, as the displayed variable names may differ from those in the original data.
+The variables are presented as they are named in the output of the call to \code{bal.tab()}, which may not be how they should be named in a report. \code{var.names} supplies alternate names for them; it is documented at \code{\link{display-options}}, along with the several structures it accepts and how a name given for a base variable reaches the factor levels, polynomials, and interactions it appears in. It is one of the display options, so it can be given to \code{bal.tab()} instead, in which case the plot uses those names without being told them again.
 
-There are several ways to specify alternate names for presentation in the displayed plot using the \code{var.names} argument by specifying a list of old and new variable names, pairing the old name with the new name. You can do this in three ways: 1) use a vector or list of new variable names, with the \code{names} of the values the old variable names; 2) use a data frame with exactly one column containing the new variable names and the row names containing the old variable names; or 3) use a data frame with two columns, the first (or the one named "old") containing the old variable names and the second (or the one named "new") containing the new variable names. If a variable in the output from \code{bal.tab()} is not provided in the list of old variable names, \code{love.plot()} will use the original old variable name.
-
-\code{love.plot()} can replace old variables names with new ones based on exact matching for the name strings or matching using the variable name components. For example, if a factor variable \code{"X"} with levels \code{"a"}, \code{"b"}, and \code{"c"} is displayed with \code{love.plot()}, the variables \code{"X_a"}, \code{"X_b"}, and \code{"X_c"} will be displayed. You can enter replacement names for all three variables individually with \code{var.names}, or you can simply specify a replacement name for \code{"X"}, and \code{"X"} will be replaced by the given name in all instances it appears, including not just factor expansions, but also polynomials and interactions in \code{int = TRUE} in the original \code{bal.tab()} call. In an interaction with another variable, say \code{"Y"}, there are several ways to replace the name of the interaction term \code{"X_a * Y"}. If the entire string (\code{"X_a * Y"}) is included in \code{var.names}, the entire string will be replaced. If \code{"X_a"} is included in \code{var.names}, only it will be replaced (and it will be replaced everywhere else it appears). If \code{"X"} is included in \code{var.names}, only it will be replaced (and it will be replaced everywhere else it appears). See example at \code{\link[=var.names]{var.names()}}.
+The \code{factor_sep} and \code{int_sep} display options are taken here too, so the separators a plot displays can be chosen without recomputing the object; see \code{\link{display-options}}.
 }
 
 \subsection{Stars and the x-axis label with mean differences}{
@@ -168,4 +166,6 @@ love.plot(w.out1, thresholds = c(m = .1),
 }
 \seealso{
 \code{\link[=bal.tab]{bal.tab()}}, \code{vignette("love.plot")}
+
+\code{\link{display-options}} for \code{var.names}
 }

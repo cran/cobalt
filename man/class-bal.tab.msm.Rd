@@ -4,16 +4,31 @@
 \alias{class-bal.tab.msm}
 \title{Using \code{bal.tab()} with Longitudinal Treatments}
 \description{
-\if{html}{\out{<div class="sourceCode">}}\preformatted{When using [bal.tab()] with longitudinal treatments, the output will be different from the case with point treatments, and there are some options that are common across all `bal.tab()` methods for dealing with longitudinal data. This page outlines the outputs and options in this case.
+When using \code{\link[=bal.tab]{bal.tab()}} with longitudinal treatments, the output will be different from the case with point treatments, and there are some options that are common across all \code{bal.tab()} methods for dealing with longitudinal data. This page outlines the outputs and options in this case.
 
-There are two main components of the output of `bal.tab()` with longitudinal treatments: the time-point-specific balance summary and across-time-points balance summary. The time-point-specific balance summaries are standard point treatment balance summaries at each time point.
+There are two main components of the output of \code{bal.tab()} with longitudinal treatments: the time-point-specific balance summary and across-time-points balance summary. The time-point-specific balance summaries are standard point treatment balance summaries at each time point.
 
-The across-time-points balance summary is, for each variable, the greatest imbalance across all time-point-specific balance summaries. If the greatest observed imbalance is tolerable, then all other imbalances for that variable will be tolerable too, so focusing on reducing the greatest imbalance is sufficient for reducing imbalance overall. The balance summary will not be computed if multi-category treatments or multiply imputed data are used.
-}\if{html}{\out{</div>}}
+The across-time-points balance summary is, for each variable, the greatest imbalance across all time-point-specific balance summaries. If the greatest observed imbalance is tolerable, then all other imbalances for that variable will be tolerable too, so focusing on reducing the greatest imbalance is sufficient for reducing imbalance overall. The balance summary will not be computed if multi-category treatments or multiply imputed data are used, or if the time points are not all of the same kind (see below).
 }
 \note{
 The balance tables presented here are not the same as those recommended by Jackson (2016) and computed in his R package, \CRANpkg{confoundr}, as these do not take into account treatment history. The balance statistics presented here should be used with caution and may not reflect balance in an accurate way.
 }
+\section{Mixing treatments and censoring}{
+
+One entry of the list may be a censoring indicator marked with \code{\link[=.cens]{.cens()}} rather than a treatment, as in \code{list(A1 ~ x, .cens(C1) ~ x, A2 ~ x)}, which is how a joint treatment-and-censoring model is written for \code{WeightIt::weightitMSM()}. \code{bal.tab()} produces one table per entry, of whichever kind that entry is: an ordinary balance table for a treatment, and the censoring balance table described at \code{\link{class-bal.tab.cens}} for an indicator.
+
+Each entry is assessed among the units still under observation entering it. A unit is under observation until a censoring indicator earlier in the list marks it censored; the risk set is accumulated from the indicators themselves rather than read off the treatments, so it makes no difference whether the data records a treatment for a unit that has already dropped out or leaves it missing. A missing treatment for a unit that is still under observation is an error naming the time point it appeared in. A censoring entry's own comparison uses the risk set as it stands entering it, so it includes the units it is about to remove; those are the full sample it compares against.
+
+A censoring balance table and a treatment balance table say different things about different samples, so a list that mixes them gets no balance summary across time points, exactly as a list mixing continuous and binary treatments does not. Each time point's own table still reports its sample sizes. A list in which every entry is a censoring indicator is not a mixture and is summarized as usual.
+
+Each time point's default \code{s.d.denom} is the one its own kind of model implies -- \code{"pooled"} for a binary or multi-category treatment, \code{"all"} for a continuous one, and \code{"full"} for a censoring indicator -- so that a model gives the same numbers in a list as it would on its own. A value supplied to \code{s.d.denom} is shared by every time point, which is one reason it is recommended not to set it for longitudinal treatments.
+}
+
+\section{Naming the time points}{
+
+Each time point is named for its position in the list, whether the model there is a treatment or a censoring model, and the variable it is about, as in \verb{1. Treatment: A_1} or \verb{2. Censoring: C_1}. The number is the position in the list rather than the treatment period, so that it is the number \code{which.time} takes and a censoring model has one too; \code{which.time} also accepts the variable name on its own (e.g., \code{"C_1"}).
+}
+
 \section{Allowable arguments}{
 
 
@@ -30,8 +45,8 @@ There are two additional arguments for each \code{bal.tab()} method that can han
 The output is a \code{bal.tab.msm} object, which inherits from \code{bal.tab}. It has the following elements:
 \itemize{
 \item \code{Time.Balance}: For each time point, a regular \code{bal.tab} object containing a balance table, a sample size summary, and other balance assessment tools, depending on which options are specified.
-\item \code{Balance.Across.Times}: The balance summary across time points. This will include the maximum balance statistic(s) for each covariate across all time points.
-\item \code{Observations}: A table of sample sizes or effective sample sizes for each time point before and after adjustment.
+\item \code{Balance.Across.Times}: The balance summary across time points. This will include the maximum balance statistic(s) for each covariate across all time points. Absent when the time points are not all of the same kind.
+\item \code{Observations}: A list with a table of sample sizes or effective sample sizes for each time point, before and after adjustment. Always present, but displayed only alongside the balance summary across time points: it gathers in one place what each time point's own table has already reported, so without the summary there is nothing it adds.
 }
 
 As with other methods, multiple weights can be specified, and values for all weights will appear in all tables.
@@ -45,6 +60,7 @@ Jackson, J. W. (2016). Diagnostics for Confounding of Time-varying and Other Joi
 \item \code{\link[=bal.tab]{bal.tab()}}
 \item \code{\link[=bal.tab.time.list]{bal.tab.time.list()}}
 \item \code{\link[=print.bal.tab]{print.bal.tab()}}
+\item \code{\link[=.cens]{.cens()}} and \code{\link{class-bal.tab.cens}} for a censoring indicator among the time points
 \item \code{vignette("longitudinal-treat")} for examples
 }
 }

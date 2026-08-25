@@ -4,26 +4,138 @@ x2base <- function(x, ...) {
   UseMethod("x2base")
 }
 
-#' @exportS3Method NULL
-x2base.matchit <- function(x, ...) {
-  #Process matchit
-  
-  #Process data and get imp
-  m.data <- if (NROW(x[["model"]][["data"]]) == length(x[["treat"]])) x[["model"]][["data"]]
-  imp <- ...get("imp")
+#Reject arguments that do not apply to the input class. `.what` completes the
+#sentence "... not allowed with <.what>" and carries its own cli markup, so it is
+#pasted into the template rather than interpolated -- cli does not re-render markup
+#found inside an interpolated value.
+#
+#The subject is per-argument so the message names the concept the user supplied
+#rather than the internal slot. `...` is forwarded rather than materialized so only
+#the arguments actually checked are forced.
+#Resolve `data` and `imp` from the arguments `bal.tab()` forwards. A `mids` object
+#given as `data` is completed to a long data frame, and its `.imp` column supplies
+#`imp` unless the caller named one; anything else that is not a data frame is
+#discarded.
+#
+#`.datalist` holds the data frames the input object carries, against which a
+#character `imp` is resolved. `.imp` is for the classes whose imputation index comes
+#from the object itself rather than from the user; supplying it replaces the `imp`
+#argument entirely.
+#
+#As elsewhere, `...` is forwarded rather than materialized and the named formals are
+#dot-prefixed, since `data` and `imp` are themselves elements of `...`.
+.x2base_data <- function(..., .datalist = list(), .imp) {
+  imp <- if (missing(.imp)) ...get("imp") else .imp
   data <- ...get("data")
+  
   if (is_not_null(data)) {
     if (inherits(data, "mids")) {
       data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
+      imp <- imp %or% data[[".imp"]]
     }
     else if (!is.data.frame(data)) {
       data <- NULL
     }
   }
   
-  #Process imp
-  imp <- process_imp(imp, data, m.data)
+  list(data = data,
+       imp = do.call("process_imp", c(list(imp, data), .datalist)))
+}
+
+.reject_args <- function(.args, .what, ...) {
+  for (a in .args) {
+    if (is_null(...get(a))) {
+      next
+    }
+    
+    subject <- switch(a,
+                      "subclass" = "subclasses are",
+                      "match.strata" = "matching strata are",
+                      "s.weights" = "sampling weights are",
+                      sprintf("{.arg %s} is", a))
+    
+    arg::err(paste(subject, "not allowed with", .what))
+  }
+}
+
+#`estimand` and `focal` name a treatment group to target. A censoring model's target is
+#the full at-risk sample, so neither has anything to say; they are ignored rather than
+#rejected, because a `weightit` object may carry an `estimand` slot it never used.
+.reject_cens_args <- function(...) {
+  supplied <- c("estimand"[is_not_null(...get("estimand"))],
+                "focal"[is_not_null(...get("focal"))])
+  
+  if (is_not_null(supplied)) {
+    arg::wrn("{.arg {supplied}} {?does/do} not apply to a censoring indicator, whose target is the full at-risk sample; ignoring {?it/them}")
+  }
+  
+  if (is_not_null(...get("match.strata"))) {
+    arg::err("matching strata are not allowed with a censoring indicator")
+  }
+}
+
+#The tail every method shares: expand anything supplied for a single imputation,
+#assemble `X` from the locals the method has built, resolve the requested statistics,
+#warn about missing covariate values, and apply `subset`.
+#
+#`.length` holds `length_imp_process()`'s arguments, naming which of the method's
+#locals must be length-compatible and how each expands. All formals are dot-prefixed
+#because `...` carries the user's own arguments, and a named element of `...` matches a
+#formal of the same name even when the caller supplied that formal positionally. `...`
+#must reach `process_stats_and_thresholds()` unforced: `bal.plot()` passes its own lazy
+#dots through, and materializing them changes when an erroring unused argument fails.
+.finish_X <- function(.length, ..., .call = NULL, .msm = FALSE,
+                      .env = parent.frame()) {
+  .get <- function(nm) get0(nm, envir = .env, inherits = FALSE)
+  
+  checked <- unlist(.length[c("vectors", "data.frames", "lists")], use.names = FALSE)
+  
+  expanded <- do.call("length_imp_process",
+                      c(list(setNames(lapply(checked, .get), checked)), .length,
+                        list(imp = .get("imp"))))
+  
+  X <- if (.msm) initialize_X_msm() else initialize_X()
+  
+  #`X`'s slots are named after the locals that fill them, taking the expanded value
+  #where there is one. A slot the method never assigned stays NULL, which is what
+  #every consumer expects of an absent one.
+  for (i in names(X)) {
+    X[[i]] <- if (i %in% checked) expanded[[i]] else .get(i)
+  }
+  
+  .stats <- process_stats_and_thresholds(X[[if (.msm) "treat.list" else "treat"]], ...)
+  
+  X[["stats"]] <- .stats[["stats"]]
+  X[["thresholds"]] <- .stats[["thresholds"]]
+  X[["s.d.denom"]] <- .stats[["s.d.denom"]]
+  X[["call"]] <- .call
+  
+  #A longitudinal method holds lists of data frames, which `anyNA()` only descends
+  #into when asked.
+  missings <- {
+    if (.msm) anyNA(X[["covs.list"]], recursive = TRUE) ||
+      anyNA(X[["addl.list"]], recursive = TRUE)
+    else anyNA(X[["covs"]]) || anyNA(X[["addl"]])
+  }
+  
+  if (missings) {
+    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
+  }
+  
+  X <- subset_X(X, .get("subset"))
+  
+  setNames(X[names(X)], names(X))
+}
+
+#' @exportS3Method NULL
+x2base.matchit <- function(x, ...) {
+  #Process matchit
+  
+  #Process data and get imp
+  m.data <- if (NROW(x[["model"]][["data"]]) == length(x[["treat"]])) x[["model"]][["data"]]
+  .d <- .x2base_data(..., .datalist = list(m.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(x[["treat"]], data, m.data)
@@ -40,10 +152,6 @@ x2base.matchit <- function(x, ...) {
       #Recreating covs from model object and x[["X"]]. Have to do this because when 
       #discard != NULL and reestimate = TRUE, cases are lost. This recovers them.
       
-      # if (is_not_null(data)) {
-      #     covs <- get_covs_from_formula(x[["formula"]], data = x[["model"]][["model"]])
-      # }
-      # else {
       order <- setNames(.attr(x[["model"]][["terms"]], "order"),
                         .attr(x[["model"]][["terms"]], "term.labels"))
       assign <- setNames(.attr(x[["X"]], "assign"), colnames(x[["X"]]))
@@ -70,7 +178,6 @@ x2base.matchit <- function(x, ...) {
         }
       }
       covs <- get_covs_from_formula(x[["formula"]], data = covs)
-      # }
     }
   }
   else if (is_not_null(x[["formula"]]) && is_not_null(data)) {
@@ -86,7 +193,7 @@ x2base.matchit <- function(x, ...) {
   #Get method
   if (inherits(x, "matchit.subclass")) {
     method <- ...get("method", "subclassification")
-
+    
     method <- arg::match_arg(method, c("weighting", "subclassification"))
   }
   else {
@@ -117,18 +224,14 @@ x2base.matchit <- function(x, ...) {
     }
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls matchit} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args("subclass", "{.cls matchit} objects", ...)
   subclass <- switch(method,
                      "subclassification" = as.factor(x[["subclass"]]),
                      NULL)
   
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls matchit} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args("match.strata", "{.cls matchit} objects", ...)
   
   #Process weights
   if (is_not_null(x[["weights"]]) && !all_the_same(x[["weights"]])) {
@@ -149,75 +252,12 @@ x2base.matchit <- function(x, ...) {
   #Process discarded
   discarded <- x[["discarded"]]
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun matchit}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- x[["call"]]
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names)
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun matchit}"),
+            ...,
+            .call = x[["call"]])
 }
 
 #' @exportS3Method NULL
@@ -240,20 +280,9 @@ x2base.ps <- function(x, ...) {
   
   #Process data and get imp
   ps.data <- x[["data"]]
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, ps.data)
+  .d <- .x2base_data(..., .datalist = list(ps.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(x[["treat"]], data, ps.data)
@@ -272,7 +301,12 @@ x2base.ps <- function(x, ...) {
     #Process covs
     covs <- t.c[["covs"]]
   }
-  else if (all(x[["gbm.obj"]][["feature_names"]] %in% names(ps.data))) {
+  #`is_not_null()` is required as well as the `%in%` test: `all()` of an empty set
+  #is TRUE, so a model object with no `feature_names` (e.g., an xgboost 3.x
+  #booster, which exposes them elsewhere) would otherwise enter this branch and
+  #fail inside `reformulate()` instead of reaching the informative error below.
+  else if (is_not_null(x[["gbm.obj"]][["feature_names"]]) &&
+           all(x[["gbm.obj"]][["feature_names"]] %in% names(ps.data))) {
     covs <- reformulate(x[["gbm.obj"]][["feature_names"]]) |>
       get_covs_from_formula(data = ps.data)
   }
@@ -299,9 +333,7 @@ x2base.ps <- function(x, ...) {
   
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls ps} objects")
-  }
+  .reject_args("focal", "{.cls ps} objects", ...)
   
   if (get.treat.type(treat) == "binary") {
     if (is_not_null(estimand)) {
@@ -317,15 +349,8 @@ x2base.ps <- function(x, ...) {
     }
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls ps} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls ps} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls ps} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data, ps.data), 
@@ -344,74 +369,11 @@ x2base.ps <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun ps}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  # call <- ps[["parameters"]]
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("binary")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun ps}"),
+            ...)
 }
 
 #' @exportS3Method NULL
@@ -434,20 +396,9 @@ x2base.mnps <- function(x, ...) {
   
   #Process data and get imp
   mnps.data <- x[["data"]]
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, mnps.data)
+  .d <- .x2base_data(..., .datalist = list(mnps.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(x[["treatVar"]], data, mnps.data)
@@ -472,15 +423,8 @@ x2base.mnps <- function(x, ...) {
   #Process focal
   focal <- x[["treatATT"]]
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls mnps} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls mnps} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls mnps} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data, mnps.data), 
@@ -499,94 +443,21 @@ x2base.mnps <- function(x, ...) {
   
   #Process discarded
   
-  #Process length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun mnps}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- NULL
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("multi")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun mnps}"),
+            ...,
+            .call = NULL)
 }
 
 #' @exportS3Method NULL
 x2base.ps.cont <- function(x, ...) {
   #Process data and get imp
   ps.data <- x[["data"]]
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, ps.data)
+  .d <- .x2base_data(..., .datalist = list(ps.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(x[["treat"]], data, ps.data)
@@ -606,21 +477,8 @@ x2base.ps.cont <- function(x, ...) {
   #Process distance
   distance <- process_distance(...get("distance"), datalist = list(data, ps.data))
   
-  #Process focal
-  focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls ps.cont} objects")
-  }
-  
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls ps.cont} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls ps.cont} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("focal", "subclass", "match.strata"), "{.cls ps.cont} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data, ps.data))
@@ -638,74 +496,11 @@ x2base.ps.cont <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun ps.cont}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  # call <- ps.cont[["parameters"]]
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("cont")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun ps.cont}"),
+            ...)
 }
 
 #' @exportS3Method NULL
@@ -716,20 +511,9 @@ x2base.Match <- function(x, ...) {
   }
   
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   t.c <- .use_tc_fd(...get("formula"), data, ...get("treat"), ...get("covs"))
@@ -752,9 +536,7 @@ x2base.Match <- function(x, ...) {
   
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls Match} objects")
-  }
+  .reject_args("focal", "{.cls Match} objects", ...)
   
   if (get.treat.type(treat) == "binary") {
     if (is_not_null(estimand)) {
@@ -770,15 +552,8 @@ x2base.Match <- function(x, ...) {
     }
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls Match} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls Match} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls Match} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data))
@@ -799,75 +574,12 @@ x2base.Match <- function(x, ...) {
     discarded[x[["index.dropped"]]] <- TRUE
   }
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun Match}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- NULL
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("binary")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun Match}"),
+            ...,
+            .call = NULL)
 }
 
 #' @exportS3Method NULL
@@ -880,20 +592,9 @@ x2base.data.frame <- function(x, ...) {
   #Process data.frame
   
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- {
@@ -906,15 +607,12 @@ x2base.data.frame <- function(x, ...) {
   
   #Process covs
   covs <- x
-  if (is.null(covs)) {
+  if (is_null(covs)) {
     arg::err("{.arg covs} data frame must be specified")
   }
   
   if (rlang::is_formula(covs)) {
     covs <- get_covs_from_formula(covs, data = data)
-    # if (is_null(covs)) {
-    #     arg::err("The right hand side of the formula must contain covariates for which balance is to be assessed")
-    # }
   }
   
   if (is_null(.attr(covs, "co.names"))) {
@@ -959,7 +657,8 @@ x2base.data.frame <- function(x, ...) {
     }
   }
   else {
-    .specified_method <- arg::match_arg(method, c("weighting", "matching", "subclassification"), several.ok = TRUE)
+    .specified_method <- arg::match_arg(method, c("weighting", "matching", "subclassification"),
+                                        several.ok = TRUE)
     
     if (length(method) == 1L) {
       if (.specified_method == "weighting") {
@@ -1068,7 +767,7 @@ x2base.data.frame <- function(x, ...) {
       }
     }
     else if (is_not_null(.specified_method) && is_not_null(.not_present) && is_not_null(.assuming)) {
-      arg::msg('{.code method = "{(.specified_method)}"} is specified, but {.arg {.not_present}} {?was/were} not supplied. Assuming {.val {(.assuming)}} and using {.arg {(.using)}} instead')
+      arg::msg('{.code method = "{(.specified_method)}"} is specified, but {.arg {(.not_present)}} {?was/were} not supplied. Assuming {.val {(.assuming)}} and using {.arg {(.using)}} instead')
     }
   }
   
@@ -1079,19 +778,26 @@ x2base.data.frame <- function(x, ...) {
   distance <- process_distance(...get("distance"), datalist = list(data, covs))
   
   #Process focal
-  focal <- process_focal(...get("focal"), treat)
-  
-  if (get.treat.type(treat) == "binary") {
-    if (is_null(focal) && is_not_null(estimand)) {
-      focal <- switch(toupper(estimand), 
-                      "ATT" = treat_vals(treat)[treat_names(treat)["treated"]], 
-                      "ATC" = treat_vals(treat)[treat_names(treat)["control"]], 
-                      NULL)
-    }
+  #A censoring indicator has no treatment group to be focal, and no estimand.
+  if (get.treat.type(treat) == "censoring") {
+    .reject_cens_args(...)
+    estimand <- focal <- NULL
+  }
+  else {
+    focal <- process_focal(...get("focal"), treat)
     
-    #Process pairwise
-    if (is_null(focal) && isFALSE(...get("pairwise", TRUE))) {
-      attr(treat, "treat.type") <- "multinomial"
+    if (get.treat.type(treat) == "binary") {
+      if (is_null(focal) && is_not_null(estimand)) {
+        focal <- switch(toupper(estimand),
+                        "ATT" = treat_vals(treat)[treat_names(treat)["treated"]],
+                        "ATC" = treat_vals(treat)[treat_names(treat)["control"]],
+                        NULL)
+      }
+      
+      #Process pairwise
+      if (is_null(focal) && isFALSE(...get("pairwise", TRUE))) {
+        attr(treat, "treat.type") <- "multinomial"
+      }
     }
   }
   
@@ -1114,10 +820,11 @@ x2base.data.frame <- function(x, ...) {
                                     which = "matching strata membership",
                                     missing.okay = TRUE)
     
-    weights <- data.frame(weights = strata2weights(match.strata,
-                                                   treat = treat,
-                                                   estimand = estimand,
-                                                   focal = focal))
+    weights <- match.strata |>
+      strata2weights(treat = treat, estimand = estimand,
+                     focal = focal) |>
+      data.frame() |>
+      setNames("weights")
   }
   
   #Process weights
@@ -1138,73 +845,10 @@ x2base.data.frame <- function(x, ...) {
   #Process discarded
   discarded <- ...get("discarded")
   
-  #Process length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp)
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names)
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl")),
+            ...)
 }
 
 #' @exportS3Method NULL
@@ -1213,20 +857,9 @@ x2base.CBPS <- function(x, ...) {
   
   #Process data and get imp
   c.data <- x[["data"]]
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, c.data)
+  .d <- .x2base_data(..., .datalist = list(c.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- get_treat_from_formula(x[["formula"]], c.data) |>
@@ -1235,11 +868,9 @@ x2base.CBPS <- function(x, ...) {
   #Process covs
   covs <- get_covs_from_formula(x[["formula"]], c.data)
   
-  #Get estimand
+  #Process estimand
   estimand <- ...get("estimand")
-  if (is_not_null(estimand)) {
-    arg::err("{.arg estimand} is not allowed with {.cls CBPS} objects")
-  }
+  .reject_args("estimand", "{.cls CBPS} objects", ...)
   
   #Get method
   method <- "weighting"
@@ -1253,9 +884,7 @@ x2base.CBPS <- function(x, ...) {
                                obj.distance.name = "prop.score")
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls CBPS} objects")
-  }
+  .reject_args("focal", "{.cls CBPS} objects", ...)
   
   if (get.treat.type(treat) == "binary") {
     if (is_not_null(estimand)) {
@@ -1271,15 +900,8 @@ x2base.CBPS <- function(x, ...) {
     }
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls CBPS} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls CBPS} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls CBPS} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data, c.data), 
@@ -1301,75 +923,12 @@ x2base.CBPS <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun CBPS}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- x[["call"]]
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names)
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun CBPS}"),
+            ...,
+            .call = x[["call"]])
 }
 
 #' @exportS3Method NULL
@@ -1377,20 +936,9 @@ x2base.ebalance <- function(x, ...) {
   #Process ebalance
   
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   t.c <- .use_tc_fd(...get("formula"), data, ...get("treat"), ...get("covs"))
@@ -1413,24 +961,15 @@ x2base.ebalance <- function(x, ...) {
   
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls ebalance} objects")
-  }
+  .reject_args("focal", "{.cls ebalance} objects", ...)
   
   focal <- switch(toupper(estimand), 
                   "ATT" = treat_vals(treat)[treat_names(treat)["treated"]], 
                   "ATC" = treat_vals(treat)[treat_names(treat)["control"]], 
                   NULL)
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls ebalance} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls ebalance} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls ebalance} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data))
@@ -1447,97 +986,24 @@ x2base.ebalance <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun ebalance}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) stats <- unique(c(stats, names(thresholds)))
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("binary")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun ebalance}"),
+            ...)
 }
 
 #' @exportS3Method NULL
 x2base.optmatch <- function(x, ...) {
   #Process optmatch
-  if (all(is.na(x))) {
-    arg::err("the supplied {.cls optmatch} abject contains no valid matches")
+  if (allNA(x)) {
+    arg::err("the supplied {.cls optmatch} object contains no valid matches")
   }
   
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   t.c <- .use_tc_fd(...get("formula"), data = data, covs = ...get("covs"),
@@ -1559,16 +1025,9 @@ x2base.optmatch <- function(x, ...) {
   #Process distance
   distance <- process_distance(...get("distance"), datalist = list(data, covs))
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls optmatch} objects")
-  }
-  
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls optmatch} objects")
-  }
+  .reject_args(c("subclass", "focal"), "{.cls optmatch} objects", ...)
   
   if (get.treat.type(treat) == "binary") {
     if (is_not_null(estimand)) {
@@ -1584,10 +1043,8 @@ x2base.optmatch <- function(x, ...) {
     }
   }
   
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls optmatch} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args("match.strata", "{.cls optmatch} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data))
@@ -1604,77 +1061,12 @@ x2base.optmatch <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = sprintf("{.fun %s}", deparse1(.attr(x, "call")[[1L]])))
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- .attr(x, "call")
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("binary")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = sprintf("{.fun %s}", deparse1(.attr(x, "call")[[1L]]))),
+            ...,
+            .call = .attr(x, "call"))
 }
 
 #' @exportS3Method NULL
@@ -1692,24 +1084,13 @@ x2base.cem.match <- function(x, ...) {
   }
   
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   if (is_null(data)) {
     arg::err("an argument to {.arg data} must be specified with {.cls cem.match} objects")
   }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
   
   if (is_null(imp) && inherits(x, "cem.match.list") &&
       sum(vapply(x, is_, logical(1L), "cem.match")) != 1L) {
@@ -1736,10 +1117,8 @@ x2base.cem.match <- function(x, ...) {
   #Process distance
   distance <- process_distance(...get("distance"), datalist = list(data, covs))
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls cem.match} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args("subclass", "{.cls cem.match} objects", ...)
   
   #Process focal
   focal <- x[["baseline.group"]]
@@ -1749,10 +1128,8 @@ x2base.cem.match <- function(x, ...) {
     attr(treat, "treat.type") <- "multinomial"
   }
   
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls cem.match} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args("match.strata", "{.cls cem.match} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data))
@@ -1769,75 +1146,11 @@ x2base.cem.match <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun cem}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("binary")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun cem}"),
+            ...)
 }
 
 #' @exportS3Method NULL
@@ -1848,20 +1161,9 @@ x2base.weightit <- function(x, ...) {
   d.e.in.w <- vapply(c("covs", "exact", "by", "moderator"), function(z) is_not_null(x[[z]]), logical(1L))
   weightit.data <- if (any(d.e.in.w)) do.call("data.frame", unname(x[c("covs", "exact", "by", "moderator")[d.e.in.w]]))
   
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, weightit.data)
+  .d <- .x2base_data(..., .datalist = list(weightit.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(x[["treat"]], data, weightit.data)
@@ -1882,8 +1184,10 @@ x2base.weightit <- function(x, ...) {
   addl <- process_addl(...get("addl"), datalist = list(data, weightit.data))
   
   #Process distance
+  #A censoring model's propensity score is P(C = 1 | X); balance on it is as
+  #informative here as it is for a binary treatment.
   distance <- process_distance(...get("distance"), datalist = list(data, weightit.data),
-                               obj.distance = if (get.treat.type(treat) == "binary") x[["ps"]], 
+                               obj.distance = if (get.treat.type(treat) %in% c("binary", "censoring")) x[["ps"]],
                                obj.distance.name = "prop.score")
   
   #Process focal
@@ -1894,14 +1198,13 @@ x2base.weightit <- function(x, ...) {
     attr(treat, "treat.type") <- "multinomial"
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls weightit} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls weightit} objects", ...)
   
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls weightit} objects")
+  if (get.treat.type(treat) == "censoring") {
+    .reject_cens_args(...)
+    focal <- NULL
+    estimand <- NULL
   }
   
   #Process weights
@@ -1921,75 +1224,12 @@ x2base.weightit <- function(x, ...) {
   #Process discarded
   discarded <- x[["discarded"]]
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun weightit}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- x[["call"]]
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names)
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun weightit}"),
+            ...,
+            .call = x[["call"]])
 }
 
 #' @exportS3Method NULL
@@ -2000,20 +1240,9 @@ x2base.designmatch <- function(x, ...) {
   }
   
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   t.c <- .use_tc_fd(...get("formula"), data, ...get("treat"), ...get("covs"))
@@ -2039,9 +1268,7 @@ x2base.designmatch <- function(x, ...) {
   
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.pkg designmatch} objects")
-  }
+  .reject_args("focal", "{.pkg designmatch} objects", ...)
   
   if (get.treat.type(treat) == "binary") {
     if (is_not_null(estimand)) {
@@ -2057,15 +1284,8 @@ x2base.designmatch <- function(x, ...) {
     }
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.pkg designmatch} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.pkg designmatch} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.pkg designmatch} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data))
@@ -2082,76 +1302,12 @@ x2base.designmatch <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "the matching function in {.pkg designmatch}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- NULL
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("binary")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "the matching function in {.pkg designmatch}"),
+            ...,
+            .call = NULL)
 }
 
 #' @exportS3Method NULL
@@ -2167,22 +1323,9 @@ x2base.mimids <- function(x, ...) {
     else .mids_complete(x[["others"]][["source"]])
   }
   
-  imp <- m.data[[".imp"]]
-  data <- ...get("data")
-  
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      # arg::wrn("The argument to data is not a data frame and will be ignored. If the argument to treat is not a vector, the execution will halt")
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, m.data)
+  .d <- .x2base_data(..., .datalist = list(m.data), .imp = m.data[[".imp"]])
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(unlist(grab(models, "treat")))
@@ -2203,7 +1346,9 @@ x2base.mimids <- function(x, ...) {
   #Process distance
   m.distance <- unlist(grab(models, "distance"))
   
-  if (all(is.na(m.distance))) m.distance <- NULL
+  if (allNA(m.distance)) {
+    m.distance <- NULL
+  }
   
   distance <- process_distance(...get("distance"), datalist = list(data, m.data),
                                obj.distance = m.distance, 
@@ -2211,9 +1356,7 @@ x2base.mimids <- function(x, ...) {
   
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls mimids} objects")
-  }
+  .reject_args("focal", "{.cls mimids} objects", ...)
   
   if (get.treat.type(treat) == "binary") {
     if (is_not_null(estimand)) {
@@ -2229,15 +1372,8 @@ x2base.mimids <- function(x, ...) {
     }
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls mimids} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls mimids} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls mimids} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data, m.data))
@@ -2256,76 +1392,12 @@ x2base.mimids <- function(x, ...) {
   #Process discarded
   discarded <- unlist(grab(models, "discarded"))
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun matchthem}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- NULL
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("imp")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun matchthem}"),
+            ...,
+            .call = NULL)
 }
 
 #' @exportS3Method NULL
@@ -2341,22 +1413,9 @@ x2base.wimids <- function(x, ...) {
     else .mids_complete(x[["others"]][["source"]])
   }
   
-  imp <- w.data[[".imp"]]
-  data <- ...get("data")
-  
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      # arg::wrn("The argument to data is not a data.frame and will be ignored. If the argument to treat is not a vector, the execution will halt")
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, w.data)
+  .d <- .x2base_data(..., .datalist = list(w.data), .imp = w.data[[".imp"]])
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(unlist(grab(models, "treat")))
@@ -2376,7 +1435,10 @@ x2base.wimids <- function(x, ...) {
   
   #Process distance
   w.distance <- unlist(grab(models, "ps"))
-  if (all(is.na(w.distance))) w.distance <- NULL
+  
+  if (allNA(w.distance)) {
+    w.distance <- NULL
+  }
   
   distance <- process_distance(...get("distance"), datalist = list(data, w.data),
                                obj.distance = if (get.treat.type(treat) == "binary") w.distance, 
@@ -2390,15 +1452,8 @@ x2base.wimids <- function(x, ...) {
     attr(treat, "treat.type") <- "multinomial"
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls wimids} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls wimids} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls wimids} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data, w.data))
@@ -2417,76 +1472,12 @@ x2base.wimids <- function(x, ...) {
   #Process discarded
   discarded <- unlist(grab(models, "discarded"))
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun weightthem}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- NULL
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("imp")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun weightthem}"),
+            ...,
+            .call = NULL)
 }
 
 #' @exportS3Method NULL
@@ -2495,20 +1486,9 @@ x2base.sbwcau <- function(x, ...) {
   
   #Process data and get imp
   sbw.data <- x[["dat_weights"]][names(x[["dat_weights"]]) != "weights"]
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, sbw.data)
+  .d <- .x2base_data(..., .datalist = list(sbw.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat
   treat <- process_treat(x[["ind"]], data, sbw.data)
@@ -2531,9 +1511,7 @@ x2base.sbwcau <- function(x, ...) {
   
   #Process focal
   focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls sbwcau} objects")
-  }
+  .reject_args("focal", "{.cls sbwcau} objects", ...)
   
   if (get.treat.type(treat) == "binary") {
     if (is_not_null(estimand)) {
@@ -2549,15 +1527,8 @@ x2base.sbwcau <- function(x, ...) {
     }
   }
   
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls sbwcau} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls sbwcau} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("subclass", "match.strata"), "{.cls sbwcau} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat, covs, method, addl.data = list(data, sbw.data))
@@ -2574,75 +1545,11 @@ x2base.sbwcau <- function(x, ...) {
   
   #Process discarded
   
-  #Process imp and length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp,
-                     original.call.to = "{.fun sbw}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  
   #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("binary")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl"),
+                 original.call.to = "{.fun sbw}"),
+            ...)
 }
 
 #MSMs wth multiple time points
@@ -2667,20 +1574,9 @@ x2base.iptw <- function(x, ...) {
   
   #Process data and get imp
   ps.data <- x[["psList"]][[1L]][["data"]]
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, ps.data)
+  .d <- .x2base_data(..., .datalist = list(ps.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat.list
   treat.list <- process_treat.list(grab(x[["psList"]], "treat"), data, ps.data)
@@ -2726,7 +1622,13 @@ x2base.iptw <- function(x, ...) {
                  needs.treat = FALSE)[["covs"]]
     })
   }
-  else if (all_apply(x[["psList"]], function(z) all(z[["gbm.obj"]][["feature_names"]] %in% names(z[["data"]])))) {
+  #See the note in `x2base.ps()`: `feature_names` must be non-empty for this
+  #branch, or `all()` of an empty set sends a model object that does not record
+  #them into `reformulate(NULL)`.
+  else if (all_apply(x[["psList"]], function(z) {
+    is_not_null(z[["gbm.obj"]][["feature_names"]]) &&
+      all(z[["gbm.obj"]][["feature_names"]] %in% names(z[["data"]]))
+  })) {
     covs.list <- lapply(x[["psList"]], function(z) {
       reformulate(z[["gbm.obj"]][["feature_names"]]) |>
         get_covs_from_formula(data = z[["data"]])
@@ -2748,36 +1650,6 @@ x2base.iptw <- function(x, ...) {
                                  covs.list = covs.list)
   
   #Process distance
-  # ntimes <- iptw[["nFits"]]
-  # distance.list <- .process_list("distance.list", ...get("distance.list"), ntimes, 
-  #                               "the original call to iptw()",
-  #                               treat.list,
-  #                               covs.list,
-  #                               list(data, ps.data))
-  # if (is_not_null(distance.list)) {
-  #     for (ti in seq_along(distance.list)) {
-  #         if (length(s) == 1) {
-  #             distance.list[[ti]] <- data.frame(distance[[ti]], prop.score = iptw[["psList"]][[ti]][["ps"]][[s]])
-  #         }
-  #         else {
-  #             distance.list[[ti]] <- data.frame(distance[[ti]], prop.score = iptw[["psList"]][[ti]][["ps"]][s])
-  #         }
-  #     }
-  #     
-  # }
-  # else {
-  #     distance.list <- make_list(ntimes)
-  #     for (ti in seq_along(distance.list)) {
-  #         if (length(s) == 1) {
-  #             distance.list[[ti]] <- data.frame(prop.score = iptw[["psList"]][[ti]][["ps"]][[s]])
-  #         }
-  #         else {
-  #             distance.list[[ti]] <- data.frame(prop.score = iptw[["psList"]][[ti]][["ps"]][s])
-  #         }
-  #     }
-  # }
-  # if (is_not_null(distance.list)) distance.list <- lapply(distance.list, function(z) get_covs_from_formula(~z))
-  # 
   distance.list <- process_distance.list(...get("distance.list", ...get("distance")),
                                          datalist = list(data, ps.data),
                                          covs.list = covs.list,
@@ -2787,21 +1659,8 @@ x2base.iptw <- function(x, ...) {
                                            else "prop.score"
                                          })
   
-  #Process focal
-  focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls iptw} objects")
-  }
-  
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls iptw} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls iptw} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("focal", "subclass", "match.strata"), "{.cls iptw} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat.list[[1L]], covs.list[[1L]],
@@ -2822,95 +1681,22 @@ x2base.iptw <- function(x, ...) {
   
   #Process discarded
   
-  #Process length
-  length_imp_process(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("weights"),
-                     lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
-                     imp = imp,
-                     original.call.to = "{.fun iptw}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat.list)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- NULL
-  
   #Process output
-  X <- initialize_X_msm()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names)
+  .finish_X(list(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("weights"),
+                 lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
+                 original.call.to = "{.fun iptw}"),
+            ...,
+            .call = NULL,
+            .msm = TRUE)
 }
 
 #' @exportS3Method NULL
 x2base.data.frame.list <- function(x, ...) {
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat.list
   treat.list <- process_treat.list(...get("treat.list"), data)
@@ -2967,7 +1753,8 @@ x2base.data.frame.list <- function(x, ...) {
     }
   }
   else {
-    specified.method <- arg::match_arg(method, c("weighting", "matching", "subclassification"), several.ok = TRUE)
+    specified.method <- arg::match_arg(method, c("weighting", "matching", "subclassification"),
+                                       several.ok = TRUE)
     if (any(specified.method == "subclassification") || specified["subclass"] || specified["match.strata"]) {
       arg::wrn("only weighting is allowed with multiple treatment time points. Assuming weighting instead")
       method <- "weighting"
@@ -2996,21 +1783,8 @@ x2base.data.frame.list <- function(x, ...) {
                                          datalist = list(data),
                                          covs.list = covs.list)
   
-  #Process focal
-  focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with longitudinal treatments")
-  }
-  
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with longitudinal treatments")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with longitudinal treatments")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("focal", "subclass", "match.strata"), "longitudinal treatments", ...)
   
   #Process weights
   weights <- ...get("weights")
@@ -3032,76 +1806,13 @@ x2base.data.frame.list <- function(x, ...) {
   
   #Process discarded
   
-  #Process length
-  length_imp_process(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("weights"),
-                     lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
-                     imp = imp)
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat.list)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- NULL
-  
   #Process output
-  X <- initialize_X_msm()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("msm")
+  .finish_X(list(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("weights"),
+                 lists = c("covs.list", "treat.list", "addl.list", "distance.list")),
+            ...,
+            .call = NULL,
+            .msm = TRUE)
 }
 
 #' @exportS3Method NULL
@@ -3136,20 +1847,9 @@ x2base.CBMSM <- function(x, ...) {
   
   #Process data and get imp
   cbmsm.data <- x[["data"]][x[["time"]] == 1, , drop = FALSE]
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data)
+  .d <- .x2base_data(...)
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat.list
   treat.list <- process_treat.list(lapply(times, function(z) x[["treat.hist"]][ID, z]), 
@@ -3189,31 +1889,16 @@ x2base.CBMSM <- function(x, ...) {
                                          covs.list = covs.list, obj.distance = x[["fitted.values"]],
                                          obj.distance.name = "prop.score")
   
-  #Process focal
-  focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls CBMSM} objects")
-  }
-  
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls CBMSM} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls CBMSM} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("focal", "subclass", "match.strata"), "{.cls CBMSM} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat.list[[1L]], covs.list[[1L]], method,
                              addl.data = list(data, cbmsm.data))
   method <- .attr(weights, "method")
   
-  #Process s.weights
-  if (is_not_null(...get("s.weights"))) {
-    arg::err("sampling weights are not allowed with {.cls CBMSM} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args("s.weights", "{.cls CBMSM} objects", ...)
   
   #Process cluster
   cluster <- process_cluster(...get("cluster"), data, cbmsm.data)
@@ -3224,76 +1909,14 @@ x2base.CBMSM <- function(x, ...) {
   
   #Process discarded
   
-  #Process length
-  length_imp_process(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("weights"),
-                     lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
-                     imp = imp,
-                     original.call.to = "{.fun CBMSM}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat.list)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- x[["call"]]
-  
   #Process output
-  X <- initialize_X_msm()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names)
+  .finish_X(list(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("weights"),
+                 lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
+                 original.call.to = "{.fun CBMSM}"),
+            ...,
+            .call = x[["call"]],
+            .msm = TRUE)
 }
 
 #' @exportS3Method NULL
@@ -3309,26 +1932,17 @@ x2base.weightitMSM <- function(x, ...) {
     else NULL
   }
   
-  imp <- ...get("imp")
-  data <- ...get("data")
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
+  .d <- .x2base_data(..., .datalist = list(weightitMSM.data, weightitMSM.data2))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
-  #Process imp
-  imp <- process_imp(imp, data, weightitMSM.data, weightitMSM.data2)
+  models <- .weightitMSM_models(x)
   
   #Process treat.list
-  treat.list <- process_treat.list(x[["treat.list"]],
+  treat.list <- process_treat.list(models[["treat.list"]],
                                    data, weightitMSM.data, weightitMSM.data2)
   #Process covs.list
-  covs.list <- lapply(x[["covs.list"]], function(z) get_covs_from_formula(data = z))
+  covs.list <- lapply(models[["covs.list"]], function(z) get_covs_from_formula(data = z))
   
   #Get estimand
   estimand <- x[["estimand"]]
@@ -3343,37 +1957,13 @@ x2base.weightitMSM <- function(x, ...) {
                                  covs.list = covs.list)
   
   #Process distance
-  # ntimes <- length(covs.list)
-  # distance.list <- .process_list("distance.list", ...get("distance.list"), ntimes, 
-  #                               "the original call to weightitMSM()",
-  #                               treat.list,
-  #                               covs.list,
-  #                               list(data, weightitMSM.data,
-  #                                    weightitMSM.data2))
-  # if (is_not_null(distance.list)) distance.list <- lapply(seq_along(distance.list), function(z) data.frame(distance.list[[z]], prop.score = weightitMSM[["ps.list"]][[z]]))
-  # else if (is_not_null(weightitMSM[["ps.list"]])) distance.list <- lapply(seq_along(weightitMSM[["ps.list"]]), function(z) data.frame(prop.score = weightitMSM[["ps.list"]][[z]]))
-  # else distance.list <- NULL
-  # if (is_not_null(distance.list)) distance.list <- lapply(distance.list, function(z) get_covs_from_formula(~z))
   distance.list <- process_distance.list(...get("distance.list", ...get("distance")),
                                          datalist = list(data, weightitMSM.data, weightitMSM.data2),
                                          covs.list = covs.list, obj.distance = x[["ps.list"]],
                                          obj.distance.name = "prop.score")
   
-  #Process focal
-  focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with {.cls weightitMSM} objects")
-  }
-  
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with {.cls weightitMSM} objects")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with {.cls weightitMSM} objects")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("focal", "subclass", "match.strata"), "{.cls weightitMSM} objects", ...)
   
   #Process weights
   weights <- process_weights(x, list(...), treat.list[[1L]], covs.list[[1L]], method, 
@@ -3393,76 +1983,50 @@ x2base.weightitMSM <- function(x, ...) {
   
   #Process discarded
   
-  #Process length
-  length_imp_process(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("weights"),
-                     lists = c("treat.list", "covs.list", "addl.list", "distance.list"),
-                     imp = imp,
-                     original.call.to = "{.fun weightitMSM}")
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat.list)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  call <- x[["call"]]
-  
   #Process output
-  X <- initialize_X_msm()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
+  .finish_X(list(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("weights"),
+                 lists = c("treat.list", "covs.list", "addl.list", "distance.list"),
+                 original.call.to = "{.fun weightitMSM}"),
+            ...,
+            .call = x[["call"]],
+            .msm = TRUE)
+}
+
+#The treatment and censoring models of a `weightitMSM` object, in the order they were
+#fitted, which is what makes each balance table correspond to a model and what lets the
+#risk set accumulate down the list. \pkg{WeightIt} 2.1.0 treats censoring as a treatment
+#type, so `treat.list`/`covs.list` already hold every model in place and there is nothing
+#to do. Development versions between 2.0.0 and 2.1.0 instead segregated them --
+#`treat.list`/`covs.list` held only the treatment models, `cens.list`/`cens.covs.list`
+#only the censoring ones, and `cens.time` recorded where each censoring model sat -- and
+#those objects are put back in order here. Once no such object is left in the wild this
+#can go.
+.weightitMSM_models <- function(x) {
+  if (is_null(x[["cens.list"]])) {
+    return(list(treat.list = x[["treat.list"]], covs.list = x[["covs.list"]]))
   }
   
-  X <- subset_X(X, subset)
+  n.models <- length(x[["treat.list"]]) + length(x[["cens.list"]])
+  cens.pos <- as.integer(x[["cens.time"]])
+  treat.pos <- setdiff(seq_len(n.models), cens.pos)
   
-  setNames(X[X.names], X.names)
+  treat.list <- make_list(n.models)
+  treat.list[treat.pos] <- x[["treat.list"]]
+  treat.list[cens.pos] <- x[["cens.list"]]
+  
+  names(treat.list) <- character(n.models)
+  names(treat.list)[treat.pos] <- names(x[["treat.list"]]) %or% as.character(treat.pos)
+  #The censoring models' names live on `cens.time` rather than on `cens.list`.
+  names(treat.list)[cens.pos] <- .uncens_name(names(x[["cens.time"]])) %or%
+    as.character(cens.pos)
+  
+  #Neither covariate list is named.
+  covs.list <- make_list(n.models)
+  covs.list[treat.pos] <- x[["covs.list"]]
+  covs.list[cens.pos] <- x[["cens.covs.list"]]
+  
+  list(treat.list = treat.list, covs.list = covs.list)
 }
 
 #' @exportS3Method NULL
@@ -3502,7 +2066,7 @@ x2base.default <- function(x, ...) {
                             type = c("character", "numeric", "logical")),
             s.weights = list(name = c("s.weights", "sw", "sweights", "sampw"),
                              type = c("numeric")),
-            focal = list(name = c("focal", "treatATT"), 
+            focal = list(name = c("focal", "treatatt"),
                          type = c("character", "numeric")),
             call = list(name = c("call"),
                         type = c("call")))
@@ -3580,13 +2144,6 @@ x2base.default <- function(x, ...) {
     }
   }
   
-  #distance.list
-  if (is_not_null(P[["distance.list"]]) &&
-      !all_apply(P[["distance.list"]], function(z) any_apply(Q[["distance"]][["type"]],
-                                                             function(c) is_(z, c)))) {
-    P[["distance.list"]] <- NULL
-  }
-  
   #subclass
   if (is_not_null(P[["subclass"]])) {
     P[["subclass"]] <- factor(P[["subclass"]])
@@ -3639,372 +2196,8 @@ x2base.default <- function(x, ...) {
   }
 }
 
-.x2base_default_point <- function(obj, ...) {
-  #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  
-  o.data <- obj[["data"]]
-  if (is_null(o.data) && is_not_null(obj[["model"]]) && utils::hasName(obj[["model"]], "data")) {
-    o.data <- obj[["model"]][["data"]]
-  }
-  if (inherits(o.data, "mids")) {
-    o.data <- .mids_complete(o.data)
-  }
-  
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, o.data)
-  
-  #Process treat
-  treat <- ...get("treat")
-  if (is_null(treat)) {
-    formula <- ...get("formula")
-    if (is_not_null(formula) && rlang::is_formula(formula, lhs = TRUE)) {
-      treat <- get_treat_from_formula(formula, data = data %or% o.data)
-    }
-    else if (is_not_null(obj[["treat"]])) {
-      treat <- obj[["treat"]]
-    }
-    else {
-      formula.obj <- obj[["formula"]]
-      
-      if (is_not_null(formula.obj) && rlang::is_formula(formula.obj, lhs = TRUE)) {
-        treat <- get_treat_from_formula(formula.obj, data = data %or% o.data)
-      }
-    }
-  }
-  treat <- process_treat(treat, data, o.data)
-  
-  #Process covs
-  covs <- ...get("covs")
-  if (is_null(covs)) {
-    formula <- ...get("formula")
-    if (is_not_null(formula) && rlang::is_formula(formula)) {
-      covs <- get_covs_from_formula(formula, data = data %or% o.data)
-    }
-    else if (is_not_null(obj[["covs"]])) {
-      covs <- obj[["covs"]]
-    }
-    else {
-      formula.obj <- obj[["formula"]]
-      
-      if (is_not_null(formula.obj) && rlang::is_formula(formula.obj)) {
-        covs <- get_covs_from_formula(formula.obj, data = data %or% o.data)
-      }
-    }
-  }
-  
-  if (is_null(covs)) {
-    arg::err("{.arg covs} data frame must be specified")
-  }
-  
-  if (is_null(.attr(covs, "co.names"))) {
-    if (is.matrix(covs)) covs <- as.data.frame.matrix(covs)
-    covs <- get_covs_from_formula(data = covs)
-  }
-  
-  #Get estimand
-  estimand <- ...get("estimand", obj[["estimand"]])
-  
-  #Get method
-  specified <- setNames(rep.int(FALSE, 3L), c("match.strata", "subclass", "weights"))
-  
-  for (i in names(specified)) {
-    specified[i] <- is_not_null(...get(i, obj[[i]]))
-  }
-  
-  .specified_method <- character()
-  .specified_args <- character()
-  .assuming <- character()
-  .ignoring <- character()
-  .not_present <- character()
-  .using <- character()
-  
-  method <- ...get("method")
-  if (is_null(method)) {
-    if (any(specified)) {
-      .using <- names(specified)[specified][1L]
-      method <- switch(.using,
-                       match.strata = "matching",
-                       subclass = "subclassification",
-                       weights = "weighting")
-      
-      if (sum(specified) > 1L) {
-        .specified_args <- names(specified)[specified]
-        .assuming <- method
-        .ignoring <- setdiff(names(specified)[specified], .using)
-      }
-    }
-    else {
-      method <- "matching"
-    }
-  }
-  else {
-    .specified_method <- arg::match_arg(method, c("weighting", "matching", "subclassification"), several.ok = TRUE)
-    
-    if (length(method) == 1L) {
-      if (.specified_method == "weighting") {
-        if (specified["weights"]) {
-          method <- "weighting"
-          .using <- "weights"
-          
-          if (sum(specified) > 1L) {
-            .specified_args <- names(specified)[specified]
-            .ignoring <- setdiff(names(specified)[specified], .using)
-          }
-        }
-        else if (any(specified)) {
-          .using <- names(specified)[specified][1L]
-          method <- switch(.using,
-                           match.strata = "matching",
-                           subclass = "subclassification",
-                           weights = "weighting")
-          .assuming <- method
-          .not_present <- "weights"
-        }
-        else {
-          method <- "matching"
-        }
-      }
-      else if (.specified_method == "matching") {
-        if (specified["match.strata"]) {
-          method <- "matching"
-          .using <- "match.strata"
-          
-          if (sum(specified) > 1L) {
-            .specified_args <- names(specified)[specified]
-            .ignoring <- setdiff(names(specified)[specified], .using)
-          }
-        }
-        else if (specified["weights"]) {
-          method <- "matching"
-          .using <- "weights"
-          
-          if (sum(specified) > 1L) {
-            .specified_args <- names(specified)[specified]
-            .ignoring <- setdiff(names(specified)[specified], .using)
-          }
-        }
-        else if (specified["subclass"]) {
-          method <- "subclassification"
-          .using <- "subclass"
-          .not_present <- c("weights", "match.strata")
-          .assuming <- method
-        }
-        else {
-          method <- "matching"
-        }
-      }
-      else if (.specified_method == "subclassification") {
-        if (specified["subclass"]) {
-          method <- "subclassification"
-          .using <- "subclass"
-          
-          if (sum(specified) > 1L) {
-            .specified_args <- names(specified)[specified]
-            .ignoring <- setdiff(names(specified)[specified], .using)
-          }
-        }
-        else if (any(specified)) {
-          .using <- names(specified)[specified][1L]
-          method <- switch(.using,
-                           match.strata = "matching",
-                           subclass = "subclassification",
-                           weights = "weighting")
-          .assuming <- method
-          .not_present <- "subclass"
-        }
-        else {
-          method <- "matching"
-        }
-      }
-    }
-    else {
-      if (specified["subclass"] || any(.specified_method == "subclassification")) {
-        arg::err("subclassification cannot be specified along with other methods")
-      }
-      
-      if (specified["match.strata"]) {
-        arg::err("only weights can be specified with multiple methods")
-      }
-      
-      if (specified["weights"]) {
-        method <- .specified_method
-        .using <- "weights"
-      }
-      else {
-        arg::wrn("multiple methods were specified, but no weights were provided. Providing unadjusted data only")
-        method <- "matching"
-      }
-    }
-  }
-  
-  if (is_not_null(.using)) {
-    if (is_not_null(.specified_args) && is_not_null(.ignoring)) {
-      if (is_not_null(.assuming)) {
-        arg::msg("{.arg {(.specified_args)}} {?is/are} specified. Assuming {.val {(.assuming)}} and using {.arg {(.using)}} and ignoring {.arg {(.ignoring)}}")
-      }
-      else {
-        arg::msg("{.arg {(.specified_args)}} {?is/are} specified. Using {.arg {(.using)}} and ignoring {.arg {(.ignoring)}}")
-      }
-    }
-    else if (is_not_null(.specified_method) && is_not_null(.not_present) && is_not_null(.assuming)) {
-      arg::msg('{.code method = "{(.specified_method)}"} is specified, but {.arg {.not_present}} {?was/were} not supplied. Assuming {.val {(.assuming)}} and using {.arg {(.using)}} instead')
-    }
-  }
-  
-  #Process addl 
-  addl <- process_addl(...get("addl"), datalist = list(data, o.data, covs))
-  
-  #Process distance
-  distance <- process_distance(...get("distance"), datalist = list(data, o.data, covs),
-                               obj.distance = obj[["distance"]], 
-                               obj.distance.name = .attr(obj[["distance"]], "name"))
-  
-  #Process focal
-  focal <- process_focal(...get("focal", obj[["focal"]]), treat)
-  
-  if (get.treat.type(treat) == "binary") {
-    if (is_null(focal) && is_not_null(estimand)) {
-      focal <- switch(toupper(estimand), 
-                      "ATT" = treat_vals(treat)[treat_names(treat)["treated"]], 
-                      "ATC" = treat_vals(treat)[treat_names(treat)["control"]], 
-                      NULL)
-    }
-    
-    #Process pairwise
-    if (is_null(focal) && isFALSE(...get("pairwise", TRUE))) {
-      attr(treat, "treat.type") <- "multinomial"
-    }
-  }
-  
-  #Process subclass
-  if ("subclass" %in% .using) {
-    subclass <- .process_vector(...get("subclass", obj[["subclass"]]), 
-                                datalist = list(data, o.data),
-                                name = "subclass", 
-                                which = "subclass membership",
-                                missing.okay = TRUE) |>
-      factor()
-    weights <- NULL
-  }
-  
-  #Process match.strata
-  if ("match.strata" %in% .using) {
-    match.strata <- .process_vector(...get("match.strata", obj[["match.strata"]]), 
-                                    datalist = list(data, o.data),
-                                    name = "match.strata", 
-                                    which = "matching strata membership",
-                                    missing.okay = TRUE)
-    
-    weights <- data.frame(weights = strata2weights(match.strata,
-                                                   treat = treat,
-                                                   estimand = estimand,
-                                                   focal = focal))
-  }
-  
-  #Process weights
-  if ("weights" %in% .using) {
-    weights <- process_weights(obj, list(...), treat, covs, method, addl.data = list(data, o.data))
-    method <- .attr(weights, "method")
-  }
-  
-  #Process s.weights
-  s.weights <- process_s.weights(...get("s.weights", obj[["s.weights"]]), data, o.data)
-  
-  #Process cluster
-  cluster <- process_cluster(...get("cluster"), data, o.data)
-  
-  #Process subset
-  subset <- process_subset(...get("subset"), length(treat))
-  
-  #Process discarded
-  discarded <- ...get("discarded", obj[["discarded"]])
-  
-  #Process length
-  length_imp_process(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("covs", "weights", "distance", "addl"),
-                     imp = imp)
-  
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
-      }
-    }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
-      
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
-      }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
-        }
-        else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
-        }
-      }
-    }
-    
-    stats <- process_stats(stats, treat = treat)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
-  }
-  
-  #Missing values warning
-  if (anyNA(covs) || anyNA(addl)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
-  }
-  
-  #Get call
-  
-  #Process output
-  X <- initialize_X()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names)
-}
-
 .x2base_default_msm <- function(obj, ...) {
   #Process data and get imp
-  imp <- ...get("imp")
-  data <- ...get("data")
-  
   o.data <- obj[["data"]]
   if (is_null(o.data) && is_not_null(obj[["model"]]) && utils::hasName(obj[["model"]], "data")) {
     o.data <- obj[["model"]][["data"]]
@@ -4013,18 +2206,9 @@ x2base.default <- function(x, ...) {
     o.data <- .mids_complete(o.data)
   }
   
-  if (is_not_null(data)) {
-    if (inherits(data, "mids")) {
-      data <- .mids_complete(data)
-      if (is_null(imp)) imp <- data[[".imp"]]
-    }
-    else if (!is.data.frame(data)) {
-      data <- NULL
-    }
-  }
-  
-  #Process imp
-  imp <- process_imp(imp, data, o.data)
+  .d <- .x2base_data(..., .datalist = list(o.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
   
   #Process treat.list
   treat.list <- process_treat.list(...get("treat.list"), data)
@@ -4125,7 +2309,8 @@ x2base.default <- function(x, ...) {
     }
   }
   else {
-    specified.method <- arg::match_arg(method, c("weighting", "matching", "subclassification"), several.ok = TRUE)
+    specified.method <- arg::match_arg(method, c("weighting", "matching", "subclassification"),
+                                       several.ok = TRUE)
     
     method <- if (specified["weights"]) "weighting" else "matching"
     
@@ -4149,25 +2334,15 @@ x2base.default <- function(x, ...) {
                                  covs.list = covs.list)
   
   #Process distance
-  distance.list <- process_distance.list(...get("distance.list", ...get("distance", obj[["distance.list"]])),
+  #A distance supplied in the input object is stored in `obj[["distance"]]`,
+  #whatever name it was given (`distance.list` is among the accepted aliases), so
+  #that is the component to fall back on.
+  distance.list <- process_distance.list(...get("distance.list", ...get("distance", obj[["distance"]])),
                                          datalist = list(data, o.data),
                                          covs.list = covs.list)
   
-  #Process focal
-  focal <- ...get("focal")
-  if (is_not_null(focal)) {
-    arg::err("{.arg focal} is not allowed with longitudinal treatments")
-  }
-  
-  #Process subclass
-  if (is_not_null(...get("subclass"))) {
-    arg::err("subclasses are not allowed with longitudinal treatments")
-  }
-  
-  #Process match.strata
-  if (is_not_null(...get("match.strata"))) {
-    arg::err("matching strata are not allowed with longitudinal treatments")
-  }
+  #Reject arguments that do not apply
+  .reject_args(c("focal", "subclass", "match.strata"), "longitudinal treatments", ...)
   
   #Process weights
   if ("weights" %in% .using) {
@@ -4189,74 +2364,297 @@ x2base.default <- function(x, ...) {
   
   #Process discarded
   
-  #Process length
-  length_imp_process(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
-                     data.frames = c("weights"),
-                     lists = c("covs.list", "treat.list", "addl.list", "distance.list"),
-                     imp = imp)
+  #Process output
+  .finish_X(list(vectors = c("subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("weights"),
+                 lists = c("covs.list", "treat.list", "addl.list", "distance.list")),
+            ...,
+            .msm = TRUE)
+}
+
+.x2base_default_point <- function(obj, ...) {
+  #Process data and get imp
+  o.data <- obj[["data"]]
+  if (is_null(o.data) && is_not_null(obj[["model"]]) && utils::hasName(obj[["model"]], "data")) {
+    o.data <- obj[["model"]][["data"]]
+  }
+  if (inherits(o.data, "mids")) {
+    o.data <- .mids_complete(o.data)
+  }
   
-  #Process stats and thresholds
-  if (!check_if_call_from_fun(bal.plot)) {
-    stats <- process_stats(...get("stats"), treat = treat.list)
-    type <- .attr(stats, "type")
-    thresholds <- ...get("thresholds", list())
-    
-    if (is_not_null(thresholds)) {
-      thresholds <- process_thresholds(thresholds, c(stats, setdiff(all_STATS(type), stats)))
-      if (!all(names(thresholds) %in% stats)) {
-        stats <- unique(c(stats, names(thresholds)))
+  .d <- .x2base_data(..., .datalist = list(o.data))
+  data <- .d[["data"]]
+  imp <- .d[["imp"]]
+  
+  #Process treat
+  treat <- ...get("treat")
+  if (is_null(treat)) {
+    formula <- ...get("formula")
+    if (is_not_null(formula) && rlang::is_formula(formula, lhs = TRUE)) {
+      treat <- get_treat_from_formula(formula, data = data %or% o.data)
+    }
+    else if (is_not_null(obj[["treat"]])) {
+      treat <- obj[["treat"]]
+    }
+    else {
+      formula.obj <- obj[["formula"]]
+      
+      if (is_not_null(formula.obj) && rlang::is_formula(formula.obj, lhs = TRUE)) {
+        treat <- get_treat_from_formula(formula.obj, data = data %or% o.data)
       }
     }
-    
-    for (s in all_STATS(type)) {
-      #If disp.stat is TRUE, add stat to stats
-      if (isTRUE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- unique(c(stats, s))
-      }
-      else if (isFALSE(...get(STATS[[s]][["disp_stat"]]))) {
-        stats <- setdiff(stats, s)
-      }
+  }
+  treat <- process_treat(treat, data, o.data)
+  
+  #Process covs
+  covs <- ...get("covs")
+  if (is_null(covs)) {
+    formula <- ...get("formula")
+    if (is_not_null(formula) && rlang::is_formula(formula)) {
+      covs <- get_covs_from_formula(formula, data = data %or% o.data)
+    }
+    else if (is_not_null(obj[["covs"]])) {
+      covs <- obj[["covs"]]
+    }
+    else {
+      formula.obj <- obj[["formula"]]
       
-      #Process and check thresholds
-      if (is_not_null(...get(STATS[[s]][["threshold"]]))) {
-        thresholds[[s]] <- ...get(STATS[[s]][["threshold"]])
+      if (is_not_null(formula.obj) && rlang::is_formula(formula.obj)) {
+        covs <- get_covs_from_formula(formula.obj, data = data %or% o.data)
       }
-      if (is_not_null(thresholds[[s]])) {
-        thresholds[[s]] <- STATS[[s]][["abs"]](thresholds[[s]])
-        if (between(thresholds[[s]], STATS[[s]][["threshold_range"]])) {
-          stats <- unique(c(stats, s))
+    }
+  }
+  
+  if (is_null(covs)) {
+    arg::err("{.arg covs} data frame must be specified")
+  }
+  
+  if (is_null(.attr(covs, "co.names"))) {
+    if (is.matrix(covs)) covs <- as.data.frame.matrix(covs)
+    covs <- get_covs_from_formula(data = covs)
+  }
+  
+  #Get estimand
+  estimand <- ...get("estimand", obj[["estimand"]])
+  
+  #Get method
+  specified <- setNames(rep.int(FALSE, 3L), c("match.strata", "subclass", "weights"))
+  
+  for (i in names(specified)) {
+    specified[i] <- is_not_null(...get(i, obj[[i]]))
+  }
+  
+  .specified_method <- character()
+  .specified_args <- character()
+  .assuming <- character()
+  .ignoring <- character()
+  .not_present <- character()
+  .using <- character()
+  
+  method <- ...get("method")
+  if (is_null(method)) {
+    if (any(specified)) {
+      .using <- names(specified)[specified][1L]
+      method <- switch(.using,
+                       match.strata = "matching",
+                       subclass = "subclassification",
+                       weights = "weighting")
+      
+      if (sum(specified) > 1L) {
+        .specified_args <- names(specified)[specified]
+        .assuming <- method
+        .ignoring <- setdiff(names(specified)[specified], .using)
+      }
+    }
+    else {
+      method <- "matching"
+    }
+  }
+  else {
+    .specified_method <- arg::match_arg(method, c("weighting", "matching", "subclassification"),
+                                        several.ok = TRUE)
+    
+    if (length(method) == 1L) {
+      if (.specified_method == "weighting") {
+        if (specified["weights"]) {
+          method <- "weighting"
+          .using <- "weights"
+          
+          if (sum(specified) > 1L) {
+            .specified_args <- names(specified)[specified]
+            .ignoring <- setdiff(names(specified)[specified], .using)
+          }
+        }
+        else if (any(specified)) {
+          .using <- names(specified)[specified][1L]
+          method <- switch(.using,
+                           match.strata = "matching",
+                           subclass = "subclassification",
+                           weights = "weighting")
+          .assuming <- method
+          .not_present <- "weights"
         }
         else {
-          thresholds[[s]] <- NULL
-          arg::wrn('{.arg STATS[[s]][["threshold"]]} must be between {STATS[[s]][["threshold_range"]]}; ignoring {.arg STATS[[s]][["threshold"]]}')
+          method <- "matching"
+        }
+      }
+      else if (.specified_method == "matching") {
+        if (specified["match.strata"]) {
+          method <- "matching"
+          .using <- "match.strata"
+          
+          if (sum(specified) > 1L) {
+            .specified_args <- names(specified)[specified]
+            .ignoring <- setdiff(names(specified)[specified], .using)
+          }
+        }
+        else if (specified["weights"]) {
+          method <- "matching"
+          .using <- "weights"
+          
+          if (sum(specified) > 1L) {
+            .specified_args <- names(specified)[specified]
+            .ignoring <- setdiff(names(specified)[specified], .using)
+          }
+        }
+        else if (specified["subclass"]) {
+          method <- "subclassification"
+          .using <- "subclass"
+          .not_present <- c("weights", "match.strata")
+          .assuming <- method
+        }
+        else {
+          method <- "matching"
+        }
+      }
+      else if (.specified_method == "subclassification") {
+        if (specified["subclass"]) {
+          method <- "subclassification"
+          .using <- "subclass"
+          
+          if (sum(specified) > 1L) {
+            .specified_args <- names(specified)[specified]
+            .ignoring <- setdiff(names(specified)[specified], .using)
+          }
+        }
+        else if (any(specified)) {
+          .using <- names(specified)[specified][1L]
+          method <- switch(.using,
+                           match.strata = "matching",
+                           subclass = "subclassification",
+                           weights = "weighting")
+          .assuming <- method
+          .not_present <- "subclass"
+        }
+        else {
+          method <- "matching"
         }
       }
     }
-    
-    stats <- process_stats(stats, treat = treat.list)
-    
-    #Get s.d.denom
-    s.d.denom <- ...get("s.d.denom")
+    else {
+      if (specified["subclass"] || any(.specified_method == "subclassification")) {
+        arg::err("subclassification cannot be specified along with other methods")
+      }
+      
+      if (specified["match.strata"]) {
+        arg::err("only weights can be specified with multiple methods")
+      }
+      
+      if (specified["weights"]) {
+        method <- .specified_method
+        .using <- "weights"
+      }
+      else {
+        arg::wrn("multiple methods were specified, but no weights were provided. Providing unadjusted data only")
+        method <- "matching"
+      }
+    }
   }
   
-  #Missing values warning
-  if (anyNA(covs.list, recursive = TRUE) || anyNA(addl.list, recursive = TRUE)) {
-    arg::wrn("missing values exist in the covariates. Displayed values omit these observations")
+  if (is_not_null(.using)) {
+    if (is_not_null(.specified_args) && is_not_null(.ignoring)) {
+      if (is_not_null(.assuming)) {
+        arg::msg("{.arg {(.specified_args)}} {?is/are} specified. Assuming {.val {(.assuming)}} and using {.arg {(.using)}} and ignoring {.arg {(.ignoring)}}")
+      }
+      else {
+        arg::msg("{.arg {(.specified_args)}} {?is/are} specified. Using {.arg {(.using)}} and ignoring {.arg {(.ignoring)}}")
+      }
+    }
+    else if (is_not_null(.specified_method) && is_not_null(.not_present) && is_not_null(.assuming)) {
+      arg::msg('{.code method = "{(.specified_method)}"} is specified, but {.arg {(.not_present)}} {?was/were} not supplied. Assuming {.val {(.assuming)}} and using {.arg {(.using)}} instead')
+    }
   }
   
-  #Get call
-  call <- NULL
+  #Process addl 
+  addl <- process_addl(...get("addl"), datalist = list(data, o.data, covs))
+  
+  #Process distance
+  distance <- process_distance(...get("distance"), datalist = list(data, o.data, covs),
+                               obj.distance = obj[["distance"]], 
+                               obj.distance.name = .attr(obj[["distance"]], "name"))
+  
+  #Process focal
+  focal <- process_focal(...get("focal", obj[["focal"]]), treat)
+  
+  if (get.treat.type(treat) == "binary") {
+    if (is_null(focal) && is_not_null(estimand)) {
+      focal <- switch(toupper(estimand), 
+                      "ATT" = treat_vals(treat)[treat_names(treat)["treated"]], 
+                      "ATC" = treat_vals(treat)[treat_names(treat)["control"]], 
+                      NULL)
+    }
+    
+    #Process pairwise
+    if (is_null(focal) && isFALSE(...get("pairwise", TRUE))) {
+      attr(treat, "treat.type") <- "multinomial"
+    }
+  }
+  
+  #Process subclass
+  if ("subclass" %in% .using) {
+    subclass <- .process_vector(...get("subclass", obj[["subclass"]]), 
+                                datalist = list(data, o.data),
+                                name = "subclass", 
+                                which = "subclass membership",
+                                missing.okay = TRUE) |>
+      factor()
+    weights <- NULL
+  }
+  
+  #Process match.strata
+  if ("match.strata" %in% .using) {
+    match.strata <- .process_vector(...get("match.strata", obj[["match.strata"]]), 
+                                    datalist = list(data, o.data),
+                                    name = "match.strata", 
+                                    which = "matching strata membership",
+                                    missing.okay = TRUE)
+    
+    weights <- data.frame(weights = strata2weights(match.strata,
+                                                   treat = treat,
+                                                   estimand = estimand,
+                                                   focal = focal))
+  }
+  
+  #Process weights
+  if ("weights" %in% .using) {
+    weights <- process_weights(obj, list(...), treat, covs, method, addl.data = list(data, o.data))
+    method <- .attr(weights, "method")
+  }
+  
+  #Process s.weights
+  s.weights <- process_s.weights(...get("s.weights", obj[["s.weights"]]), data, o.data)
+  
+  #Process cluster
+  cluster <- process_cluster(...get("cluster"), data, o.data)
+  
+  #Process subset
+  subset <- process_subset(...get("subset"), length(treat))
+  
+  #Process discarded
+  discarded <- ...get("discarded", obj[["discarded"]])
   
   #Process output
-  X <- initialize_X_msm()
-  X.names <- names(X)
-  
-  for (i in X.names) {
-    X[[i]] <- get0(i, inherits = FALSE)
-  }
-  
-  X <- subset_X(X, subset)
-  
-  setNames(X[X.names], X.names) |>
-    set_class("msm")
+  .finish_X(list(vectors = c("treat", "subclass", "match.strata", "cluster", "s.weights", "subset", "discarded"),
+                 data.frames = c("covs", "weights", "distance", "addl")),
+            ...)
 }

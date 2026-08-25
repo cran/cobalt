@@ -7,7 +7,12 @@
 #' For `get.cobalt.options()`, one or more strings containing the name of a parameter option to be retrieved. See examples. If empty, all available options and their values will be returned.
 #' 
 #' @param default if `TRUE`, sets all \pkg{cobalt} options not named in `...` to their default values.
-#' 
+#'
+#' @returns
+#' `set.cobalt.options()` is called for its side effect of setting options, and returns invisibly: the previous values of any options it returned to their defaults, as [options()] gives them, or `NULL` if it returned none.
+#'
+#' `get.cobalt.options()` returns a named list with one entry per requested option, holding its current value, or `NULL` for an option that has not been set. Called with no arguments, it returns every available option.
+#'
 #' @details When an option is set to `NULL`, it is set to its default value. The defaults are not displayed but are listed on the help pages where they appear. Most options correspond to display options, which can be accessed [here][display-options]. Some others (e.g., `continuous` and `binary`) are described on the [bal.tab()] help page.
 #' 
 #' @seealso 
@@ -47,8 +52,6 @@ set.cobalt.options <- function(..., default = FALSE) {
   if (...length() > 0L && (is_null(...names()) || "" %in% ...names())) {
     arg::err("all arguments must be named")
   }
-  # if ("continuous" %in% names(opts)) names(opts)[names(opts) == "continuous"] <- "cont"
-  # if ("binary" %in% names(opts)) names(opts)[names(opts) == "binary"] <- "bin"
   
   multiple.allowed <- c("stats", "disp", "cluster.fun", "imp.fun")
   any.string.allowed <- c("int_sep", "factor_sep")
@@ -127,8 +130,6 @@ set.cobalt.options <- function(..., default = FALSE) {
     options(setNames(replicate(length(return.to.default), NULL),
                      paste0("cobalt_", return.to.default)))
   }
-  # if ("continuous" %in% names(opts)) names(acceptable.options)[names(acceptable.options) == "continuous"] <- "cont"
-  # if ("binary" %in% names(opts)) names(acceptable.options)[names(acceptable.options) == "binary"] <- "bin"
 }
 
 #' @rdname set.cobalt.options
@@ -149,7 +150,7 @@ get.cobalt.options <- function(...) {
     
     not.in.accept <- opts %nin% names(acceptable.options())
     if (any(not.in.accept)) {
-      arg::err("{.val {opts[not.in.accept]}} {?is/are} not {?an/} acceptible option{?s}")
+      arg::err("{.val {opts[not.in.accept]}} {?is/are} not {?an/} acceptable option{?s}")
     }
   }
   
@@ -161,17 +162,25 @@ get.cobalt.options <- function(...) {
 #set.cobalt.options
 acceptable.options <- function() {
   TF <- c(TRUE, FALSE)
-  list(stats = c("mean.diffs"),
-       un = TF,
-       continuous = c("raw", "std"),
-       binary = c("raw", "std"),
-       imbalanced.only = TF,
-       disp = c("means", "sds"),
-       disp.means = TF,
-       disp.sds = TF,
-       disp.v.ratio = TF,
-       disp.ks = TF,
-       disp.subclass = TF,
+
+  #The per-statistic display flags are named in the `STATS` registry, so listing
+  #them here from it keeps the two in step as statistics are added. The names are
+  #deduplicated because each `*.target` statistic shares its flag with the
+  #statistic it targets.
+  disp_stat_names <- unique(get_from_STATS("disp_stat"))
+  disp_stats <- setNames(rep.int(list(TF), length(disp_stat_names)),
+                         disp_stat_names)
+
+  c(list(stats = all_STATS(),
+         un = TF,
+         continuous = c("raw", "std"),
+         binary = c("raw", "std"),
+         imbalanced.only = TF,
+         disp = c("means", "sds"),
+         disp.means = TF,
+         disp.sds = TF),
+    disp_stats,
+    list(disp.subclass = TF,
        disp.bal.tab = TF,
        cluster.summary = TF,
        cluster.fun = c("min", "mean", "max"),
@@ -179,12 +188,11 @@ acceptable.options <- function() {
        imp.fun = c("min", "mean", "max"),
        multi.summary = TF,
        msm.summary = TF,
-       target.summary = TF,
        subclass.summary = TF,
        int_sep = " * ",
        factor_sep = "_",
        center = TF,
        orth = TF,
        remove_perfect_col = TF,
-       disp.call = TF)
+       disp.call = TF))
 }

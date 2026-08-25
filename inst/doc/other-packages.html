@@ -12,7 +12,7 @@
 
 <meta name="author" content="Noah Greifer" />
 
-<meta name="date" content="2026-05-29" />
+<meta name="date" content="2026-08-24" />
 
 <title>Using cobalt with Other Preprocessing Packages</title>
 
@@ -342,7 +342,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Using cobalt with Other Preprocessing
 Packages</h1>
 <h4 class="author">Noah Greifer</h4>
-<h4 class="date">2026-05-29</h4>
+<h4 class="date">2026-08-24</h4>
 
 
 <div id="TOC">
@@ -1181,18 +1181,18 @@ using <code>bal.tab()</code> with <em>MatchThem</em>:</p>
 <span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a>                               <span class="at">estimand =</span> <span class="st">&quot;ATT&quot;</span>)</span>
 <span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a></span>
 <span id="cb23-16"><a href="#cb23-16" tabindex="-1"></a><span class="fu">bal.tab</span>(mt.out)</span></code></pre></div>
-<pre><code>## Balance summary across all imputations
+<pre><code>## 
+## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## distance    Distance       0.9476        0.9558       0.9703
-## age          Contin.      -0.0280        0.0178       0.0944
-## educ         Contin.      -0.1774       -0.1411      -0.0860
-## married       Binary      -0.0669       -0.0189       0.0131
+## distance    Distance       0.9512        0.9551       0.9603
+## age          Contin.      -0.0159        0.0272       0.0876
+## educ         Contin.      -0.1989       -0.1505      -0.1237
+## married       Binary      -0.0541       -0.0217       0.0135
 ## race_black    Binary       1.0259        1.0259       1.0259
-## race_hispan   Binary      -0.8000       -0.7337      -0.6629
-## race_white    Binary      -0.7296       -0.6730      -0.6201
-## re74         Contin.      -0.1084       -0.0535      -0.0213
-## re75         Contin.      -0.0837       -0.0606      -0.0356
-## 
+## race_hispan   Binary      -0.7772       -0.7269      -0.6857
+## race_white    Binary      -0.7113       -0.6785      -0.6384
+## re74         Contin.      -0.1019       -0.0542      -0.0270
+## re75         Contin.      -0.0883       -0.0557      -0.0220
 ## Average sample sizes across imputations
 ##             0   1
 ## All       429 185
@@ -1207,22 +1207,22 @@ using <code>bal.tab()</code> with <em>MatchThem</em>:</p>
 <span id="cb25-7"><a href="#cb25-7" tabindex="-1"></a>                                <span class="at">estimand =</span> <span class="st">&quot;ATE&quot;</span>)</span>
 <span id="cb25-8"><a href="#cb25-8" tabindex="-1"></a></span>
 <span id="cb25-9"><a href="#cb25-9" tabindex="-1"></a><span class="fu">bal.tab</span>(wt.out)</span></code></pre></div>
-<pre><code>## Balance summary across all imputations
+<pre><code>## 
+## Balance summary across all imputations
 ##                 Type Min.Diff.Adj Mean.Diff.Adj Max.Diff.Adj
-## prop.score  Distance       0.1322        0.1543       0.1664
-## age          Contin.      -0.1943       -0.1883      -0.1809
-## educ         Contin.       0.0757        0.0827       0.0922
-## married       Binary      -0.2507       -0.2227      -0.1831
-## race_black    Binary       0.1208        0.1459       0.1575
-## race_hispan   Binary       0.0190        0.0342       0.0427
-## race_white    Binary      -0.1796       -0.1670      -0.1404
-## re74         Contin.      -0.3018       -0.2863      -0.2659
-## re75         Contin.      -0.1734       -0.1630      -0.1509
-## 
+## prop.score  Distance       0.1463        0.1608       0.1664
+## age          Contin.      -0.1952       -0.1892      -0.1830
+## educ         Contin.       0.0774        0.0834       0.0912
+## married       Binary      -0.2443       -0.2327      -0.1973
+## race_black    Binary       0.1376        0.1524       0.1603
+## race_hispan   Binary       0.0194        0.0330       0.0442
+## race_white    Binary      -0.1876       -0.1723      -0.1478
+## re74         Contin.      -0.3009       -0.2878      -0.2665
+## re75         Contin.      -0.1738       -0.1628      -0.1545
 ## Average effective sample sizes across imputations
 ##                 0      1
 ## Unadjusted 429.   185.  
-## Adjusted   331.48  66.42</code></pre>
+## Adjusted   331.22  66.71</code></pre>
 <p>The input is similar to that for using <code>bal.tab()</code> with
 <em>MatchIt</em> or <em>WeightIt</em>.</p>
 </div>

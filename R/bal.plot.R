@@ -1,4 +1,4 @@
-#' @title Visualize Distributional Balance
+#' Visualize Distributional Balance
 #' 
 #' @description Generates density plots, bar graphs, or scatterplots displaying distributional balance between treatment and covariates using \pkg{ggplot2}.
 #' 
@@ -28,14 +28,14 @@
 #'     
 #' * For `matchit` objects: None
 #' * For `weightit` objects: None
-#' * For `ps`, `ps.cont`, `mnps`, and `iptw` objects: (`stop.method`; see [defaults][bal.tab.ps]).
-#' * For `Match` objects: `formula` and `data` or `covs` and `treat`.
-#' * For `optmatch` objects: `formula` and `data` or `covs` (`treat` is not required).
+#' * For `ps`, `ps.cont`, `mnps`, and `iptw` objects: `stop.method` (see [defaults][bal.tab.ps]).
+#' * For `Match` objects: `formula` and `data`, or `covs` and `treat`.
+#' * For `optmatch` objects: `formula` and `data`, or `covs` (`treat` is not required).
 #' * For `CBPS` objects: None
-#' * For `ebalance` objects: `formula` and `data` or `covs` and `treat`.
+#' * For `ebalance` objects: `formula` and `data`, or `covs` and `treat`.
 #' * For `formula`s: `data`
 #' * For `data.frame`s: `treat`
-#' * For `designmatch` objects: `formula` and `data` or `covs` and `treat`.
+#' * For `designmatch` objects: `formula` and `data`, or `covs` and `treat`.
 #' * For `sbw` objects: None
 #' * For `mimids` and `wimids` objects: None, but an argument to `which.imp` should be specified.
 #' * For other objects processed through `bal.tab()`'s default method, whichever arguments are required to identify treatment, variables, and a conditioning method (if any).
@@ -89,28 +89,34 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
   x <- try_arg(force(x), warn = TRUE)
   
   #Replace .all and .none with NULL and NA respectively
-  .call <- match.call(expand.dots = TRUE)
-  .alls <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.all)), logical(1L))
-  .nones <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.none)), logical(1L))
-  if (any(c(.alls, .nones))) {
-    .call[.alls] <- expression(NULL)
-    .call[.nones] <- expression(NA)
-    return(eval.parent(.call))
+  .rewritten <- .rewrite_all_none(match.call(expand.dots = TRUE))
+  
+  if (is_not_null(.rewritten)) {
+    return(eval.parent(.rewritten))
   }
   
   X <- process_obj(x) |>
     x2base(..., cluster = cluster, imp = imp)
   
-  if (is_null(X$covs.list)) {
+  #A censoring indicator names two samples rather than two treatment groups, so it is
+  #stacked into the same binary pseudo-treatment `bal.tab()` builds -- the uncensored
+  #units carrying the weights, then every at-risk unit carrying 1 -- and everything below
+  #plots the two as it would any binary treatment.
+  if (.is_cens(X[["treat"]])) {
+    X <- .stack_cens_X(X, .count = FALSE)[["X"]]
+  }
+  
+  if (is_null(X[["covs.list"]])) {
     #Point treatment
-    X$covs <- .get_C2(X$covs, addl = X$addl, distance = X$distance, cluster = X$cluster, treat = X$treat,
-                      drop = FALSE)
-    co.names <- .attr(X$covs, "co.names")
+    X[["covs"]] <- .get_C2(X[["covs"]], addl = X[["addl"]], distance = X[["distance"]],
+                           cluster = X[["cluster"]], treat = X[["treat"]],
+                           drop = FALSE)
+    co.names <- .attr(X[["covs"]], "co.names")
     if (missing(var.name)) {
       var.name <- NULL
-      for (x in co.names) {
-        if ("isep" %nin% x[["type"]]) {
-          var.name <- x[["component"]][x[["type"]] == "base"][1L]
+      for (z in co.names) {
+        if ("isep" %nin% z[["type"]]) {
+          var.name <- z[["component"]][z[["type"]] == "base"][1L]
           break
         }
       }
@@ -124,47 +130,47 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
       }
     }
     
-    var.name_in_name <- vapply(co.names, function(x) {
-      var.name %in% x[["component"]][x[["type"]] == "base"] &&
-        "isep" %nin% x[["type"]]
+    var.name_in_name <- vapply(co.names, function(z) {
+      var.name %in% z[["component"]][z[["type"]] == "base"] &&
+        "isep" %nin% z[["type"]]
     }, logical(1L))
     
-    var.name_in_name_and_factor <- vapply(seq_along(co.names), function(x) {
-      var.name_in_name[x] && "fsep" %in% co.names[[x]][["type"]]
+    var.name_in_name_and_factor <- vapply(seq_along(co.names), function(z) {
+      var.name_in_name[z] && "fsep" %in% co.names[[z]][["type"]]
     }, logical(1L))
     
     if (any(var.name_in_name_and_factor)) {
-      X$var <- unsplitfactor(as.data.frame(X$covs[, var.name_in_name_and_factor, drop = FALSE]), 
-                             var.name, sep = .attr(co.names, "seps")["factor"])[[1L]]
+      X[["var"]] <- unsplitfactor(as.data.frame(X[["covs"]][, var.name_in_name_and_factor, drop = FALSE]), 
+                                  var.name, sep = .attr(co.names, "seps")["factor"])[[1L]]
     }
     else if (any(var.name_in_name)) {
-      X$var <- X$covs[, var.name]
+      X[["var"]] <- X[["covs"]][, var.name]
     }
     else {
-      arg::err("{.val {var.name}} is not the name of an available covariate")
+      .err_no_var.name(var.name, co.names)
     }
     
-    if (get.treat.type(X$treat) != "continuous") {
-      X$treat <- treat_vals(X$treat)[X$treat]
+    if (get.treat.type(X[["treat"]]) != "continuous") {
+      X[["treat"]] <- treat_labels(X[["treat"]])[X[["treat"]]]
     }
   }
   else {
     #Longitudinal
-    X$covs.list <- lapply(seq_along(X$covs.list), function(i) {
-      .get_C2(X$covs.list[[i]], addl = X$addl.list[[i]], distance = X$distance.list[[i]], cluster = X$cluster,
-              treat = X$treat.list[[i]], drop = FALSE)
+    X[["covs.list"]] <- lapply(seq_along(X[["covs.list"]]), function(i) {
+      .get_C2(X[["covs.list"]][[i]], addl = X[["addl.list"]][[i]], distance = X[["distance.list"]][[i]], cluster = X[["cluster"]],
+              treat = X[["treat.list"]][[i]], drop = FALSE)
     })
-    co.names.list <- lapply(X$covs.list, attr, "co.names")
-    ntimes <- length(X$covs.list)
+    co.names.list <- lapply(X[["covs.list"]], attr, "co.names")
+    ntimes <- length(X[["covs.list"]])
     
     if (missing(var.name)) {
       var.name <- NULL
       k <- 1L
       time <- 1L
       while (is_null(var.name)) {
-        x <- co.names.list[[time]][[k]]
-        if ("isep" %nin% x[["type"]]) {
-          var.name <- x[["component"]][x[["type"]] == "base"][1L]
+        z <- co.names.list[[time]][[k]]
+        if ("isep" %nin% z[["type"]]) {
+          var.name <- z[["component"]][z[["type"]] == "base"][1L]
         }
         else if (time < ntimes) {
           if (k < length(co.names.list[[time]])) {
@@ -186,24 +192,24 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
       arg::msg("no {.arg var.name} was provided. Displaying balance for {.var {var.name}}")
     }
     
-    var.list <- make_list(length(X$covs.list))
-    appears.in.time <- rep.int(TRUE, length(X$covs.list))
-    for (i in seq_along(X$covs.list)) {
-      var.name_in_name <- vapply(co.names.list[[i]], function(x) {
-        var.name %in% x[["component"]][x[["type"]] == "base"] &&
-          "isep" %nin% x[["type"]]
+    var.list <- make_list(length(X[["covs.list"]]))
+    appears.in.time <- rep.int(TRUE, length(X[["covs.list"]]))
+    for (i in seq_along(X[["covs.list"]])) {
+      var.name_in_name <- vapply(co.names.list[[i]], function(z) {
+        var.name %in% z[["component"]][z[["type"]] == "base"] &&
+          "isep" %nin% z[["type"]]
       }, logical(1L))
       
-      var.name_in_name_and_factor <- var.name_in_name & vapply(co.names.list[[i]], function(x) {
-        "fsep" %in% x[["type"]]
+      var.name_in_name_and_factor <- var.name_in_name & vapply(co.names.list[[i]], function(z) {
+        "fsep" %in% z[["type"]]
       }, logical(1L))
       
       if (any(var.name_in_name_and_factor)) {
-        var.list[[i]] <- unsplitfactor(as.data.frame(X$covs.list[[i]][, var.name_in_name_and_factor, drop = FALSE]), 
+        var.list[[i]] <- unsplitfactor(as.data.frame(X[["covs.list"]][[i]][, var.name_in_name_and_factor, drop = FALSE]), 
                                        var.name, sep = .attr(co.names.list[[i]], "seps")["factor"])[[1L]]
       }
       else if (any(var.name_in_name)) {
-        var.list[[i]] <- X$covs.list[[i]][, var.name]
+        var.list[[i]] <- X[["covs.list"]][[i]][, var.name]
       }
       else {
         appears.in.time[i] <- FALSE
@@ -211,47 +217,103 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     }
     
     if (all(lengths(var.list) == 0L)) {
-      arg::err("{.val {var.name}} is not the name of an available covariate")
+      .err_no_var.name(var.name, unlist(co.names.list, recursive = FALSE))
     }
     
-    X$var <- unlist(var.list[appears.in.time])
+    #`base::which()` is qualified throughout this branch because the `which`
+    #argument of bal.plot() has no default; an unqualified call to `which()`
+    #before `which` is resolved forces the missing argument and errors.
+    times <- base::which(appears.in.time)
     
-    X$time <- rep(which(appears.in.time), times = lengths(var.list[appears.in.time]))
+    #Which units are still under observation entering each time point. All of them
+    #unless the list contains a censoring indicator.
+    at.risk <- .msm_at_risk(X[["treat.list"]])
     
-    X$treat.list[appears.in.time] <- lapply(X$treat.list[appears.in.time], function(t) {
-      switch(get.treat.type(t), continuous = t, treat_vals(t)[t])
-    })
-    X$treat <- unlist(X$treat.list[appears.in.time])
+    #Each displayed time point contributes a block of rows, and how many depends on what
+    #the time point is: a treatment time point contributes the units still under
+    #observation at it, and a censoring one contributes those units *and* the whole risk
+    #set, stacked, so that both of the samples it compares can be drawn. Everything
+    #per-unit is then indexed by the concatenation of those blocks -- rather than
+    #replicated once per time point, which assumed every time point contributes all `n`
+    #rows.
+    index.list <- make_list(length(times))
+    treat.list <- make_list(length(times))
+    is.full.sample <- make_list(length(times))
     
-    treat.names <- {
-      if (is_null(names(X$treat.list)[appears.in.time])) which(appears.in.time)
-      else names(X$treat.list)[appears.in.time]
+    for (j in seq_along(times)) {
+      i <- times[j]
+      treat_i <- X[["treat.list"]][[i]]
+      
+      if (.is_cens(treat_i)) {
+        s <- .cens_stack_index(as.numeric(treat_i), .at.risk = at.risk[[i]])
+        
+        index.list[[j]] <- s[["index"]]
+        
+        pseudo <- .cens_pseudo_treat(s[["n.uncensored"]], s[["n.at.risk"]])
+        treat.list[[j]] <- unname(treat_labels(pseudo)[pseudo])
+        
+        is.full.sample[[j]] <- rep(c(FALSE, TRUE),
+                                   times = c(s[["n.uncensored"]], s[["n.at.risk"]]))
+      }
+      else {
+        index.list[[j]] <- base::which(at.risk[[i]])
+        
+        treat.list[[j]] <- {
+          if (get.treat.type(treat_i) == "continuous") treat_i[index.list[[j]]]
+          else unname(treat_labels(treat_i)[treat_i])[index.list[[j]]]
+        }
+        
+        is.full.sample[[j]] <- rep_with(FALSE, index.list[[j]])
+      }
     }
     
-    if (is_not_null(X$weights)) {
-      X$weights <- do.call("rbind", rep(list(X$weights), sum(appears.in.time)))
+    index <- unlist(index.list)
+    
+    X[["var"]] <- unlist(lapply(seq_along(times), function(j) {
+      var.list[[times[j]]][index.list[[j]]]
+    }))
+    
+    X[["time"]] <- rep(times, times = lengths(index.list))
+    
+    X[["treat"]] <- unlist(treat.list)
+    
+    #One name per time point, not per displayed time point: `which.time` is resolved
+    #against this by name, and `X[["time"]]` indexes into it.
+    treat.names <- names(X[["treat.list"]]) %or% seq_along(X[["treat.list"]])
+    
+    #What each time point is called in a facet strip, the same way `bal.tab()` names it.
+    #`which.time` is still matched against `treat.names`, so relabeling here changes only
+    #what is displayed.
+    time.labels <- .msm_time_labels(X[["treat.list"]], treat.names)
+    
+    if (is_not_null(X[["weights"]])) {
+      X[["weights"]] <- X[["weights"]][index, , drop = FALSE]
+      
+      #The full sample a censoring time point compares against is its target, so it is
+      #never reweighted.
+      X[["weights"]][unlist(is.full.sample), ] <- 1
     }
     
-    if (is_not_null(X$s.weights)) {
-      X$s.weights <- rep(X$sweights, sum(appears.in.time))
+    if (is_not_null(X[["s.weights"]])) {
+      X[["s.weights"]] <- X[["s.weights"]][index]
     }
     
-    if (is_not_null(X$cluster)) {
-      X$cluster <- rep(X$cluster, sum(appears.in.time))
+    if (is_not_null(X[["cluster"]])) {
+      X[["cluster"]] <- X[["cluster"]][index]
     }
     
-    if (is_not_null(X$imp)) {
-      X$imp <- rep(X$imp, sum(appears.in.time))
+    if (is_not_null(X[["imp"]])) {
+      X[["imp"]] <- X[["imp"]][index]
     }
   }
   
   weight.names <- {
-    if (is_null(X$subclass) && NCOL(X$weights) != 1L) names(X$weights)
+    if (is_null(X[["subclass"]]) && NCOL(X[["weights"]]) != 1L) names(X[["weights"]])
     else "adjusted"
   }
   
-  if (is_null(X$s.weights)) {
-    X$s.weights <- rep_with(1, X$treat)
+  if (is_null(X[["s.weights"]])) {
+    X[["s.weights"]] <- rep_with(1, X[["treat"]])
   }
   
   if (missing(which)) {
@@ -261,12 +323,12 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     }
     else {
       which <- {
-        if (is_null(X$weights) && is_null(X$subclass)) "unadjusted"
+        if (is_null(X[["weights"]]) && is_null(X[["subclass"]])) "unadjusted"
         else weight.names
       }
     }
   }
-  else if (is_null(X$weights) && is_null(X$subclass)) {
+  else if (is_null(X[["weights"]]) && is_null(X[["subclass"]])) {
     which <- "unadjusted"
   }
   else {
@@ -282,11 +344,11 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
   subtitle <- NULL
   
   facet <- NULL
-  is.categorical.var <- is.factor(X$var) || is.character(X$var) || is_binary(X$var) 
+  is.categorical.var <- is.factor(X[["var"]]) || is.character(X[["var"]]) || is_binary(X[["var"]]) 
   
-  if (is_null(X$subclass) || (rlang::is_string(which) && which == "unadjusted")) {
-    if (is_not_null(which.sub) && !all(is.na(which.sub))) {
-      if (is_null(X$subclass)) {
+  if (is_null(X[["subclass"]]) || (rlang::is_string(which) && which == "unadjusted")) {
+    if (is_not_null(which.sub) && !allNA(which.sub)) {
+      if (is_null(X[["subclass"]])) {
         arg::wrn("{.arg which.sub} was specified but no subclasses were supplied. Ignoring {.arg which.sub}")
       }
       else {
@@ -305,29 +367,29 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     }
     which <- unique(which)
     
-    if (is_null(X$weights)) {
-      X$weights <- setNames(data.frame(rep_with(1, X$treat)),
-                            "Unadjusted Sample")
+    if (is_null(X[["weights"]])) {
+      X[["weights"]] <- setNames(data.frame(rep_with(1, X[["treat"]])),
+                                 "Unadjusted Sample")
     }
     else {
-      if (ncol(X$weights) == 1L) {
+      if (ncol(X[["weights"]]) == 1L) {
         which[which != "Unadjusted Sample"] <- "Adjusted Sample"
-        names(X$weights) <- "Adjusted Sample"
+        names(X[["weights"]]) <- "Adjusted Sample"
       }
       
       if ("Unadjusted Sample" %in% which) {
-        X$weights <- setNames(data.frame(rep_with(max(X$weights), X$treat),
-                                         X$weights),
-                              c("Unadjusted Sample", names(X$weights)))
+        X[["weights"]] <- setNames(data.frame(rep_with(max(X[["weights"]]), X[["treat"]]),
+                                              X[["weights"]]),
+                                   c("Unadjusted Sample", names(X[["weights"]])))
       }
     }
     
-    X$weights <- X$weights[which]
+    X[["weights"]] <- X[["weights"]][which]
     
     #Process sample names
     ntypes <- length(which)
     nadj <- sum(which != "Unadjusted Sample")
-
+    
     if (missing(sample.names)) {
       sample.names <- NULL
     }
@@ -341,52 +403,52 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     }
     
     #NULL: all; NA: none
-    in.imp <- rep_with(TRUE, X$var)
-    if (is_not_null(X$imp)) {
+    in.imp <- rep_with(TRUE, X[["var"]])
+    if (is_not_null(X[["imp"]])) {
       if (is_null(which.imp)) {
-        in.imp <- !is.na(X$imp)
+        in.imp <- !is.na(X[["imp"]])
         facet <- c("imp", facet)
       }
-      else if (!all(is.na(which.imp))) {
+      else if (!allNA(which.imp)) {
         if (!is.numeric(which.imp)) {
           arg::err("the argument to {.arg which.imp} must be the indices corresponding to the imputations for which distributions are to be displayed")
         }
         
-        if (!all(which.imp %in% seq_len(nlevels(X$imp)))) {
-          .b <- setdiff(which.imp, seq_len(nlevels(X$imp)))
-          arg::err("the following inputs to {.arg which.imp} do not correspond to given imputations:\n\t{(.b)}")
+        if (!all(which.imp %in% seq_len(nlevels(X[["imp"]])))) {
+          .b <- setdiff(which.imp, seq_len(nlevels(X[["imp"]])))
+          arg::err("the following inputs to {.arg which.imp} do not correspond to given imputations: {(.b)}")
         }
         
-        in.imp <- !is.na(X$imp) & X$imp %in% levels(X$imp)[which.imp]
+        in.imp <- !is.na(X[["imp"]]) & X[["imp"]] %in% levels(X[["imp"]])[which.imp]
         facet <- c("imp", facet)
       }
     }
-    else if (is_not_null(which.imp) && !all(is.na(which.imp))) {
+    else if (is_not_null(which.imp) && !allNA(which.imp)) {
       arg::wrn("{.arg which.imp} was specified but no {.arg imp} values were supplied. Ignoring {.arg which.imp}")
     }
     
-    in.cluster <- rep_with(TRUE, X$var)
-    if (is_not_null(X$cluster)) {
+    in.cluster <- rep_with(TRUE, X[["var"]])
+    if (is_not_null(X[["cluster"]])) {
       if (is_null(which.cluster)) {
-        in.cluster <- !is.na(X$cluster)
+        in.cluster <- !is.na(X[["cluster"]])
         facet <- c("cluster", facet)
       }
-      else if (!all(is.na(which.cluster))) {
+      else if (!allNA(which.cluster)) {
         if (is.numeric(which.cluster)) {
-          if (!all(which.cluster %in% seq_len(nlevels(X$cluster)))) {
-            .b <- setdiff(which.cluster, seq_len(nlevels(X$cluster)))
-            arg::err("the following inputs to {.arg which.cluster} do not correspond to given clusters:\n\t{(.b)}")
+          if (!all(which.cluster %in% seq_len(nlevels(X[["cluster"]])))) {
+            .b <- setdiff(which.cluster, seq_len(nlevels(X[["cluster"]])))
+            arg::err("the following inputs to {.arg which.cluster} do not correspond to given clusters: {(.b)}")
           }
           
-          in.cluster <- !is.na(X$cluster) & X$cluster %in% levels(X$cluster)[which.cluster]
+          in.cluster <- !is.na(X[["cluster"]]) & X[["cluster"]] %in% levels(X[["cluster"]])[which.cluster]
         }
         else if (is.character(which.cluster)) {
-          if (!all(which.cluster %in% levels(X$cluster))) {
-            .b <- setdiff(which.cluster, levels(X$cluster))
-            arg::err("the following inputs to {.arg which.cluster} do not correspond to given clusters:\n\t{.val {(.b)}}")
+          if (!all(which.cluster %in% levels(X[["cluster"]]))) {
+            .b <- setdiff(which.cluster, levels(X[["cluster"]]))
+            arg::err("the following inputs to {.arg which.cluster} do not correspond to given clusters: {.val {(.b)}}")
           }
           
-          in.cluster <- !is.na(X$cluster) & X$cluster %in% which.cluster
+          in.cluster <- !is.na(X[["cluster"]]) & X[["cluster"]] %in% which.cluster
         }
         else {
           arg::err("the argument to {.arg which.cluster} must be the names or indices corresponding to the clusters for which distributions are to be displayed")
@@ -399,33 +461,33 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
       arg::wrn("{.arg which.cluster} was specified but no {.arg cluster} values were supplied. Ignoring {.arg which.cluster}")
     }
     
-    in.time <- rep_with(TRUE, X$var)
-    if (is_not_null(X$time)) {
-      if (is_null(which.time) || all(is.na(which.time))) {
-        in.time <- !is.na(X$time)
+    in.time <- rep_with(TRUE, X[["var"]])
+    if (is_not_null(X[["time"]])) {
+      if (is_null(which.time) || allNA(which.time)) {
+        in.time <- !is.na(X[["time"]])
       }
       else if (is.numeric(which.time)) {
-        if (!all(which.time %in% seq_along(X$covs.list))) {
-          .b <- setdiff(which.time, seq_along(X$covs.list))
-          arg::err("The following inputs to {.arg which.time} do not correspond to given time periods:\n\t{(.b)}")
+        if (!all(which.time %in% seq_along(X[["covs.list"]]))) {
+          .b <- setdiff(which.time, seq_along(X[["covs.list"]]))
+          arg::err("The following inputs to {.arg which.time} do not correspond to given time periods: {(.b)}")
         }
         
-        if (all(which.time %in% which(appears.in.time))) {
+        if (all(which.time %in% base::which(appears.in.time))) {
           #nothing; which.time is good
         }
-        else if (any(which.time %in% which(appears.in.time))) {
-          arg::wrn("{.var {var.name}} does not appear in time period {.or setdiff(which.time, which(appears.in.time))}")
-          which.time <- intersect(which.time, which(appears.in.time))
+        else if (any(which.time %in% base::which(appears.in.time))) {
+          arg::wrn("{.var {var.name}} does not appear in time period {.or setdiff(which.time, base::which(appears.in.time))}")
+          which.time <- intersect(which.time, base::which(appears.in.time))
         }
         else {
           arg::err("{.var {var.name}} does not appear in time period {.or which.time}")
         }
-        in.time <- !is.na(X$time) & X$time %in% which.time
+        in.time <- !is.na(X[["time"]]) & X[["time"]] %in% which.time
       }
       else if (is.character(which.time)) {
         if (!all(which.time %in% treat.names)) {
           .b <- setdiff(which.time, treat.names)
-          arg::err("The following inputs to {.arg which.time} do not correspond to given time periods:\n\t{.val {(.b)}}")
+          arg::err("The following inputs to {.arg which.time} do not correspond to given time periods: {.val {(.b)}}")
         }
         
         if (!all(which.time %in% treat.names[appears.in.time])) {
@@ -439,7 +501,7 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
             arg::err("{.var {var.name}} {cli::qty(length(which.time))} does not appear in the time period{?s} corresponding to treatment{?s} {time.periods}")
           }
         }
-        in.time <- !is.na(X$time) & treat.names[X$time] %in% which.time
+        in.time <- !is.na(X[["time"]]) & treat.names[X[["time"]]] %in% which.time
       }
       else {
         arg::err("the argument to {.arg which.time} must be the names or indices corresponding to the time periods for which distributions are to be displayed")
@@ -459,16 +521,22 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     D <- make_list(which)
     for (i in which) {
       D[[i]] <- make_df(c("treat", "var", "weights", "s.weights", "which"), nobs)
-      D[[i]]$treat <- X$treat[in.imp & in.cluster & in.time]
-      D[[i]]$var <- X$var[in.imp & in.cluster & in.time]
-      D[[i]]$weights <-  X$weights[in.imp & in.cluster & in.time, i]
-      D[[i]]$s.weights <- X$s.weights[in.imp & in.cluster & in.time]
+      D[[i]]$treat <- X[["treat"]][in.imp & in.cluster & in.time]
+      D[[i]]$var <- X[["var"]][in.imp & in.cluster & in.time]
+      D[[i]]$weights <-  X[["weights"]][in.imp & in.cluster & in.time, i]
+      D[[i]]$s.weights <- X[["s.weights"]][in.imp & in.cluster & in.time]
       D[[i]]$which <- i
       
       #Add columns for additional facets
-      if ("imp" %in% facet) D[[i]]$imp <- factor(paste("Imputation", X$imp[in.imp & in.cluster & in.time]))
-      if ("cluster" %in% facet) D[[i]]$cluster <- factor(X$cluster[in.imp & in.cluster & in.time])
-      if ("time" %in% facet) D[[i]]$time <- factor(paste("Time", X$time[in.imp & in.cluster & in.time]))
+      if ("imp" %in% facet) D[[i]]$imp <- factor(paste("Imputation", X[["imp"]][in.imp & in.cluster & in.time]))
+      if ("cluster" %in% facet) D[[i]]$cluster <- factor(X[["cluster"]][in.imp & in.cluster & in.time])
+      if ("time" %in% facet) {
+        ti <- X[["time"]][in.imp & in.cluster & in.time]
+        
+        #Levels only for the time points on display, in the order they were fit rather
+        #than the alphabetical order `factor()` would pick.
+        D[[i]]$time <- factor(time.labels[ti], levels = time.labels[sort(unique(ti))])
+      }
     }
     D <- do.call("rbind", D)
     
@@ -485,11 +553,11 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     
   }
   else {
-    if (is_not_null(X$cluster)) {
+    if (is_not_null(X[["cluster"]])) {
       arg::err("subclasses are not supported with clusters")
     }
     
-    if (is_not_null(X$imp)) {
+    if (is_not_null(X[["imp"]])) {
       arg::err("subclasses are not supported with multiple imputations")
     }
     
@@ -512,7 +580,7 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
     }
     
     #Get sub.names.good
-    sub.names <- levels(X$subclass)
+    sub.names <- levels(X[["subclass"]])
     
     if (is_null(which.sub)) {
       which.sub <- sub.names
@@ -541,22 +609,22 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
       }
     }
     
-    in.sub <- !is.na(X$subclass) & X$subclass %in% which.sub
+    in.sub <- !is.na(X[["subclass"]]) & X[["subclass"]] %in% which.sub
     D <- make_df(c("weights", "s.weights", "treat", "var", "subclass"), sum(in.sub))
     D$weights <- 1
-    D$s.weights <- X$s.weights[in.sub]
-    D$treat <- X$treat[in.sub]
-    D$var <- X$var[in.sub]
-    D$subclass <- paste("Subclass", X$subclass[in.sub])
+    D$s.weights <- X[["s.weights"]][in.sub]
+    D$treat <- X[["treat"]][in.sub]
+    D$var <- X[["var"]][in.sub]
+    D$subclass <- paste("Subclass", X[["subclass"]][in.sub])
     
     if (which == "both") {
       #Make unadjusted sample
-      D2 <- make_df(c("weights", "s.weights", "treat", "var", "subclass"), length(X$treat))
+      D2 <- make_df(c("weights", "s.weights", "treat", "var", "subclass"), length(X[["treat"]]))
       D2$weights <- 1
-      D$s.weights <- X$s.weights
-      D2$treat <- X$treat
-      D2$var <- X$var
-      D2$subclass <- rep_with("Unadjusted Sample", X$treat)
+      D2$s.weights <- X[["s.weights"]]
+      D2$treat <- X[["treat"]]
+      D2$var <- X[["var"]]
+      D2$subclass <- rep_with("Unadjusted Sample", X[["treat"]])
       D <- rbind(D2, D, stringsAsFactors = TRUE)
       D$subclass <- relevel(factor(D$subclass), "Unadjusted Sample")
     }
@@ -592,7 +660,7 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
       if (is.character(bw)) {
         bw_fun <- get0(paste.("bw", bw))
         if (!is.function(bw_fun)) {
-          arg::err("{.val {bw}} is not an acceptable entry to {.arg bw}. See {.fun stats::density} for allowable options")
+          arg::err("{.val {bw}} is not an acceptable entry to {.arg bw}. See {.help [?density](stats::density)} for allowable options")
         }
         bw <- bw_fun(D$treat[D$var == smallest.cat])
       }
@@ -804,13 +872,14 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
                                                              yend = posneg[t] * Inf), 
                                                color = if (isTRUE(mirror)) "black" else colors[[t]])
           }
+          
           clear_null(out)
         }
+        
         ylab <- "Proportion"
         
         bp <- Reduce(init = ggplot2::ggplot(), "+", lapply(seq_len(nlevels.treat), geom_fun)) +
           ggplot2::scale_fill_manual(values = colors)
-        
       }
       else if (type %in% c("ecdf")) {
         
@@ -855,7 +924,7 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
         if (is.character(bw)) {
           bw_fun <- get0(paste.("bw", bw))
           if (!is.function(bw_fun)) {
-            arg::err("{.val {bw}} is not an acceptable entry to {.arg bw}. See {.fun stats::density} for allowable options")
+            arg::err("{.val {bw}} is not an acceptable entry to {.arg bw}. See {.help [?density](stats::density)} for allowable options")
           }
           t.sizes <- tapply(rep.int(1, NROW(D)), D$treat, sum)
           smallest.t <- names(t.sizes)[which.min(t.sizes)]
@@ -877,6 +946,7 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
                                   kernel = kernel, n = n, trim = TRUE,
                                   outline.type = "full", stat = StatDensity2),
             NULL)
+          
           if (isTRUE(disp.means)) {
             out[[2L]] <- ggplot2::geom_segment(data = unique(D[D$treat == levels(D$treat)[t], c("var.mean", facet), drop = FALSE]),
                                                mapping = aes(x = .data$var.mean,
@@ -885,8 +955,10 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
                                                              yend = posneg[t] * Inf), 
                                                color = if (isTRUE(mirror)) "black" else colors[[t]])
           }
+          
           clear_null(out)
         }
+        
         ylab <- "Density"
         
         bp <- Reduce(init = ggplot2::ggplot(), "+", lapply(seq_len(nlevels.treat), geom_fun)) +
@@ -915,18 +987,21 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
   }
   
   #Themes
-  bp <- bp + ggplot2::theme(panel.background = element_rect(fill = "white", color = "black"),
-                            panel.border = element_rect(fill = NA, color = "black"),
-                            plot.background = element_blank(),
-                            legend.position = position,
-                            legend.key = element_rect(fill = "white", color = "black", linewidth = .25))
+  bp <- bp +
+    ggplot2::theme(panel.background = element_rect(fill = "white", color = "black"),
+                   panel.border = element_rect(fill = NA, color = "black"),
+                   plot.background = element_blank(),
+                   legend.position = position,
+                   legend.key = element_rect(fill = "white", color = "black", linewidth = .25))
   if (isTRUE(grid)) {
-    bp <- bp + ggplot2::theme(panel.grid.major = element_line(color = "gray87"),
-                              panel.grid.minor = element_line(color = "gray90"))
+    bp <- bp +
+      ggplot2::theme(panel.grid.major = element_line(color = "gray87"),
+                     panel.grid.minor = element_line(color = "gray90"))
   }
   else {
-    bp <- bp + ggplot2::theme(panel.grid.major = element_blank(),
-                              panel.grid.minor = element_blank())
+    bp <- bp +
+      ggplot2::theme(panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank())
   }
   
   if (is_not_null(facet)) {
@@ -944,31 +1019,51 @@ bal.plot <- function(x, var.name, ..., which, which.sub = NULL, cluster = NULL, 
           arg::err("{.val which} must be in the facet formula when the {.arg which} argument refers to more than one sample")
         }
         
-        .b <- if (which %in% c("Adjusted Sample", "Unadjusted Sample")) tolower(which) else paste(which, "sample")
+        .b <- {
+          if (which %in% c("Adjusted Sample", "Unadjusted Sample")) tolower(which)
+          else paste(which, "sample")
+        }
+        
         arg::msg("displaying balance for the {(.b)}")
       }
     }
     else if (length(facet) >= 2L) {
+      #Decide which dimensions go on the rows and which on the columns, then build
+      #`rows ~ cols` for facet_grid(). Either side may hold more than one
+      #dimension, in which case it is written as a sum (e.g. `time + cluster ~
+      #which`). `reformulate()` cannot be used here: its `response` must be a
+      #single name, so it fails as soon as two dimensions share the rows.
       if ("which" %in% facet) {
-        facet.formula <- reformulate("which", setdiff(facet, "which"))
+        facet.rows <- setdiff(facet, "which")
+        facet.cols <- "which"
       }
       else if ("imp" %in% facet) {
-        facet.formula <- reformulate(setdiff(facet, "imp"), "imp")
+        facet.rows <- "imp"
+        facet.cols <- setdiff(facet, "imp")
       }
       else {
+        #Put the dimension with the fewest levels on the columns, ties broken by
+        #name, so that wide facets do not run off the page.
         facets <- data.frame(facet = facet,
                              length = vapply(facet, function(x) nlevels(D[[x]]), numeric(1L)),
                              stringsAsFactors = FALSE)
-        facets <- facets[order(facet$length, facet$facet, decreasing = c(FALSE, TRUE)), ]
-        facet.formula <- formula(facets)
+        facets <- facets[order(facets$length, facets$facet,
+                               decreasing = c(FALSE, TRUE), method = "radix"), ]
+        facet.cols <- facets$facet[1L]
+        facet.rows <- facets$facet[-1L]
       }
+      
+      facet.formula <- stats::as.formula(paste(paste(facet.rows, collapse = " + "),
+                                               "~",
+                                               paste(facet.cols, collapse = " + ")))
     }
     else {
       facet.formula <- reformulate(facet, ".")
     }
     
-    bp <- bp + ggplot2::facet_grid(facet.formula, drop = FALSE,
-                                   scales = if ("subclass" %in% facet) "free_x" else "fixed")
+    bp <- bp +
+      ggplot2::facet_grid(facet.formula, drop = FALSE,
+                          scales = if ("subclass" %in% facet) "free_x" else "fixed")
   }
   
   bp
@@ -995,6 +1090,29 @@ StatDensity2 <- ggplot2::ggproto("StatDensity2", ggplot2::StatDensity,
                                  }
                                  
 )
+
+#`var.name` names a variable, never a column of a balance table. A factor's dummies
+#exist only so that `bal.tab()` can summarize the factor one level at a time;
+#`bal.plot()` plots the factor itself, so naming a dummy is an error. It is a common
+#enough mistake -- the dummy is right there in the balance table -- to be worth
+#pointing at the variable to supply instead.
+.err_no_var.name <- function(var.name, co.names) {
+  parent <- NULL
+  
+  for (x in co.names) {
+    if (identical(paste0(x[["component"]], collapse = ""), var.name) &&
+        "fsep" %in% x[["type"]]) {
+      parent <- x[["component"]][x[["type"]] == "base"][1L]
+      break
+    }
+  }
+  
+  if (is_null(parent)) {
+    arg::err("{.val {var.name}} is not the name of an available covariate")
+  }
+  
+  arg::err("{.val {var.name}} is not the name of an available covariate; it is one level of {.val {parent}}, which is what to supply to {.arg var.name}")
+}
 
 compute_density2 <- function(x, w, from, to, bw = "nrd0", adjust = 1,
                              kernel = "gaussian", n = 512) {

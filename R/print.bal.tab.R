@@ -22,9 +22,13 @@
 #' @param which.cluster when used with clustered data, which cluster(s) to display. If `NULL`, all clusters will be displayed. If `NA`, no clusters will be displayed. Otherwise, can be a vector of cluster names or numerical indices for which to display balance. Indices correspond to the alphabetical order of cluster names. To display the clusters requested in the original call to `bal.tab()`, omit this argument. See [`class-bal.tab.cluster`] for details.
 #' @param cluster.summary `logical`; when used with clustered data, whether to display the cluster summary table. If `which.cluster` is `NA`, `cluster.summary` will be set to `TRUE`. See [`class-bal.tab.cluster`] for details.
 #' @param cluster.fun `character`; when used with clustered data, a character vector of functions of balance statistics to display when displaying balance across clusters. Can be "mean", "min", or "max". More than one are allowed. See [`class-bal.tab.cluster`] for details.
+#' @param var.names an optional object providing alternate names for the variables, which will otherwise be displayed as they are stored. Entries given here add to those given in the original call to `bal.tab()` and replace any entry they name. See [`display-options`] for how to specify it.
 #' @param digits the number of digits to display.
 #' @param ... further arguments passed to or from other methods.
-#' 
+#'
+#' @returns
+#' `x`, invisibly. `print()` is called for the side effect of displaying the balance table and leaves the object as it was; the arguments above decide what is shown, not what is returned.
+#'
 #' @details Simply calling `bal.tab()` will print its results, but it can be useful to store the results into an object and print them again later, possibly with different print options specified. The `print()` function automatically dispatches the correct method for the `bal.tab` object given.
 #' 
 #' Any parameter used in `bal.tab()` for calculations, such as `int`, `addl`, or `distance`, cannot be used with `print()`; only those parameters listed above, those that solely determine printing options, can be used. To change computation options, a new call to `bal.tab()` must be performed.
@@ -60,44 +64,27 @@ print.bal.tab <- function(x, imbalanced.only, un, disp.bal.tab, disp.call,
                           which.imp, imp.summary, imp.fun, 
                           which.treat, multi.summary, 
                           which.time, msm.summary,
-                          which.cluster, cluster.summary, cluster.fun, 
+                          which.cluster, cluster.summary, cluster.fun,
+                          var.names = NULL,
                           digits = max(3L, getOption("digits") - 3), ...) {
-  
+
   #Replace .all and .none with NULL and NA respectively
-  .call <- match.call(expand.dots = TRUE)
-  .alls <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.all)), logical(1L))
-  .nones <- vapply(seq_along(.call), function(z) identical(.call[[z]], quote(.none)), logical(1L))
-  if (any(c(.alls, .nones))) {
-    .call[.alls] <- expression(NULL)
-    .call[.nones] <- expression(NA)
+  .call <- .rewrite_all_none(match.call(expand.dots = TRUE))
+
+  if (is_not_null(.call)) {
     return(eval.parent(.call))
   }
-  
-  A <- try_arg(c(as.list(environment()), list(...))[-1L])
-  
-  A[vapply(A, rlang::is_missing, logical(1L))] <- NULL
-  
-  unpack_p.ops <- function(b) {
-    out <- do.call("print_process", c(list(b), A), quote = TRUE)
-    
-    if (inherits(b, c("bal.tab.bin", "bal.tab.cont"))) {
-      return(out)
-    }
-    
-    b_ <- b[[which(endsWith(names(b), ".Balance"))]][[1L]]
-    if (!inherits(b_, "bal.tab")) {
-      return(out)
-    }
-    
-    c(out, unpack_p.ops(b_))
-  }
-  
-  p.ops <- unpack_p.ops(x)
-  
+
+  p.ops <- .resolve_p.ops(x, .display_args(environment(), list(...)))
+
   #Prevent exponential notation printing
   rlang::with_options({
-    bal.tab_print(x, p.ops)
+    bal.tab_print(.rename_bal.tab(x, p.ops[["var.names"]], p.ops[["seps"]]), p.ops)
   }, scipen = 999)
+
+  #The object itself, not the copy that was printed: the replacements are how the
+  #covariates are displayed, not what they are called.
+  invisible(x)
 }
 
 bal.tab_print <- function(x, p.ops) {
@@ -106,212 +93,116 @@ bal.tab_print <- function(x, p.ops) {
 #' @exportS3Method NULL
 bal.tab_print.bal.tab <- function(x, p.ops) {
   
-  call <- if (p.ops$disp.call) x$call else NULL
+  call <- if (p.ops[["disp.call"]]) x$call else NULL
   
-  balance <- x$Balance
+  balance <- x[["Balance"]]
   
-  thresholds <- setdiff(names(p.ops$thresholds), p.ops$drop.thresholds)
+  thresholds <- setdiff(names(p.ops[["thresholds"]]), p.ops[["drop.thresholds"]])
   baltal <- setNames(x[paste.("Balanced", thresholds)], thresholds)
   maximbal <- setNames(x[paste.("Max.Imbalance", thresholds)], thresholds)
   
   nn <- x$Observations
   
-  if (is_not_null(call)) {
-    cat(.ul("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
-  }
+  .cat_call(call)
   
-  if (p.ops$disp.bal.tab) {
+  if (p.ops[["disp.bal.tab"]]) {
     keep.row <- {
-      if (p.ops$imbalanced.only)
+      if (p.ops[["imbalanced.only"]])
         rowSums(apply(balance[grepl(".Threshold", names(balance), fixed = TRUE)], 2L,
                       function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
       else
         rep.int(TRUE, nrow(balance))
     }
     
-    keep.col <- setNames(as.logical(c(TRUE, 
-                                      rep(unlist(lapply(p.ops$compute[p.ops$compute %nin% all_STATS()], function(s) {
-                                        p.ops$un && s %in% p.ops$disp
-                                      })), switch(p.ops$type, bin = 2L, cont = 1L)),
-                                      unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()[!get_from_STATS("adj_only")]], function(s) {
-                                        c(p.ops$un && s %in% p.ops$disp,
-                                          if (p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                                      })),
-                                      rep(c(rep(unlist(lapply(p.ops$compute[p.ops$compute %nin% all_STATS()], function(s) {
-                                        p.ops$disp.adj && s %in% p.ops$disp
-                                      })), switch(p.ops$type, bin = 2L, cont = 1L)),
-                                      unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()], function(s) {
-                                        c(p.ops$disp.adj && s %in% p.ops$disp,
-                                          if (p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                                      }))
-                                      ), 
-                                      p.ops$nweights + !p.ops$disp.adj))),
-                         names(balance))
+    keep.col <- .keep_bal_cols(.p.ops_col_spec(p.ops), p.ops, thresholds)
     
-    cat(.ul("Balance Measures") %+% "\n")
+    .cat_heading("Balance Measures")
     
-    if (is_null(keep.row)) cat(.it("No covariates to display.") %+% "\n")
-    else if (!any(keep.row)) cat(.it("All covariates are balanced.") %+% "\n")
-    else .print_data_frame(round_df_char(balance[keep.row, keep.col, drop = FALSE],
-                                         p.ops$digits, na_vals = "."))
-    cat("\n")
+    .cat_balance_table(balance[, keep.col, drop = FALSE], keep.row,
+                       p.ops[["digits"]])
+    cli::cat_line()
   }
   
-  for (s in p.ops$compute) {
-    if (is_not_null(baltal[[s]])) {
-      cat(.ul(sprintf("Balance tally for %s", STATS[[s]]$balance_tally_for)) %+% "\n")
-      .print_data_frame(baltal[[s]])
-      cat("\n")
-    }
-    if (is_not_null(maximbal[[s]])) {
-      cat(.ul(sprintf("Variable with the greatest %s", STATS[[s]]$variable_with_the_greatest)) %+% "\n")
-      .print_data_frame(round_df_char(maximbal[[s]], p.ops$digits, na_vals = "."), row.names = FALSE)
-      cat("\n")
-    }
-  }
+  .cat_tallies(baltal, maximbal, p.ops[["compute"]], p.ops[["digits"]])
   
-  if (is_not_null(nn)) {
-    
-    drop.nn <- rowSums(nn) == 0
-    ss.type <- .attr(nn, "ss.type")[!drop.nn]
-    nn <- nn[!drop.nn, , drop = FALSE]
-    
-    if (all(c("All (ESS)", "All (Unweighted)") %in% rownames(nn)) && 
-        all(check_if_zero(nn["All (ESS)", ] - nn["All (Unweighted)", ]))) {
-      nn <- nn[rownames(nn) != "All (Unweighted)", , drop = FALSE]
-      rownames(nn)[rownames(nn) == "All (ESS)"] <- "All"
-    }
-    
-    if (all(c("Matched (ESS)", "Matched (Unweighted)") %in% rownames(nn)) && 
-        all(check_if_zero(nn["Matched (ESS)", ] - nn["Matched (Unweighted)", ]))) {
-      nn <- nn[rownames(nn) != "Matched (Unweighted)", , drop = FALSE]
-      rownames(nn)[rownames(nn) == "Matched (ESS)"] <- "Matched"
-    }
-    
-    cat(.ul(.attr(nn, "tag")) %+% "\n")
-    
-    print.warning <- FALSE
-    
-    if (length(ss.type) > 1L && nunique.gt(ss.type[-1L], 1L)) {
-      ess <- ifelse(ss.type == "ess", "*", "")
-      nn <- setNames(cbind(nn, ess), c(names(nn), ""))
-      print.warning <- TRUE
-    }
-    
-    .print_data_frame(round_df_char(nn, digits = min(2L, p.ops$digits), pad = " "))
-    
-    if (print.warning) {
-      cat(.it("* indicates effective sample size"))
-    }
-  }
+  .cat_observations(nn, p.ops[["digits"]])
   
   invisible(x)
 }
 #' @exportS3Method NULL
 bal.tab_print.bal.tab.cluster <- function(x, p.ops) {
   
-  call <- if (p.ops$disp.call) x$call else NULL
+  call <- if (p.ops[["disp.call"]]) x$call else NULL
   c.balance <- x$Cluster.Balance
-  c.balance.summary <- x$Balance.Across.Clusters
+  c.balance.summary <- x[["Balance.Across.Clusters"]]
   
-  thresholds <- setdiff(names(p.ops$thresholds), p.ops$drop.thresholds)
+  thresholds <- setdiff(names(p.ops[["thresholds"]]), p.ops[["drop.thresholds"]])
   baltal <- setNames(x[paste.("Balanced", thresholds)], thresholds)
   maximbal <- setNames(x[paste.("Max.Imbalance", thresholds)], thresholds)
   
   nn <- x$Observations
   
   #Printing
-  if (is_not_null(call)) {
-    cat(.ul("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
+  .cat_call(call)
+  
+  print_summary <- isTRUE(as.logical(p.ops[["cluster.summary"]])) &&
+    is_not_null(c.balance.summary)
+  
+  .summary_print <- {
+    if (print_summary) function() {
+      s.keep.col <- .keep_bal_cols(.p.ops_col_spec(p.ops, p.ops[["computed.cluster.funs"]],
+                                                   p.ops[["requested.cluster.funs"]]),
+                                   p.ops, thresholds, p.ops[["cluster.fun"]])
+      
+      if (p.ops[["disp.bal.tab"]]) {
+        cli::cat_line()
+        
+        .cat_heading("Balance summary across all clusters")
+        
+        c.balance.summary[, s.keep.col, drop = FALSE] |>
+          round_df_char(p.ops[["digits"]], na_vals = ".") |>
+          .print_data_frame()
+      }
+      
+      .cat_tallies(baltal, maximbal, p.ops[["compute"]], p.ops[["digits"]])
+      
+      .cat_observations(nn, p.ops[["digits"]])
+    }
+    else function() {
+      invisible(NULL)
+    }
   }
   
-  if (is_not_null(p.ops$which.cluster)) {
-    cat(.ul("Balance by cluster") %+% "\n")
-    for (i in p.ops$which.cluster) {
-      cat("\n - - - " %+% .it("Cluster: " %+% names(c.balance)[i]) %+% " - - - \n")
-      print(c.balance[[i]])
-      # bal.tab_print(c.balance[[i]], p.ops)
+  if (is_not_null(p.ops[["which.cluster"]])) {
+    which.cluster <- p.ops[["which.cluster"]]
+    
+    .cat_heading("Balance by cluster")
+    
+    labels <- paste0("Cluster: ", names(c.balance)[which.cluster])
+    
+    if (print_summary) {
+      labels <- c(labels, "")
     }
-    cat(strrep(" -", round(nchar(sprintf("\n - - - Cluster: %s - - - ", names(c.balance)[i])) / 2)), "\n\n")
+    
+    pfun <- function(i) {
+      if (i <= length(which.cluster)) {
+        print(c.balance[[which.cluster[i]]])
+      }
+      else {
+        .summary_print()
+      }
+    }
+    
+    .cat_segments(labels, pfun)
+    
+    cli::cat_line()
+    
+    #The summary was the last segment, so it must not be printed again below.
+    print_summary <- FALSE
   }
   
-  if (isTRUE(as.logical(p.ops$cluster.summary)) && is_not_null(c.balance.summary)) {
-    s.keep.col <- setNames(as.logical(c(TRUE, 
-                                        unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()[!get_from_STATS("adj_only")]], function(s) {
-                                          c(unlist(lapply(p.ops$computed.cluster.funs, function(af) {
-                                            p.ops$un && s %in% p.ops$disp && af %in% p.ops$cluster.fun
-                                          })), 
-                                          if (p.ops$un && !p.ops$disp.adj && length(p.ops$cluster.fun) == 1L &&
-                                              is_not_null(p.ops$thresholds[[s]]))
-                                            s %in% thresholds)
-                                        })),
-                                        rep(
-                                          unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()], function(s) {
-                                            c(unlist(lapply(p.ops$computed.cluster.funs, function(af) {
-                                              p.ops$disp.adj && s %in% p.ops$disp && af %in% p.ops$cluster.fun
-                                            })), 
-                                            if (p.ops$disp.adj && length(p.ops$cluster.fun) == 1L &&
-                                                is_not_null(p.ops$thresholds[[s]]))
-                                              s %in% thresholds)
-                                          })),
-                                          p.ops$nweights + !p.ops$disp.adj)
-    )), names(c.balance.summary))
-    
-    if (p.ops$disp.bal.tab) {
-      cat(.ul("Balance summary across all clusters") %+% "\n")
-      c.balance.summary[, s.keep.col, drop = FALSE] |>
-        round_df_char(p.ops$digits, na_vals = ".") |>
-        .print_data_frame()
-      cat("\n")
-    }
-    
-    for (s in p.ops$compute) {
-      if (is_not_null(baltal[[s]])) {
-        cat(.ul(sprintf("Balance tally for %s", STATS[[s]]$balance_tally_for)) %+% "\n")
-        .print_data_frame(baltal[[s]])
-        cat("\n")
-      }
-      if (is_not_null(maximbal[[s]])) {
-        cat(.ul(sprintf("Variable with the greatest %s", STATS[[s]]$variable_with_the_greatest)) %+% "\n")
-        maximbal[[s]] |>
-          round_df_char(p.ops$digits, na_vals = ".") |>
-          .print_data_frame(row.names = FALSE)
-        cat("\n")
-      }
-    }
-    
-    if (is_not_null(nn)) {
-      drop.nn <- rowSums(nn) == 0
-      ss.type <- .attr(nn, "ss.type")[!drop.nn]
-      nn <- nn[!drop.nn, , drop = FALSE]
-      if (all(c("All (ESS)", "All (Unweighted)") %in% rownames(nn)) && 
-          all(check_if_zero(nn["All (ESS)", ] - nn["All (Unweighted)", ]))) {
-        nn <- nn[rownames(nn) != "All (Unweighted)", , drop = FALSE]
-        rownames(nn)[rownames(nn) == "All (ESS)"] <- "All"
-      }
-      
-      if (all(c("Matched (ESS)", "Matched (Unweighted)") %in% rownames(nn)) && 
-          all(check_if_zero(nn["Matched (ESS)", ] - nn["Matched (Unweighted)", ]))) {
-        nn <- nn[rownames(nn) != "Matched (Unweighted)", , drop = FALSE]
-        rownames(nn)[rownames(nn) == "Matched (ESS)"] <- "Matched"
-      }
-      
-      cat(.ul(.attr(nn, "tag")) %+% "\n")
-      
-      print.warning <- FALSE
-      
-      if (length(ss.type) > 1L && nunique.gt(ss.type[-1L], 1L)) {
-        ess <- ifelse(ss.type == "ess", "*", "")
-        nn <- setNames(cbind(nn, ess), c(names(nn), ""))
-        print.warning <- TRUE
-      }
-      
-      .print_data_frame(round_df_char(nn, digits = min(2L, p.ops$digits), pad = " "))
-      
-      if (print.warning) {
-        cat(.it("* indicates effective sample size"))
-      }
-    }
+  if (print_summary) {
+    .summary_print()
   }
   
   invisible(x)
@@ -319,104 +210,77 @@ bal.tab_print.bal.tab.cluster <- function(x, p.ops) {
 #' @exportS3Method NULL
 bal.tab_print.bal.tab.imp <- function(x, p.ops) {
   
-  call <- if (p.ops$disp.call) x$call else NULL
+  call <- if (p.ops[["disp.call"]]) x$call else NULL
   i.balance <- x[["Imputation.Balance"]]
   i.balance.summary <- x[["Balance.Across.Imputations"]]
   
-  thresholds <- setdiff(names(p.ops$thresholds), p.ops$drop.thresholds)
+  thresholds <- setdiff(names(p.ops[["thresholds"]]), p.ops[["drop.thresholds"]])
   baltal <- setNames(x[paste.("Balanced", thresholds)], thresholds)
   maximbal <- setNames(x[paste.("Max.Imbalance", thresholds)], thresholds)
   
   nn <- x$Observations
   
   #Printing output
-  if (is_not_null(call)) {
-    cat(.ul("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
+  .cat_call(call)
+  
+  print_summary <- isTRUE(as.logical(p.ops[["imp.summary"]])) &&
+    is_not_null(i.balance.summary)
+  
+  .summary_print <- {
+    if (print_summary) function() {
+      s.keep.col <- .keep_bal_cols(.p.ops_col_spec(p.ops, p.ops[["computed.imp.funs"]],
+                                                   p.ops[["requested.imp.funs"]]),
+                                   p.ops, thresholds, p.ops[["imp.fun"]])
+      
+      if (p.ops[["disp.bal.tab"]]) {
+        cli::cat_line()
+        
+        .cat_heading("Balance summary across all imputations")
+        
+        i.balance.summary[, s.keep.col, drop = FALSE] |>
+          round_df_char(p.ops[["digits"]], na_vals = ".") |>
+          .print_data_frame()
+      }
+      
+      .cat_tallies(baltal, maximbal, p.ops[["compute"]], p.ops[["digits"]])
+      
+      .cat_observations(nn, p.ops[["digits"]])
+    }
+    else function() {
+      invisible(NULL)
+    }
   }
   
-  if (is_not_null(p.ops$which.imp)) {
-    cat(.ul("Balance by imputation") %+% "\n")
-    for (i in p.ops$which.imp) {
-      cat("\n - - - " %+% .it("Imputation " %+% names(i.balance)[i]) %+% " - - - \n")
-      print(i.balance[[i]])
-      # bal.tab_print(i.balance[[i]], p.ops)
+  if (is_not_null(p.ops[["which.imp"]])) {
+    which.imp <- p.ops[["which.imp"]]
+    
+    .cat_heading("Balance by imputation")
+    
+    labels <- paste0("Imputation ", names(i.balance)[which.imp])
+    
+    if (print_summary) {
+      labels <- c(labels, "")
     }
-    cat(strrep(" -", round(nchar(sprintf("\n - - - Imputation: %s - - - ", names(i.balance)[i])) / 2)), "\n\n")
+    
+    pfun <- function(i) {
+      if (i <= length(which.imp)) {
+        print(i.balance[[which.imp[i]]])
+      }
+      else {
+        .summary_print()
+      }
+    }
+    
+    .cat_segments(labels, pfun)
+    
+    cli::cat_line()
+    
+    #The summary was the last segment, so it must not be printed again below.
+    print_summary <- FALSE
   }
   
-  if (isTRUE(as.logical(p.ops$imp.summary)) && is_not_null(i.balance.summary)) {
-    s.keep.col <- as.logical(c(TRUE, 
-                               unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()[!get_from_STATS("adj_only")]], function(s) {
-                                 c(unlist(lapply(p.ops$computed.imp.funs, function(af) {
-                                   p.ops$un && s %in% p.ops$disp && af %in% p.ops$imp.fun
-                                 })), 
-                                 if (p.ops$un && !p.ops$disp.adj && length(p.ops$imp.fun) == 1L && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                               })),
-                               rep(
-                                 unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()], function(s) {
-                                   c(unlist(lapply(p.ops$computed.imp.funs, function(af) {
-                                     p.ops$disp.adj && s %in% p.ops$disp && af %in% p.ops$imp.fun
-                                   })), 
-                                   if (p.ops$disp.adj && length(p.ops$imp.fun) == 1L && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                                 })),
-                                 p.ops$nweights + !p.ops$disp.adj)
-    ))
-    
-    if (p.ops$disp.bal.tab) {
-      cat(.ul("Balance summary across all imputations") %+% "\n")
-      i.balance.summary[, s.keep.col, drop = FALSE] |>
-        round_df_char(p.ops$digits, na_vals = ".") |>
-        .print_data_frame()
-      cat("\n")
-    }
-    
-    for (s in p.ops$compute) {
-      if (is_not_null(baltal[[s]])) {
-        cat(.ul(sprintf("Balance tally for %s", STATS[[s]]$balance_tally_for)) %+% "\n")
-        .print_data_frame(baltal[[s]])
-        cat("\n")
-      }
-      if (is_not_null(maximbal[[s]])) {
-        cat(.ul(sprintf("Variable with the greatest %s", STATS[[s]]$variable_with_the_greatest)) %+% "\n")
-        maximbal[[s]] |>
-          round_df_char(p.ops$digits, na_vals = ".") |>
-          .print_data_frame(row.names = FALSE)
-        cat("\n")
-      }
-    }
-    
-    if (is_not_null(nn)) {
-      drop.nn <- rowSums(nn) == 0
-      ss.type <- .attr(nn, "ss.type")[!drop.nn]
-      nn <- nn[!drop.nn, , drop = FALSE]
-      if (all(c("All (ESS)", "All (Unweighted)") %in% rownames(nn)) && 
-          all(check_if_zero(nn["All (ESS)", ] - nn["All (Unweighted)", ]))) {
-        nn <- nn[rownames(nn) != "All (Unweighted)", , drop = FALSE]
-        rownames(nn)[rownames(nn) == "All (ESS)"] <- "All"
-      }
-      
-      if (all(c("Matched (ESS)", "Matched (Unweighted)") %in% rownames(nn)) && 
-          all(check_if_zero(nn["Matched (ESS)", ] - nn["Matched (Unweighted)", ]))) {
-        nn <- nn[rownames(nn) != "Matched (Unweighted)", , drop = FALSE]
-        rownames(nn)[rownames(nn) == "Matched (ESS)"] <- "Matched"
-      }
-      
-      cat(.ul(.attr(nn, "tag")) %+% "\n")
-      
-      print.warning <- FALSE
-      
-      if (length(ss.type) > 1L && nunique.gt(ss.type[-1L], 1L)) {
-        ess <- ifelse(ss.type == "ess", "*", "")
-        nn <- setNames(cbind(nn, ess), c(names(nn), ""))
-        print.warning <- TRUE
-      }
-      
-      .print_data_frame(round_df_char(nn, digits = min(2L, p.ops$digits), pad = " "))
-      
-      if (print.warning) {
-        cat(.it("* indicates effective sample size"))
-      }
-    }
+  if (print_summary) {
+    .summary_print()
   }
   
   invisible(x)
@@ -424,347 +288,299 @@ bal.tab_print.bal.tab.imp <- function(x, p.ops) {
 #' @exportS3Method NULL
 bal.tab_print.bal.tab.multi <- function(x, p.ops) {
   
-  call <- if (p.ops$disp.call) x$call else NULL
+  call <- if (p.ops[["disp.call"]]) x$call else NULL
   m.balance <- x[["Pair.Balance"]]
   m.balance.summary <- x[["Balance.Across.Pairs"]]
   
-  thresholds <- setdiff(names(p.ops$thresholds), p.ops$drop.thresholds)
+  thresholds <- setdiff(names(p.ops[["thresholds"]]), p.ops[["drop.thresholds"]])
   baltal <- setNames(x[paste.("Balanced", thresholds)], thresholds)
   maximbal <- setNames(x[paste.("Max.Imbalance", thresholds)], thresholds)
   
   nn <- x$Observations
   
   #Printing output
-  if (is_not_null(call)) {
-    cat(.ul("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
+  .cat_call(call)
+  
+  print_summary <- isTRUE(as.logical(p.ops[["multi.summary"]])) &&
+    is_not_null(m.balance.summary)
+  
+  .summary_print <- {
+    if (print_summary) function() {
+      keep.row <- {
+        if (p.ops[["imbalanced.only"]])
+          rowSums(apply(m.balance.summary[grepl(".Threshold", names(m.balance.summary), fixed = TRUE)], 2L,
+                        function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
+        else
+          rep.int(TRUE, nrow(m.balance.summary))
+      }
+      
+      s.keep.col <- .keep_bal_cols(.p.ops_col_spec(p.ops, "max"), p.ops, thresholds, "max")
+      
+      if (p.ops[["disp.bal.tab"]]) {
+        cli::cat_line()
+        
+        .cat_heading("Balance summary across all treatment pairs")
+        
+        .cat_balance_table(m.balance.summary[, s.keep.col, drop = FALSE], keep.row,
+                           p.ops[["digits"]])
+      }
+      
+      .cat_tallies(baltal, maximbal, p.ops[["compute"]], p.ops[["digits"]])
+      
+      .cat_observations(nn, p.ops[["digits"]])
+    }
+    else function() {
+      invisible(NULL)
+    }
   }
   
-  if (is_not_null(p.ops$disp.treat.pairs)) {
-    headings <- setNames(character(length(p.ops$disp.treat.pairs)), p.ops$disp.treat.pairs)
-    if (p.ops$pairwise) cat(.ul("Balance by treatment pair") %+% "\n")
-    else cat(.ul("Balance by treatment group") %+% "\n")
+  if (is_not_null(p.ops[["disp.treat.pairs"]])) {
+    pairs <- p.ops[["disp.treat.pairs"]]
     
-    for (i in p.ops$disp.treat.pairs) {
-      headings[i] <- "\n - - - " %+% .it(.attr(m.balance[[i]], "print.options")$treat_names[1L] %+% " (0) vs. " %+%
-                                           .attr(m.balance[[i]], "print.options")$treat_names[2L] %+% " (1)") %+% " - - - \n"
-      cat(headings[i])
-      print(m.balance[[i]])
-      # bal.tab_print(m.balance[[i]], p.ops)
+    if (p.ops[["pairwise"]]) .cat_heading("Balance by treatment pair")
+    else .cat_heading("Balance by treatment group")
+    
+    labels <- vapply(pairs, function(i) {
+      tn <- .attr(m.balance[[i]], "print.options")[["treat_names"]]
+      
+      paste0(tn[1L], " (0) vs. ", tn[2L], " (1)")
+    }, character(1L))
+    
+    if (print_summary) {
+      labels <- c(labels, "")
     }
-    cat(strrep(" -", round(max(nchar(headings)) / 2)), " \n\n")
+    
+    pfun <- function(i) {
+      if (i <= length(pairs)) {
+        print(m.balance[[pairs[i]]])
+      }
+      else {
+        .summary_print()
+      }
+    }
+    
+    .cat_segments(labels, pfun)
+    
+    cli::cat_line()
+    
+    #The summary was the last segment, so it must not be printed again below.
+    print_summary <- FALSE
   }
   
-  if (isTRUE(as.logical(p.ops$multi.summary)) && is_not_null(m.balance.summary)) {
-    keep.row <- {
-      if (p.ops$imbalanced.only)
-        rowSums(apply(m.balance.summary[grepl(".Threshold", names(m.balance.summary), fixed = TRUE)], 2L,
-                      function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
-      else
-        rep.int(TRUE, nrow(m.balance.summary))
-    }
-    
-    computed.agg.funs <- "max"
-    s.keep.col <- as.logical(c(TRUE, 
-                               unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS("bin")[!get_from_STATS("adj_only")]], function(s) {
-                                 c(unlist(lapply(computed.agg.funs, function(af) {
-                                   p.ops$un && s %in% p.ops$disp && af %in% "max"
-                                 })), 
-                                 if (p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                               })),
-                               rep(
-                                 unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS("bin")], function(s) {
-                                   c(unlist(lapply(computed.agg.funs, function(af) {
-                                     p.ops$disp.adj && s %in% p.ops$disp && af %in% "max"
-                                   })), 
-                                   if (p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                                 })),
-                                 p.ops$nweights + !p.ops$disp.adj)
-    ))
-    names(s.keep.col) <- names(m.balance.summary)
-    
-    if (p.ops$disp.bal.tab) {
-      cat(.ul("Balance summary across all treatment pairs") %+% "\n")
-      
-      if (is_null(keep.row)) cat(.it("No covariates to display.") %+% "\n")
-      else if (!any(keep.row)) cat(.it("All covariates are balanced.") %+% "\n")
-      else .print_data_frame(round_df_char(m.balance.summary[keep.row, s.keep.col, drop = FALSE],
-                                           p.ops$digits, na_vals = "."))
-      cat("\n")
-    }
-    
-    for (s in p.ops$compute) {
-      if (is_not_null(baltal[[s]])) {
-        cat(.ul(sprintf("Balance tally for %s", STATS[[s]]$balance_tally_for)) %+% "\n")
-        .print_data_frame(baltal[[s]])
-        cat("\n")
-      }
-      if (is_not_null(maximbal[[s]])) {
-        cat(.ul(sprintf("Variable with the greatest %s", STATS[[s]]$variable_with_the_greatest)) %+% "\n")
-        .print_data_frame(round_df_char(maximbal[[s]], p.ops$digits, na_vals = "."), row.names = FALSE)
-        cat("\n")
-      }
-    }
-    
-    if (is_not_null(nn)) {
-      tag <- .attr(nn, "tag")
-      drop.nn <- rowSums(nn) == 0
-      ss.type <- .attr(nn, "ss.type")[!drop.nn]
-      nn <- nn[!drop.nn, , drop = FALSE]
-      if (all(c("All (ESS)", "All (Unweighted)") %in% rownames(nn)) && 
-          all(check_if_zero(nn["All (ESS)", ] - nn["All (Unweighted)", ]))) {
-        nn <- nn[rownames(nn) != "All (Unweighted)", , drop = FALSE]
-        rownames(nn)[rownames(nn) == "All (ESS)"] <- "All"
-      }
-      if (all(c("Matched (ESS)", "Matched (Unweighted)") %in% rownames(nn)) && 
-          all(check_if_zero(nn["Matched (ESS)", ] - nn["Matched (Unweighted)", ]))) {
-        nn <- nn[rownames(nn) != "Matched (Unweighted)", , drop = FALSE]
-        rownames(nn)[rownames(nn) == "Matched (ESS)"] <- "Matched"
-      }
-      
-      cat(.ul(tag) %+% "\n")
-      
-      print.warning <- FALSE
-      
-      if (length(ss.type) > 1L && nunique.gt(ss.type[-1L], 1L)) {
-        ess <- ifelse(ss.type == "ess", "*", "")
-        nn <- setNames(cbind(nn, ess), c(names(nn), ""))
-        print.warning <- TRUE
-      }
-      
-      .print_data_frame(round_df_char(nn, digits = min(2L, p.ops$digits), pad = " "))
-      
-      if (print.warning) {
-        cat(.it("* indicates effective sample size"))
-      }
-    }
+  if (print_summary) {
+    .summary_print()
   }
   
   invisible(x)
-  
 }
 #' @exportS3Method NULL
 bal.tab_print.bal.tab.msm <- function(x, p.ops) {
   
-  call <- if (p.ops$disp.call) x$call else NULL
+  call <- if (p.ops[["disp.call"]]) x$call else NULL
   msm.balance <- x[["Time.Balance"]]
   msm.balance.summary <- x[["Balance.Across.Times"]]
   
-  thresholds <- setdiff(names(p.ops$thresholds), p.ops$drop.thresholds)
+  thresholds <- setdiff(names(p.ops[["thresholds"]]), p.ops[["drop.thresholds"]])
   baltal <- setNames(x[paste.("Balanced", thresholds)], thresholds)
   maximbal <- setNames(x[paste.("Max.Imbalance", thresholds)], thresholds)
   
   nn <- x$Observations
   
   #Printing output
-  if (is_not_null(call)) {
-    cat(.ul("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
+  .cat_call(call)
+  
+  time.labels <- p.ops[["time.labels"]] %or% paste("Time", seq_along(msm.balance))
+  
+  print_summary <- isTRUE(as.logical(p.ops[["msm.summary"]])) &&
+    is_not_null(msm.balance.summary)
+  
+  .summary_print <- {
+    if (print_summary) function() {
+      keep.row <- {
+        if (p.ops[["imbalanced.only"]])
+          rowSums(apply(msm.balance.summary[grepl(".Threshold", names(msm.balance.summary), fixed = TRUE)], 2L,
+                        function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
+        else
+          rep.int(TRUE, nrow(msm.balance.summary))
+      }
+      
+      s.keep.col <- .keep_bal_cols(.p.ops_col_spec(p.ops, "max", include.times = TRUE),
+                                   p.ops, thresholds, "max")
+      
+      if (p.ops[["disp.bal.tab"]]) {
+        cli::cat_line()
+        
+        .cat_heading("Balance summary across all time points")
+        
+        .cat_balance_table(msm.balance.summary[, s.keep.col, drop = FALSE], keep.row,
+                           p.ops[["digits"]])
+      }
+      
+      .cat_tallies(baltal, maximbal, p.ops[["compute"]], p.ops[["digits"]])
+      
+      #The collected sample sizes belong to the summary: they say the same thing as the
+      #tables above, gathered in one place, so they are shown alongside the one other
+      #thing that gathers the time points together. Without the summary each time point's
+      #own table has already reported them.
+      if (is_not_null(nn)) {
+        print.warning <- FALSE
+        
+        #One table per time point, under a single heading.
+        cli::cat_line(.ul(.attr(nn[[1L]], "tag")))
+        
+        for (ti in seq_along(nn)) {
+          cli::cat_line(" - ", .it(time.labels[ti]))
+          print.warning <- .print_observations(nn[[ti]], p.ops[["digits"]], tag = FALSE) || print.warning
+        }
+        
+        .cat_ess_footnote(print.warning)
+      }
+    }
+    else function() {
+      invisible(NULL)
+    }
   }
   
-  if (is_not_null(p.ops$which.time)) {
-    cat(.ul("Balance by Time Point") %+% "\n")
-    for (i in p.ops$which.time) {
-      cat("\n - - - " %+% .it("Time: " %+% as.character(i)) %+% " - - - \n")
-      print(msm.balance[[i]])
+  if (is_not_null(p.ops[["which.time"]])) {
+    which.time <- p.ops[["which.time"]]
+    
+    .cat_heading("Balance by Time Point")
+    
+    labels <- time.labels[which.time]
+    
+    if (print_summary) {
+      labels <- c(labels, "")
     }
-    cat(strrep(" -", round(nchar(sprintf("\n - - - Time: %s - - - ", i)) / 2)), "\n\n")
+    
+    pfun <- function(i) {
+      if (i <= length(which.time)) {
+        print(msm.balance[[which.time[i]]])
+      }
+      else {
+        .summary_print()
+      }
+    }
+    
+    .cat_segments(labels, pfun)
+    
+    cli::cat_line()
+    
+    #The summary was the last segment, so it must not be printed again below.
+    print_summary <- FALSE
   }
   
-  if (isTRUE(as.logical(p.ops$msm.summary)) && is_not_null(msm.balance.summary)) {
-    keep.row <- {
-      if (p.ops$imbalanced.only)
-        rowSums(apply(msm.balance.summary[grepl(".Threshold", names(msm.balance.summary), fixed = TRUE)], 2L,
-                      function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
-      else
-        rep.int(TRUE, nrow(msm.balance.summary))
-    }
-    
-    computed.agg.funs <- "max"
-    s.keep.col <- as.logical(c(TRUE, 
-                               TRUE,
-                               unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()[!get_from_STATS("adj_only")]], function(s) {
-                                 c(unlist(lapply(computed.agg.funs, function(af) {
-                                   p.ops$un && s %in% p.ops$disp && af %in% "max"
-                                 })), 
-                                 if (p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                               })),
-                               rep(
-                                 unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()], function(s) {
-                                   c(unlist(lapply(computed.agg.funs, function(af) {
-                                     p.ops$disp.adj && s %in% p.ops$disp && af %in% "max"
-                                   })), 
-                                   if (p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                                 })),
-                                 p.ops$nweights + !p.ops$disp.adj)
-    ))
-    
-    
-    if (p.ops$disp.bal.tab) {
-      cat(.ul("Balance summary across all time points") %+% "\n")
-      
-      if (is_null(keep.row)) cat(.it("No covariates to display.") %+% "\n")
-      else if (!any(keep.row)) cat(.it("All covariates are balanced.") %+% "\n")
-      else .print_data_frame(round_df_char(msm.balance.summary[keep.row, s.keep.col, drop = FALSE],
-                                           p.ops$digits, na_vals = "."))
-      cat("\n")
-    }
-    
-    for (s in p.ops$compute) {
-      if (is_not_null(baltal[[s]])) {
-        cat(.ul(sprintf("Balance tally for %s", STATS[[s]]$balance_tally_for)) %+% "\n")
-        .print_data_frame(baltal[[s]])
-        cat("\n")
-      }
-      if (is_not_null(maximbal[[s]])) {
-        cat(.ul(sprintf("Variable with the greatest %s", STATS[[s]]$variable_with_the_greatest)) %+% "\n")
-        .print_data_frame(round_df_char(maximbal[[s]], p.ops$digits, na_vals = "."), row.names = FALSE)
-        cat("\n")
-      }
-    }
-    
-    if (is_not_null(nn)) {
-      print.warning <- FALSE
-      cat(.ul(.attr(nn[[1L]], "tag")) %+% "\n")
-      
-      for (ti in seq_along(nn)) {
-        cat(" - " %+% .it("Time " %+% as.character(ti)) %+% "\n")
-        drop.nn <- rowSums(nn[[ti]]) == 0
-        ss.type <- .attr(nn[[ti]], "ss.type")[!drop.nn]
-        nn[[ti]] <- nn[[ti]][!drop.nn, , drop = FALSE]
-        if (all(c("All (ESS)", "All (Unweighted)") %in% rownames(nn)) && 
-            all(check_if_zero(nn["All (ESS)", ] - nn["All (Unweighted)", ]))) {
-          nn <- nn[rownames(nn) != "All (Unweighted)", , drop = FALSE]
-          rownames(nn)[rownames(nn) == "All (ESS)"] <- "All"
-        }
-        
-        if (all(c("Matched (ESS)", "Matched (Unweighted)") %in% rownames(nn[[ti]])) && 
-            all(check_if_zero(nn[[ti]]["Matched (ESS)", ] - nn[[ti]]["Matched (Unweighted)", ]))) {
-          nn[[ti]] <- nn[[ti]][rownames(nn[[ti]]) != "Matched (Unweighted)", , drop = FALSE]
-          rownames(nn[[ti]])[rownames(nn[[ti]]) == "Matched (ESS)"] <- "Matched"
-        }
-        
-        if (length(ss.type) > 1L && nunique.gt(ss.type[-1L], 1L)) {
-          ess <- ifelse(ss.type == "ess", "*", "")
-          nn[[ti]] <- setNames(cbind(nn[[ti]], ess), c(names(nn[[ti]]), ""))
-          print.warning <- TRUE
-        }
-        
-        .print_data_frame(round_df_char(nn[[ti]], digits = min(2L, p.ops$digits), pad = " "))
-      }
-      
-      if (print.warning) {
-        cat(.it("* indicates effective sample size"))
-      }
-    }
+  if (print_summary) {
+    .summary_print()
   }
   
   invisible(x)
 }
-
 #' @exportS3Method NULL
 bal.tab_print.bal.tab.subclass <- function(x, p.ops) {
   
-  call <- if (p.ops$disp.call) x$call else NULL
+  call <- if (p.ops[["disp.call"]]) x$call else NULL
   s.balance <- x$Subclass.Balance
-  b.a.subclass <- x$Balance.Across.Subclass
+  b.a.subclass <- x[["Balance.Across.Subclass"]]
   s.nn <- x$Observations
   
-  thresholds <- setdiff(names(p.ops$thresholds), p.ops$drop.thresholds)
+  thresholds <- setdiff(names(p.ops[["thresholds"]]), p.ops[["drop.thresholds"]])
   baltal <- setNames(x[paste.("Balanced", thresholds, "Subclass")], thresholds)
   maximbal <- setNames(x[paste.("Max.Imbalance", thresholds, "Subclass")], thresholds)
   
-  if (is_not_null(call)) {
-    cat(.ul("Call") %+% "\n " %+% paste(deparse(call), collapse = "\n") %+% "\n\n")
+  .cat_call(call)
+  
+  print_summary <- p.ops[["subclass.summary"]] && is_not_null(b.a.subclass)
+  
+  .summary_print <- {
+    if (print_summary) function() {
+      if (p.ops[["disp.bal.tab"]]) {
+        a.s.keep.row <- {
+          if (p.ops[["imbalanced.only"]])
+            rowSums(apply(b.a.subclass[grepl(".Threshold", names(b.a.subclass), fixed = TRUE)], 2L,
+                          function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
+          else
+            rep.int(TRUE, nrow(b.a.subclass))
+        }
+        #`Balance.Across.Subclass` is an ordinary balance table, so its statistics are
+        #intersected with those requested; the per-subclass blocks' are not. With
+        #`quick = FALSE` the two therefore differ.
+        a.s.keep.col <- .keep_bal_cols(
+          .p.ops_col_spec(p.ops, samples = c("Un", "Adj"),
+                          compute = if (isTRUE(p.ops[["quick"]])) NULL
+                          else c("means", "sds",
+                                 intersect(all_STATS(p.ops[["type"]]), p.ops[["stats"]]))),
+          p.ops, thresholds)
+        
+        cli::cat_line()
+        
+        .cat_heading("Balance measures across subclasses")
+        
+        .cat_balance_table(b.a.subclass[, a.s.keep.col, drop = FALSE], a.s.keep.row,
+                           p.ops[["digits"]])
+      }
+      
+      .cat_tallies(baltal, maximbal, p.ops[["compute"]], p.ops[["digits"]],
+                   across = " across subclasses")
+      
+      if (is_not_null(s.nn)) {
+        cli::cat_line(.ul(.attr(s.nn, "tag")))
+        s.nn |>
+          round_df_char(digits = min(2L, p.ops[["digits"]]), pad = " ") |>
+          .print_data_frame()
+      }
+    }
+    else function() {
+      invisible(NULL)
+    }
   }
   
   #Print subclass balance
-  if (p.ops$disp.bal.tab && is_not_null(p.ops$which.subclass)) {
-    s.keep.col <- setNames(c(TRUE,
-                             rep(unlist(lapply(p.ops$compute[p.ops$compute %nin% all_STATS()], function(s) {
-                               s %in% p.ops$disp
-                             })), switch(p.ops$type, bin = 2L, cont = 1L)),
-                             unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()], function(s) {
-                               c(s %in% p.ops$disp,
-                                 if (is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                             }))),
-                           names(s.balance[[1L]]))
+  if (p.ops[["disp.bal.tab"]] && is_not_null(p.ops[["which.subclass"]])) {
+    #A subclass table has one block: the subclassification *is* the adjustment.
+    s.keep.col <- .keep_bal_cols(.p.ops_col_spec(p.ops, samples = "Adj"),
+                                 p.ops, thresholds)
     
-    cat(.ul("Balance by subclass"))
-    for (i in p.ops$which.subclass) {
-      s.keep.row <- {
-        if (p.ops$imbalanced.only)
-          rowSums(apply(s.balance[[i]][grepl(".Threshold", names(s.balance), fixed = TRUE)], 2L,
-                        function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
-        else
-          rep.int(TRUE, nrow(s.balance[[i]]))
-      }
-      
-      cat("\n - - - " %+% .it("Subclass " %+% as.character(i)) %+% " - - - \n")
-      
-      if (is_null(s.keep.row)) cat(.it("No covariates to display.") %+% "\n")
-      else if (!any(s.keep.row)) cat(.it("All covariates are balanced.") %+% "\n")
-      else .print_data_frame(round_df_char(s.balance[[i]][s.keep.row, s.keep.col, drop = FALSE], p.ops$digits, na_vals = "."))
+    which.subclass <- p.ops[["which.subclass"]]
+    
+    .cat_heading("Balance by subclass")
+    
+    labels <- paste0("Subclass ", which.subclass)
+    
+    if (print_summary) {
+      labels <- c(labels, "")
     }
-    cat("\n")
+    
+    pfun <- function(i) {
+      if (i <= length(which.subclass)) {
+        s <- which.subclass[i]
+        
+        s.keep.row <- {
+          if (p.ops[["imbalanced.only"]])
+            rowSums(apply(s.balance[[s]][grepl(".Threshold", names(s.balance), fixed = TRUE)], 2L,
+                          function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
+          else
+            rep.int(TRUE, nrow(s.balance[[s]]))
+        }
+        
+        .cat_balance_table(s.balance[[s]][, s.keep.col, drop = FALSE], s.keep.row,
+                           p.ops[["digits"]])
+      }
+      else {
+        .summary_print()
+      }
+    }
+    
+    .cat_segments(labels, pfun)
+    
+    cli::cat_line()
+    
+    #The summary was the last segment, so it must not be printed again below.
+    print_summary <- FALSE
   }
   
   #Print balance across subclasses
-  if (p.ops$subclass.summary && is_not_null(b.a.subclass)) {
-    
-    if (p.ops$disp.bal.tab) {
-      a.s.keep.row <- {
-        if (p.ops$imbalanced.only)
-          rowSums(apply(b.a.subclass[grepl(".Threshold", names(b.a.subclass), fixed = TRUE)], 2L,
-                        function(x) !is.na(x) & startsWith(x, "Not Balanced"))) > 0
-        else
-          rep.int(TRUE, nrow(b.a.subclass))
-      }
-      
-      a.s.keep.col <- setNames(as.logical(c(TRUE, 
-                                            rep(unlist(lapply(p.ops$compute[p.ops$compute %nin% all_STATS()], function(s) {
-                                              p.ops$un && s %in% p.ops$disp
-                                            })), switch(p.ops$type, bin = 2L, cont = 1L)),
-                                            unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()[!get_from_STATS("adj_only")]], function(s) {
-                                              c(p.ops$un && s %in% p.ops$disp,
-                                                if (p.ops$un && !p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                                            })),
-                                            rep(c(rep(unlist(lapply(p.ops$compute[p.ops$compute %nin% all_STATS()], function(s) {
-                                              p.ops$disp.adj && s %in% p.ops$disp
-                                            })), 2L),
-                                            unlist(lapply(p.ops$compute[p.ops$compute %in% all_STATS()], function(s) {
-                                              c(p.ops$disp.adj && s %in% p.ops$disp,
-                                                if (p.ops$disp.adj && is_not_null(p.ops$thresholds[[s]])) s %in% thresholds)
-                                            }))
-                                            ), p.ops$disp.adj)
-      )),
-      names(b.a.subclass))
-      
-      cat(.ul("Balance measures across subclasses") %+% "\n")
-      
-      if (is_null(a.s.keep.row)) cat(.it("No covariates to display.") %+% "\n")
-      else if (!any(a.s.keep.row)) cat(.it("All covariates are balanced.") %+% "\n")
-      else .print_data_frame(round_df_char(b.a.subclass[a.s.keep.row, a.s.keep.col, drop = FALSE],
-                                           p.ops$digits, na_vals = "."))
-      
-      cat("\n")
-    }
-    
-    for (s in p.ops$compute) {
-      if (is_not_null(baltal[[s]])) {
-        cat(.ul(sprintf("Balance tally for %s across subclasses", STATS[[s]]$balance_tally_for)) %+% "\n")
-        .print_data_frame(baltal[[s]])
-        cat("\n")
-      }
-      if (is_not_null(maximbal[[s]])) {
-        cat(.ul(sprintf("Variable with the greatest %s across subclasses", STATS[[s]]$variable_with_the_greatest)) %+% "\n")
-        .print_data_frame(round_df_char(maximbal[[s]], p.ops$digits, na_vals = "."), row.names = FALSE)
-        cat("\n")
-      }
-    }
-    
-    if (is_not_null(s.nn)) {
-      cat(.ul(.attr(s.nn, "tag")) %+% "\n")
-      .print_data_frame(round_df_char(s.nn, digits = min(2L, p.ops$digits), pad = " "))
-    }
+  if (print_summary) {
+    .summary_print()
   }
   
   invisible(x)
@@ -781,11 +597,12 @@ print_process.bal.tab.cluster <- function(x, which.cluster, cluster.summary, clu
   
   if (!missing(cluster.summary)) {
     arg::arg_flag(cluster.summary)
-    if (p.ops$quick && !p.ops$cluster.summary && cluster.summary) {
+    
+    if (p.ops[["quick"]] && !p.ops[["cluster.summary"]] && cluster.summary) {
       arg::wrn("{.arg cluster.summary} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      p.ops$cluster.summary <- cluster.summary
+      p.ops[["cluster.summary"]] <- cluster.summary
     }
   }
   
@@ -795,43 +612,40 @@ print_process.bal.tab.cluster <- function(x, which.cluster, cluster.summary, clu
     if (which.cluster_deparse == ".none") which.cluster <- NA
     else if (which.cluster_deparse == ".all") which.cluster <- NULL
     
-    p.ops$which.cluster <- which.cluster
+    p.ops[["which.cluster"]] <- which.cluster
   }
   
   computed.cluster.funs <- {
-    if (!p.ops$quick || is_null(p.ops$cluster.fun)) c("min", "mean", "max")
-    else p.ops$cluster.fun
+    if (!p.ops[["quick"]] || is_null(p.ops[["cluster.fun"]])) c("min", "mean", "max")
+    else p.ops[["cluster.fun"]]
   }
   
   if (missing(cluster.fun) || is_null(cluster.fun)) {
     cluster.fun <- {
-      if (p.ops$abs) c("mean", "max")
+      if (p.ops[["abs"]]) c("mean", "max")
       else c("min", "mean", "max")
     }
-  }
-  else if (!is.character(cluster.fun) || !all(cluster.fun %pin% computed.cluster.funs)) {
-    arg::err("{.arg cluster.fun} must be {.or {.val {computed.cluster.funs}}}")
   }
   
   cluster.fun <- arg::match_arg(cluster.fun, computed.cluster.funs,
                                 several.ok = TRUE)
   
   #Checks and Adjustments
-  if (is_null(p.ops$which.cluster)) {
+  if (is_null(p.ops[["which.cluster"]])) {
     which.cluster <- seq_along(c.balance)
   }
-  else if (anyNA(p.ops$which.cluster)) {
+  else if (anyNA(p.ops[["which.cluster"]])) {
     which.cluster <- integer()
   }
-  else if (is.numeric(p.ops$which.cluster)) {
-    which.cluster <- intersect(seq_along(c.balance), p.ops$which.cluster)
+  else if (is.numeric(p.ops[["which.cluster"]])) {
+    which.cluster <- intersect(seq_along(c.balance), p.ops[["which.cluster"]])
     if (is_null(which.cluster)) {
       arg::wrn("no indices in {.arg which.cluster} are cluster indices. Displaying all clusters instead")
       which.cluster <- seq_along(c.balance)
     }
   }
-  else if (is.character(p.ops$which.cluster)) {
-    which.cluster <- seq_along(c.balance)[names(c.balance) %in% p.ops$which.cluster]
+  else if (is.character(p.ops[["which.cluster"]])) {
+    which.cluster <- seq_along(c.balance)[names(c.balance) %in% p.ops[["which.cluster"]]]
     if (is_null(which.cluster)) {
       arg::wrn("no names in {.arg which.cluster} are cluster names. Displaying all clusters instead")
       which.cluster <- seq_along(c.balance)
@@ -842,10 +656,14 @@ print_process.bal.tab.cluster <- function(x, which.cluster, cluster.summary, clu
     which.cluster <- seq_along(c.balance)
   }
   
-  list(cluster.summary = p.ops$cluster.summary,
+  list(cluster.summary = p.ops[["cluster.summary"]],
        cluster.fun = cluster.fun,
        which.cluster = which.cluster,
-       computed.cluster.funs = computed.cluster.funs)
+       computed.cluster.funs = computed.cluster.funs,
+       #What the original call asked for, which is what decided whether the summary
+       #table has threshold columns. `cluster.fun` above is the display filter and
+       #may name fewer functions than were computed.
+       requested.cluster.funs = p.ops[["cluster.fun"]] %or% c("min", "mean", "max"))
 }
 #' @exportS3Method NULL
 print_process.bal.tab.imp <- function(x, which.imp, imp.summary, imp.fun, ...) {
@@ -854,11 +672,12 @@ print_process.bal.tab.imp <- function(x, which.imp, imp.summary, imp.fun, ...) {
   
   if (!missing(imp.summary)) {
     arg::arg_flag(imp.summary)
-    if (p.ops$quick && !p.ops$imp.summary && imp.summary) {
+    
+    if (p.ops[["quick"]] && !p.ops[["imp.summary"]] && imp.summary) {
       arg::wrn("{.arg imp.summary} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      p.ops$imp.summary <- imp.summary
+      p.ops[["imp.summary"]] <- imp.summary
     }
   }
   
@@ -868,35 +687,33 @@ print_process.bal.tab.imp <- function(x, which.imp, imp.summary, imp.fun, ...) {
     if (which.imp_deparse == ".none") which.imp <- NA
     else if (which.imp_deparse == ".all") which.imp <- NULL
     
-    p.ops$which.imp <- which.imp
+    p.ops[["which.imp"]] <- which.imp
   }
   
   computed.imp.funs <- {
-    if (!p.ops$quick || is_null(p.ops$imp.fun)) c("min", "mean", "max")
-    else p.ops$imp.fun
+    if (!p.ops[["quick"]] || is_null(p.ops[["imp.fun"]])) c("min", "mean", "max")
+    else p.ops[["imp.fun"]]
   }
   
   if (missing(imp.fun) || is_null(imp.fun)) {
     imp.fun <- {
-      if (p.ops$abs) c("mean", "max")
+      if (p.ops[["abs"]]) c("mean", "max")
       else c("min", "mean", "max")
     }
   }
-  else if (!is.character(imp.fun) || !all(imp.fun %pin% computed.imp.funs)) {
-    arg::err("{.arg imp.fun} must be {.or {.val {computed.imp.funs}}}")
-  }
   
-  imp.fun <- arg::match_arg(imp.fun, computed.imp.funs, several.ok = TRUE)
+  imp.fun <- arg::match_arg(imp.fun, computed.imp.funs,
+                            several.ok = TRUE)
   
   #Checks and Adjustments
-  if (is_null(p.ops$which.imp)) {
+  if (is_null(p.ops[["which.imp"]])) {
     which.imp <- seq_along(i.balance)
   }
-  else if (anyNA(p.ops$which.imp)) {
+  else if (anyNA(p.ops[["which.imp"]])) {
     which.imp <- integer()
   }
-  else if (is.numeric(p.ops$which.imp)) {
-    which.imp <- intersect(seq_along(i.balance), p.ops$which.imp)
+  else if (is.numeric(p.ops[["which.imp"]])) {
+    which.imp <- intersect(seq_along(i.balance), p.ops[["which.imp"]])
     if (is_null(which.imp)) {
       arg::wrn("no numbers in {.arg which.imp} are imputation numbers. No imputations will be displayed")
       which.imp <- integer()
@@ -907,10 +724,12 @@ print_process.bal.tab.imp <- function(x, which.imp, imp.summary, imp.fun, ...) {
     which.imp <- integer()
   }
   
-  list(imp.summary = p.ops$imp.summary,
+  list(imp.summary = p.ops[["imp.summary"]],
        imp.fun = imp.fun,
        which.imp = which.imp,
-       computed.imp.funs = computed.imp.funs)
+       computed.imp.funs = computed.imp.funs,
+       #See `requested.cluster.funs` above.
+       requested.imp.funs = p.ops[["imp.fun"]] %or% c("min", "mean", "max"))
 }
 #' @exportS3Method NULL
 print_process.bal.tab.multi <- function(x, which.treat, multi.summary, ...) {
@@ -921,11 +740,12 @@ print_process.bal.tab.multi <- function(x, which.treat, multi.summary, ...) {
   
   if (!missing(multi.summary)) {
     arg::arg_flag(multi.summary)
-    if (p.ops$quick && !p.ops$multi.summary && multi.summary) {
+    
+    if (p.ops[["quick"]] && !p.ops[["multi.summary"]] && multi.summary) {
       arg::wrn("{.arg multi.summary} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      p.ops$multi.summary <- multi.summary
+      p.ops[["multi.summary"]] <- multi.summary
     }
   }
   
@@ -935,34 +755,34 @@ print_process.bal.tab.multi <- function(x, which.treat, multi.summary, ...) {
     if (which.treat_deparse == ".none") which.treat <- NA
     else if (which.treat_deparse == ".all") which.treat <- NULL
     
-    p.ops$which.treat <- which.treat
+    p.ops[["which.treat"]] <- which.treat
   }
   
   #Checks and Adjustments
-  if (is_null(p.ops$which.treat)) {
-    which.treat <- p.ops$treat_vals_multi
+  if (is_null(p.ops[["which.treat"]])) {
+    which.treat <- p.ops[["treat_vals_multi"]]
   }
-  else if (anyNA(p.ops$which.treat)) {
+  else if (anyNA(p.ops[["which.treat"]])) {
     which.treat <- character()
   }
-  else if (!is.character(p.ops$which.treat) && !is.numeric(p.ops$which.treat)) {
+  else if (!is.character(p.ops[["which.treat"]]) && !is.numeric(p.ops[["which.treat"]])) {
     arg::wrn("the argument to {.arg which.treat} must be {.val {quote(.all)}}, {.val {quote(.none)}}, or a vector of treatment names or indices. No treatment pairs will be displayed")
     which.treat <- character()
   }
   else {
-    if (length(p.ops$treat_vals_multi) == 2L) {
-      p.ops$which.treat <- as.character(p.ops$which.treat)
+    if (length(p.ops[["treat_vals_multi"]]) == 2L) {
+      p.ops[["which.treat"]] <- as.character(p.ops[["which.treat"]])
     }
     
-    if (is.numeric(p.ops$which.treat)) {
-      which.treat <- p.ops$treat_vals_multi[seq_along(p.ops$treat_vals_multi) %in% p.ops$which.treat]
+    if (is.numeric(p.ops[["which.treat"]])) {
+      which.treat <- p.ops[["treat_vals_multi"]][seq_along(p.ops[["treat_vals_multi"]]) %in% p.ops[["which.treat"]]]
       if (is_null(which.treat)) {
         arg::wrn("no numbers in {.arg which.treat} correspond to treatment values. No treatment pairs will be displayed")
         which.treat <- character()
       }
     }
-    else if (is.character(p.ops$which.treat)) {
-      which.treat <- p.ops$treat_vals_multi[p.ops$treat_vals_multi %in% p.ops$which.treat]
+    else if (is.character(p.ops[["which.treat"]])) {
+      which.treat <- p.ops[["treat_vals_multi"]][p.ops[["treat_vals_multi"]] %in% p.ops[["which.treat"]]]
       if (is_null(which.treat)) {
         arg::wrn("no names in {.arg which.treat} correspond to treatment values. No treatment pairs will be displayed")
         which.treat <- character()
@@ -973,17 +793,17 @@ print_process.bal.tab.multi <- function(x, which.treat, multi.summary, ...) {
   if (is_null(which.treat)) {
     disp.treat.pairs <- character()
   }
-  else if (p.ops$pairwise) {
+  else if (p.ops[["pairwise"]]) {
     if (length(which.treat) == 1L) {
       disp.treat.pairs <- names(m.balance)[vapply(m.balance, function(z) {
         treat_names <- .attr(z, "print.options")$treat_names
-        any(p.ops$treat_vals_multi[treat_names] == which.treat)
+        any(p.ops[["treat_vals_multi"]][treat_names] == which.treat)
       }, logical(1L))]
     }
     else {
       disp.treat.pairs <- names(m.balance)[vapply(m.balance, function(z) {
         treat_names <- .attr(z, "print.options")$treat_names
-        all(p.ops$treat_vals_multi[treat_names] %in% which.treat)
+        all(p.ops[["treat_vals_multi"]][treat_names] %in% which.treat)
       }, logical(1L))]
     }
   }
@@ -991,20 +811,20 @@ print_process.bal.tab.multi <- function(x, which.treat, multi.summary, ...) {
     if (length(which.treat) == 1L) {
       disp.treat.pairs <- names(m.balance)[vapply(m.balance, function(z) {
         treat_names <- .attr(z, "print.options")$treat_names
-        any(p.ops$treat_vals_multi[setdiff(treat_names, "All")] == which.treat)
+        any(p.ops[["treat_vals_multi"]][setdiff(treat_names, "All")] == which.treat)
       }, logical(1L))]
     }
     else {
       disp.treat.pairs <- names(m.balance)[vapply(m.balance, function(z) {
         treat_names <- .attr(z, "print.options")$treat_names
-        all(p.ops$treat_vals_multi[setdiff(treat_names, "All")] %in% which.treat)
+        all(p.ops[["treat_vals_multi"]][setdiff(treat_names, "All")] %in% which.treat)
       }, logical(1L))]
     }
   }
   
   list(disp.treat.pairs = disp.treat.pairs,
-       multi.summary = p.ops$multi.summary,
-       pairwise = p.ops$pairwise)
+       multi.summary = p.ops[["multi.summary"]],
+       pairwise = p.ops[["pairwise"]])
 }
 #' @exportS3Method NULL
 print_process.bal.tab.msm <- function(x, which.time, msm.summary, ...) {
@@ -1015,11 +835,12 @@ print_process.bal.tab.msm <- function(x, which.time, msm.summary, ...) {
   
   if (!missing(msm.summary)) {
     arg::arg_flag(msm.summary)
-    if (p.ops$quick && !p.ops$msm.summary && msm.summary) {
+    
+    if (p.ops[["quick"]] && !p.ops[["msm.summary"]] && msm.summary) {
       arg::wrn("{.arg msm.summary} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      p.ops$msm.summary <- msm.summary
+      p.ops[["msm.summary"]] <- msm.summary
     }
   }
   
@@ -1029,25 +850,25 @@ print_process.bal.tab.msm <- function(x, which.time, msm.summary, ...) {
     if (which.time_deparse == ".none") which.time <- NA
     else if (which.time_deparse == ".all") which.time <- NULL
     
-    p.ops$which.time <- which.time
+    p.ops[["which.time"]] <- which.time
   }
   
   #Checks and Adjustments
-  if (is_null(p.ops$which.time)) {
+  if (is_null(p.ops[["which.time"]])) {
     which.time <- seq_along(msm.balance)
   }
-  else if (anyNA(p.ops$which.time)) {
+  else if (anyNA(p.ops[["which.time"]])) {
     which.time <- integer()
   }
-  else if (is.numeric(p.ops$which.time)) {
-    which.time <- seq_along(msm.balance)[seq_along(msm.balance) %in% p.ops$which.time]
+  else if (is.numeric(p.ops[["which.time"]])) {
+    which.time <- seq_along(msm.balance)[seq_along(msm.balance) %in% p.ops[["which.time"]]]
     if (is_null(which.time)) {
       arg::wrn("no numbers in {.arg which.time} are treatment time points. No time points will be displayed")
       which.time <- integer()
     }
   }
-  else if (is.character(p.ops$which.time)) {
-    which.time <- seq_along(msm.balance)[names(msm.balance) %in% p.ops$which.time]
+  else if (is.character(p.ops[["which.time"]])) {
+    which.time <- seq_along(msm.balance)[names(msm.balance) %in% p.ops[["which.time"]]]
     if (is_null(which.time)) {
       arg::wrn("no names in {.arg which.time} are treatment names. No time points will be displayed")
       which.time <- integer()
@@ -1058,90 +879,106 @@ print_process.bal.tab.msm <- function(x, which.time, msm.summary, ...) {
     which.time <- integer()
   }
   
-  list(msm.summary = p.ops$msm.summary,
-       which.time = which.time)
+  list(msm.summary = p.ops[["msm.summary"]],
+       which.time = which.time,
+       time.labels = p.ops[["time.labels"]])
 }
 #' @exportS3Method NULL
 print_process.bal.tab <- function(x, imbalanced.only, un, disp.bal.tab, disp.call, stats,
-                                  disp.thresholds, disp, digits = max(3, getOption("digits") - 3),
+                                  disp.thresholds, disp, var.names = NULL,
+                                  digits = max(3, getOption("digits") - 3),
                                   ...) {
   p.ops <- .attr(x, "print.options")
-  
+
   drop.thresholds <- c()
   
   #Adjustments to print options
-  if (!missing(un) && p.ops$disp.adj) {
+  if (!missing(un) && p.ops[["disp.adj"]]) {
     arg::arg_flag(un)
-    if (p.ops$quick && !p.ops$un && un) {
+    if (p.ops[["quick"]] && !p.ops[["un"]] && un) {
       arg::wrn("{.arg un} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      p.ops$un <- un
+      p.ops[["un"]] <- un
     }
   }
   
   if (!missing(disp)) {
     arg::arg_character(disp)
-    allowable.disp <- c("means", "sds", all_STATS(p.ops$type))
+    allowable.disp <- c("means", "sds", all_STATS(p.ops[["type"]]))
     
     if (!all(disp %in% allowable.disp)) {
       arg::err("{.val {setdiff(disp, allowable.disp)}} {?is/are} not allowed in {.arg disp}")
     }
     
-    if (all(disp %in% p.ops$compute)) {
-      arg::wrn("{.arg disp} cannot include {.or {.val {setdiff(disp, p.ops$compute)}}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
+    if (all(disp %in% p.ops[["compute"]])) {
+      p.ops[["disp"]] <- disp
     }
-    else{
-      p.ops$disp <- disp
+    else {
+      arg::wrn('{.arg disp} cannot include {.or {.val {setdiff(disp, p.ops[["compute"]])}}} if {.code quick = TRUE} in the original call to {.fun bal.tab}')
     }
   }
   
   if (is_not_null(...get("disp.means"))) {
     arg::arg_flag(...get("disp.means"), "disp.means")
     
-    if ("means" %in% p.ops$compute || !...get("disp.means")) {
-      p.ops$disp <- unique(c(p.ops$disp, "means"[...get("disp.means")]))
+    #`"means"[FALSE]` is character(0), so the old form left `disp` untouched when
+    #FALSE and could never turn the means off.
+    if (!isTRUE(...get("disp.means"))) {
+      p.ops[["disp"]] <- setdiff(p.ops[["disp"]], "means")
+    }
+    else if ("means" %nin% p.ops[["compute"]]) {
+      arg::wrn("{.arg disp.means} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      arg::wrn("{.arg disp.means} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
+      p.ops[["disp"]] <- unique(c(p.ops[["disp"]], "means"))
     }
   }
   
   if (is_not_null(...get("disp.sds"))) {
     arg::arg_flag(...get("disp.sds"), "disp.sds")
     
-    if ("sds" %nin% p.ops$compute && ...get("disp.sds")) {
+    if (!isTRUE(...get("disp.sds"))) {
+      p.ops[["disp"]] <- setdiff(p.ops[["disp"]], "sds")
+    }
+    else if ("sds" %nin% p.ops[["compute"]]) {
       arg::wrn("{.arg disp.sds} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      p.ops$disp <- unique(c(p.ops$disp, "sds"[...get("disp.sds")]))
+      p.ops[["disp"]] <- unique(c(p.ops[["disp"]], "sds"))
     }
   }
   
   if (!missing(stats)) {
-    stats <- arg::match_arg(stats, all_STATS(p.ops$type), several.ok = TRUE)
-    stats_in_p.ops <- stats %in% p.ops$compute
+    stats <- arg::match_arg(stats, all_STATS(p.ops[["type"]]), several.ok = TRUE)
+    stats_in_p.ops <- stats %in% p.ops[["compute"]]
     
     if (!all(stats_in_p.ops)) {
       arg::err("{.arg stats} cannot contain {.or {.val {stats[!stats_in_p.ops]}}} when {?it/they} {?was/were} not requested in the original call to {.fun bal.tab}")
     }
     
-    p.ops$disp <- unique(c(p.ops$disp[p.ops$disp %nin% all_STATS()], stats))
+    p.ops[["disp"]] <- unique(c(p.ops[["disp"]][p.ops[["disp"]] %nin% all_STATS()], stats))
   }
   
-  for (s in all_STATS(p.ops$type)) {
+  for (s in all_STATS(p.ops[["type"]])) {
     if (is_not_null(...get(STATS[[s]]$disp_stat))) {
       arg::arg_flag(...get(STATS[[s]]$disp_stat), STATS[[s]]$disp_stat)
-      if (s %nin% p.ops$compute && isTRUE(...get(STATS[[s]]$disp_stat))) {
+      #Branch on the flag first: `disp.<stat> = FALSE` must remove the statistic
+      #from `disp`, not add it. Previously the `else` ran whenever the flag was
+      #FALSE, so `disp.ks = FALSE` turned the KS column on.
+      if (!isTRUE(...get(STATS[[s]]$disp_stat))) {
+        p.ops[["disp"]] <- setdiff(p.ops[["disp"]], s)
+      }
+      else if (s %nin% p.ops[["compute"]]) {
         arg::wrn("{.arg {STATS[[s]]$disp_stat}} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
       }
       else {
-        p.ops$disp <- unique(c(p.ops$disp, s))
+        p.ops[["disp"]] <- unique(c(p.ops[["disp"]], s))
       }
     }
   }
   
-  for (s in p.ops$compute[p.ops$compute %in% all_STATS(p.ops$type)]) {
+  for (s in p.ops[["compute"]][p.ops[["compute"]] %in% all_STATS(p.ops[["type"]])]) {
     if (STATS[[s]]$threshold %in% ...names()) {
       temp.thresh <- ...get(STATS[[s]]$threshold)
       if (is_not_null(temp.thresh) &&
@@ -1156,7 +993,7 @@ print_process.bal.tab <- function(x, imbalanced.only, un, disp.bal.tab, disp.cal
       }
     }
     
-    if (s %nin% p.ops$disp) {
+    if (s %nin% p.ops[["disp"]]) {
       drop.thresholds <- c(drop.thresholds, s)
     }
   }
@@ -1182,33 +1019,38 @@ print_process.bal.tab <- function(x, imbalanced.only, un, disp.bal.tab, disp.cal
       disp.thresholds <- disp.thresholds[names(disp.thresholds) %pin% names(p.ops[["thresholds"]])]
     }
     
-    names(disp.thresholds) <- arg::match_arg(names(disp.thresholds), names(p.ops[["thresholds"]]), several.ok = TRUE)
-    
-    for (i in names(disp.thresholds)) {
-      if (!disp.thresholds[i]) {
-        drop.thresholds <- c(drop.thresholds, i)
+    #Every supplied name may have been dropped by the check above; assigning names
+    #to a zero-length vector is an error, so only proceed if something is left.
+    if (is_not_null(disp.thresholds)) {
+      names(disp.thresholds) <- arg::match_arg(names(disp.thresholds), names(p.ops[["thresholds"]]),
+                                               several.ok = TRUE)
+      
+      for (i in names(disp.thresholds)) {
+        if (!disp.thresholds[i]) {
+          drop.thresholds <- c(drop.thresholds, i)
+        }
       }
     }
   }
   
   if (!missing(disp.bal.tab)) {
     arg::arg_flag(disp.bal.tab)
-    p.ops$disp.bal.tab <- disp.bal.tab
+    p.ops[["disp.bal.tab"]] <- disp.bal.tab
   }
   
-  if (p.ops$disp.bal.tab) {
+  if (p.ops[["disp.bal.tab"]]) {
     if (!missing(imbalanced.only)) {
       arg::arg_flag(imbalanced.only)
-      p.ops$imbalanced.only <- imbalanced.only
+      p.ops[["imbalanced.only"]] <- imbalanced.only
     }
     
-    if (p.ops$imbalanced.only && is_null(p.ops$thresholds)) {
+    if (p.ops[["imbalanced.only"]] && is_null(p.ops[["thresholds"]])) {
       arg::wrn("a threshold must be specified if {.code imbalanced.only = TRUE}. Displaying all covariates")
-      p.ops$imbalanced.only <- FALSE
+      p.ops[["imbalanced.only"]] <- FALSE
     }
   }
   else {
-    p.ops$imbalanced.only <- FALSE
+    p.ops[["imbalanced.only"]] <- FALSE
   }
   
   if (!missing(disp.call)) {
@@ -1217,238 +1059,309 @@ print_process.bal.tab <- function(x, imbalanced.only, un, disp.bal.tab, disp.cal
       arg::wrn("{.arg disp.call} cannot be set to {.val {TRUE}} if the input object does not have a {.field call} component")
     }
     else {
-      p.ops$disp.call <- disp.call
+      p.ops[["disp.call"]] <- disp.call
     }
   }
   
-  list(un = p.ops$un,
-       disp = p.ops$disp,
-       compute = p.ops$compute,
+  list(un = p.ops[["un"]],
+       disp = p.ops[["disp"]],
+       compute = p.ops[["compute"]],
        drop.thresholds = drop.thresholds,
-       disp.bal.tab = p.ops$disp.bal.tab,
-       imbalanced.only = p.ops$imbalanced.only,
+       disp.bal.tab = p.ops[["disp.bal.tab"]],
+       imbalanced.only = p.ops[["imbalanced.only"]],
        digits = digits,
-       disp.adj = p.ops$disp.adj,
-       thresholds = p.ops$thresholds,
-       type = p.ops$type,
-       nweights = p.ops$nweights,
-       disp.call = p.ops$disp.call)
+       disp.adj = p.ops[["disp.adj"]],
+       thresholds = p.ops[["thresholds"]],
+       type = p.ops[["type"]],
+       nweights = p.ops[["nweights"]],
+       #`weight.names` names the adjusted columns rather than merely counting them;
+       #`quick` and `stats` say which columns a table was given in the first place.
+       weight.names = p.ops[["weight.names"]],
+       #`group.labels` names the two groups of a binary comparison in the column
+       #names, so the layout cannot be rebuilt at print time without it.
+       group.labels = p.ops[["group.labels"]],
+       quick = p.ops[["quick"]],
+       stats = p.ops[["stats"]],
+       disp.call = p.ops[["disp.call"]],
+       #`var.names` given here adds to what `bal.tab()` was given rather than replacing
+       #it, so that a name settled on once need not be repeated at every display.
+       var.names = .merge_var.names(p.ops[["var.names"]],
+                                    .process_var.names(var.names)),
+       #The separators, on the other hand, are one value each, so one given here replaces
+       #the one the object was built with.
+       seps = .merge_seps(.attr(p.ops[["co.names"]], "seps"),
+                          ...get("factor_sep"), ...get("int_sep")))
 }
 #' @exportS3Method NULL
-print_process.bal.tab.subclass <- function(x, imbalanced.only, un, disp.bal.tab, disp.call, stats,
-                                           disp.thresholds, disp, digits = max(3, getOption("digits") - 3),
-                                           which.subclass, subclass.summary, ...) {
-  s.balance <- x$Subclass.Balance
+print_process.bal.tab.subclass <- function(x, which.subclass, subclass.summary, ...) {
+  #Every display argument other than the two subclass ones is validated the same way
+  #as for an unsubclassified object.
+  out <- print_process.bal.tab(x, ...)
+  
   p.ops <- .attr(x, "print.options")
-  
-  drop.thresholds <- c()
-  
-  #Adjustments to print options
-  if (!missing(un) && p.ops$disp.adj) {
-    arg::arg_flag(un)
-    if (p.ops$quick && !p.ops$un && un) {
-      arg::wrn("{.arg un} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
-    }
-    else {
-      p.ops$un <- un
-    }
-  }
-  
-  if (!missing(disp)) {
-    arg::arg_character(disp)
-    allowable.disp <- c("means", "sds", all_STATS(p.ops$type))
-    
-    if (!all(disp %in% allowable.disp)) {
-      arg::err("{.val {setdiff(disp, allowable.disp)}} {?is/are} not allowed in {.arg disp}")
-    }
-    
-    if (all(disp %in% p.ops$compute)) {
-      p.ops$disp <- disp
-    }
-    else {
-      arg::wrn("{.arg disp} cannot include {.or {.val {setdiff(disp, p.ops$compute)}}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
-    }
-  }
-  
-  if (is_not_null(...get("disp.means"))) {
-    arg::arg_flag(...get("disp.means"), "disp.means")
-    
-    if ("means" %in% p.ops$compute || !...get("disp.means")) {
-      p.ops$disp <- unique(c(p.ops$disp, "means"[...get("disp.means")]))
-    }
-    else {
-      arg::wrn("{.arg disp.means} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
-    }
-  }
-  
-  if (is_not_null(...get("disp.sds"))) {
-    arg::arg_flag(...get("disp.sds"), "disp.sds")
-    
-    if ("sds" %nin% p.ops$compute && ...get("disp.sds")) {
-      arg::wrn("{.arg disp.sds} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
-    }
-    else {
-      p.ops$disp <- unique(c(p.ops$disp, "sds"[...get("disp.sds")]))
-    }
-  }
-  
-  if (!missing(stats)) {
-    stats <- arg::match_arg(stats, all_STATS(p.ops$type), several.ok = TRUE)
-    stats_in_p.ops <- stats %in% p.ops$compute
-    
-    if (!all(stats_in_p.ops)) {
-      arg::err("{.arg stats} cannot contain {.or {.val {stats[!stats_in_p.ops]}}} when {?it/they} {?was/were} not requested in the original call to {.fun bal.tab}")
-    }
-    
-    p.ops$disp <- unique(c(p.ops$disp[p.ops$disp %nin% all_STATS()], stats))
-  }
-  
-  for (s in all_STATS(p.ops$type)) {
-    if (is_not_null(...get(STATS[[s]]$disp_stat))) {
-      arg::arg_flag(...get(STATS[[s]]$disp_stat), STATS[[s]]$disp_stat)
-      
-      if (s %nin% p.ops$compute && isTRUE(...get(STATS[[s]]$disp_stat))) {
-        arg::wrn("{.arg {STATS[[s]]$disp_stat}} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
-      }
-      else {
-        p.ops$disp <- unique(c(p.ops$disp, s))
-      }
-    }
-  }
-  
-  for (s in p.ops$compute[p.ops$compute %in% all_STATS(p.ops$type)]) {
-    if (STATS[[s]]$threshold %in% ...names()) {
-      temp.thresh <- ...get(STATS[[s]]$threshold)
-      
-      if (is_not_null(temp.thresh) &&
-          (!is.numeric(temp.thresh) || length(temp.thresh) != 1L ||
-           is_null(p.ops[["thresholds"]][[s]]) ||
-           p.ops[["thresholds"]][[s]] != temp.thresh)) {
-        arg::err("{.arg {STATS[[s]]$threshold}} must be {.val {list(NULL)}} or left unspecified")
-      }
-      
-      if (is_null(temp.thresh)) {
-        drop.thresholds <- c(drop.thresholds, s)
-      }
-    }
-    
-    if (s %nin% p.ops$disp) {
-      drop.thresholds <- c(drop.thresholds, s)
-    }
-  }
-  
-  if (!missing(disp.thresholds)) {
-    arg::arg_logical(disp.thresholds)
-    arg::arg_no_NA(disp.thresholds)
-    
-    if (is_null(names(disp.thresholds))) {
-      if (length(disp.thresholds) > length(p.ops[["thresholds"]])) {
-        arg::err("more entries were given to {.arg disp.thresholds} than there are thresholds in the {.cls bal.tab} object")
-      }
-      
-      if (length(disp.thresholds) == 1L) {
-        disp.thresholds <- rep_with(disp.thresholds, p.ops[["thresholds"]])
-      }
-      
-      names(disp.thresholds) <- names(p.ops[["thresholds"]])[seq_along(disp.thresholds)]
-    }
-    
-    if (!all(names(disp.thresholds) %pin% names(p.ops[["thresholds"]]))) {
-      arg::wrn('{names(disp.thresholds)[!names(disp.thresholds) %pin% names(p.ops[["thresholds"]])]} {?is/are} not available in thresholds and will be ignored')
-      disp.thresholds <- disp.thresholds[names(disp.thresholds) %pin% names(p.ops[["thresholds"]])]
-    }
-    
-    names(disp.thresholds) <- arg::match_arg(names(disp.thresholds), names(p.ops[["thresholds"]]), several.ok = TRUE)
-    for (x in names(disp.thresholds)) {
-      if (!disp.thresholds[x]) {
-        drop.thresholds <- c(drop.thresholds, x)
-      }
-    }
-  }
-  
-  if (!missing(disp.bal.tab)) {
-    arg::arg_flag(disp.bal.tab)
-    p.ops$disp.bal.tab <- disp.bal.tab
-  }
-  
-  if (p.ops$disp.bal.tab) {
-    if (!missing(imbalanced.only)) {
-      arg::arg_flag(imbalanced.only)
-      p.ops$imbalanced.only <- imbalanced.only
-    }
-    
-    if (p.ops$imbalanced.only && is_null(p.ops$thresholds)) {
-      arg::wrn("a threshold must be specified if {.code imbalanced.only = TRUE}. Displaying all covariates")
-      p.ops$imbalanced.only <- FALSE
-    }
-  }
-  else {
-    p.ops$imbalanced.only <- FALSE
-  }
-  
-  if (!missing(disp.call)) {
-    arg::arg_flag(disp.call)
-    
-    if (disp.call && is_null(x$call)) {
-      arg::wrn("{.arg disp.call} cannot be set to {.val {TRUE}} if the input object does not have a {.field call} component")
-    }
-    else {
-      p.ops$disp.call <- disp.call
-    }
-  }
+  s.balance <- x$Subclass.Balance
   
   if (!missing(subclass.summary)) {
     arg::arg_flag(subclass.summary)
-    if (p.ops$quick && !p.ops$subclass.summary && subclass.summary) {
-      arg::wrn("`subclass.summary` cannot be set to `TRUE` if `quick = TRUE` in the original call to `bal.tab()`")
+    if (p.ops[["quick"]] && !p.ops[["subclass.summary"]] && subclass.summary) {
+      arg::wrn("{.arg subclass.summary} cannot be set to {.val {TRUE}} if {.code quick = TRUE} in the original call to {.fun bal.tab}")
     }
     else {
-      p.ops$subclass.summary <- subclass.summary
+      p.ops[["subclass.summary"]] <- subclass.summary
     }
   }
   
   if (!missing(which.subclass)) {
-    p.ops$which.subclass <- which.subclass
+    p.ops[["which.subclass"]] <- which.subclass
   }
   else if (is_not_null(...get("disp.subclass"))) {
-    p.ops$which.subclass <- if (isTRUE(...get("disp.subclass"))) NULL else NA
+    p.ops[["which.subclass"]] <- if (isTRUE(...get("disp.subclass"))) NULL else NA
   }
   
   #Checks and Adjustments
-  if (is_null(p.ops$which.subclass)) {
+  if (is_null(p.ops[["which.subclass"]])) {
     which.subclass <- seq_along(s.balance)
   }
-  else if (anyNA(p.ops$which.subclass)) {
+  else if (anyNA(p.ops[["which.subclass"]])) {
     which.subclass <- integer()
   }
-  else if (is.numeric(p.ops$which.subclass)) {
-    which.subclass <- intersect(seq_along(s.balance), p.ops$which.subclass)
-    if (is_null(which.subclass)) {
-      arg::wrn("no values supplied {.arg which.subclass} are subclass indices. No subclasses will be displayed")
-      which.subclass <- NA
-    }
+  else if (!is.numeric(p.ops[["which.subclass"]])) {
+    arg::wrn("the argument to {.arg which.subclass} must be {.val {quote(.all)}}, {.val {quote(.none)}}, or a vector of subclass indices. No subclasses will be displayed")
+    which.subclass <- integer()
   }
   else {
-    arg::wrn("the argument to {.arg which.subclass} must be {.val {quote(.all)}}, {.val {quote(.none)}}, or a vector of subclass indices. No subclasses will be displayed")
-    which.subclass <- NA
+    w <- intersect(seq_along(s.balance), p.ops[["which.subclass"]])
+    
+    if (is_not_null(w)) {
+      which.subclass <- w
+    }
+    else {
+      arg::wrn("no values supplied {.arg which.subclass} are subclass indices. No subclasses will be displayed")
+      which.subclass <- integer()
+    }
   }
   
-  list(un = p.ops$un,
-       disp = p.ops$disp,
-       compute = p.ops$compute,
-       drop.thresholds = drop.thresholds,
-       disp.bal.tab = p.ops$disp.bal.tab,
-       imbalanced.only = p.ops$imbalanced.only,
-       digits = digits,
-       disp.adj = p.ops$disp.adj,
-       thresholds = p.ops$thresholds,
-       type = p.ops$type,
-       subclass.summary = p.ops$subclass.summary,
-       which.subclass = which.subclass,
-       disp.call = p.ops$disp.call)
+  #Subclasses are the adjustment, so there are no weights. The key must be absent
+  #rather than NULL: for a nested object `p.ops` is `c(parent, child)` and `$` takes
+  #the first match, so a present-but-NULL entry here would mask the parent's count.
+  out[["nweights"]] <- NULL
+  
+  c(out, list(subclass.summary = p.ops[["subclass.summary"]],
+              which.subclass = which.subclass))
+}
+
+#The display arguments the caller actually supplied, with `x` and the missing ones
+#dropped, ready to hand to `print_process()`.
+.display_args <- function(.env, .dots) {
+  A <- try_arg(c(as.list(.env), .dots)[-1L])
+  
+  A[vapply(A, rlang::is_missing, logical(1L))] <- NULL
+  
+  A
+}
+
+#Resolves display arguments against what the object actually carries, giving the
+#`p.ops` list that decides which columns and rows are shown. `print()`, `format()`,
+#and `as.data.frame()` all go through here, so all three honor the same arguments
+#and raise the same warnings when `quick = TRUE` withheld a value.
+.resolve_p.ops <- function(x, A) {
+  out <- do.call("print_process", c(list(x), A), quote = TRUE)
+  
+  if (inherits(x, c("bal.tab.bin", "bal.tab.cont"))) {
+    return(out)
+  }
+  
+  x_ <- x[[which(endsWith(names(x), ".Balance"))]][[1L]]
+  
+  if (!inherits(x_, "bal.tab")) {
+    return(out)
+  }
+  
+  c(out, .resolve_p.ops(x_, A))
+}
+
+#Prints one `Observations` table: drop the rows no unit reached, collapse an
+#`(ESS)`/`(Unweighted)` pair when the two agree, and mark the effective sample sizes
+#with a star. Returns whether a star was printed, so the caller can add the footnote
+#once even when it prints several tables.
+.print_observations <- function(nn, digits, tag = TRUE) {
+  drop.nn <- rowSums(nn) == 0
+  ss.type <- .attr(nn, "ss.type")[!drop.nn]
+  heading <- .attr(nn, "tag")
+  
+  nn <- nn[!drop.nn, , drop = FALSE]
+  
+  for (r in c("All", "Matched")) {
+    rows <- paste(r, c("(ESS)", "(Unweighted)"))
+    
+    if (!all(rows %in% rownames(nn)) ||
+        !all(check_if_zero(nn[rows[1L], ] - nn[rows[2L], ]))) {
+      next
+    }
+    
+    nn <- nn[rownames(nn) != rows[2L], , drop = FALSE]
+    rownames(nn)[rownames(nn) == rows[1L]] <- r
+  }
+  
+  if (tag) {
+    cli::cat_line(.ul(heading))
+  }
+  
+  starred <- length(ss.type) > 1L && nunique.gt(ss.type[-1L], 1L)
+  
+  if (starred) {
+    nn <- setNames(cbind(nn, ifelse(ss.type == "ess", "*", "")), c(names(nn), ""))
+  }
+  
+  nn |>
+    round_df_char(digits = min(2L, digits), pad = " ") |>
+    .print_data_frame()
+  
+  starred
 }
 
 #Alternative to print.data.frame() that only prints non-length 0 data.frames
+#The blocks a printed `bal.tab` is made of. Each method assembles the same handful of
+#them, so they are written once here and the methods read as a list of blocks.
+
+#An underlined heading. Takes cli inline markup, interpolated in the caller's frame.
+.cat_heading <- function(..., .envir = parent.frame()) {
+  cli::format_inline(..., .envir = .envir) |>
+    .ul() |>
+    cli::cat_line()
+}
+
+#The `Call` block.
+.cat_call <- function(call) {
+  if (is_null(call)) {
+    return(invisible())
+  }
+  
+  .cat_heading("Call")
+  cli::cat_line(" ", paste(deparse(call), collapse = "\n"))
+  cli::cat_line()
+}
+
+#A balance table, or the reason it is empty. `tab` should already have its columns
+#selected; `keep.row` says which rows survive `imbalanced.only`.
+.cat_balance_table <- function(tab, keep.row, digits) {
+  if (is_null(keep.row)) {
+    cli::cat_line(.it("No covariates to display."))
+  }
+  else if (!any(keep.row)) {
+    cli::cat_line(.it("All covariates are balanced."))
+  }
+  else {
+    tab[keep.row, , drop = FALSE] |>
+      round_df_char(digits, na_vals = ".") |>
+      .print_data_frame()
+  }
+}
+
+#The balance tally and greatest-imbalance blocks that follow a balance table.
+.cat_tallies <- function(baltal, maximbal, compute, digits, across = "") {
+  for (s in compute) {
+    if (is_not_null(baltal[[s]])) {
+      .cat_heading("Balance tally for {STATS[[s]][['balance_tally_for']]}{across}")
+      .print_data_frame(baltal[[s]])
+      cli::cat_line()
+    }
+    
+    if (is_not_null(maximbal[[s]])) {
+      .cat_heading("Variable with the greatest {STATS[[s]][['variable_with_the_greatest']]}{across}")
+      maximbal[[s]] |>
+        round_df_char(digits, na_vals = ".") |>
+        .print_data_frame(row.names = FALSE)
+      cli::cat_line()
+    }
+  }
+}
+
+#The narrowest a segment divider is ever drawn, whatever sits under it.
+.RULE_WIDTH <- 15L
+
+#The divider one segment of a segmented `bal.tab` sits under -- a cluster, an imputation,
+#a subclass, a treatment pair, a time point. Only these dividers are drawn this way: the
+#headings *within* a segment (`Balance Measures`, `Sample sizes`) are underlined as they
+#always were.
+#
+#An empty label gives a bare rule, which is what a summary across the segments sits under:
+#it is one more segment, but there is nothing to name over it that the heading inside it
+#does not already say.
+.cat_rule <- function(label, width = 0L) {
+  if (nzchar(label)) {
+    width <- max(.RULE_WIDTH, width, nchar(label) + 5L)
+    pad <- width - nchar(label) - 2L
+    cli::cat_line(strrep(cli::symbol$line, 3L),
+                  " ",
+                  .it(label),
+                  " ",
+                  strrep(cli::symbol$line, pad - 3L), "\n")
+  }
+  else {
+    cli::cat_line(strrep(cli::symbol$line, width))
+  }
+}
+
+#Everything an expression prints, with the styling it would have used. \pkg{cli} decides
+#whether to emit ANSI from the connection it is writing to, and `capture.output()` diverts
+#that to a file, so the decision is pinned to what it was before the diversion. Widths are
+#then measured with `ansi_nchar()`, which counts what will be seen rather than what is
+#stored. `invisible()` so that a segment whose expression happens to return something
+#visibly does not have that auto-printed into the middle of the output.
+.capture_printed <- function(expr) {
+  rlang::with_options(utils::capture.output(invisible(expr)),
+                      cli.num_colors = cli::num_ansi_colors())
+}
+
+.printed_width <- function(out) {
+  max(0L, cli::ansi_nchar(out))
+}
+
+#A set of segments, each under its divider. `print.one(i)` prints the `i`th one.
+#
+#Every divider in the set is drawn to one width -- that of the widest line any of the
+#segments prints, which is normally a balance table's -- so the set reads as a stack
+#rather than as a ragged pile, and so a divider is as wide as what it introduces. That
+#means rendering the segments before drawing the first divider, since a divider comes
+#above what it is about.
+#
+#A summary across the segments is passed in as a final segment with an empty label, so
+#that it sits under a rule of the same width with nothing named over it -- see any of the
+#`bal.tab_print()` methods.
+.cat_segments <- function(labels, print.one) {
+  out <- lapply(seq_along(labels), function(i) .capture_printed(print.one(i)))
+  
+  #Settled here rather than left to `.cat_rule()` so that the closing rule below is drawn
+  #to the same width as the dividers above it.
+  width <- max(.RULE_WIDTH, vapply(out, .printed_width, numeric(1L)), nchar(labels) + 5L)
+  
+  for (i in seq_along(labels)) {
+    cli::cat_line()
+    .cat_rule(labels[i], width)
+    writeLines(out[[i]])
+  }
+  
+  invisible(width)
+}
+
+#The `Observations` block, with its footnote when any size is effective.
+.cat_observations <- function(nn, digits) {
+  .cat_ess_footnote(is_not_null(nn) && .print_observations(nn, digits))
+}
+
+#The footnote marking which sample sizes are effective ones, when any are. It ends its
+#line: this is the last thing a `bal.tab` prints, but a `bal.tab` is not always the last
+#thing printed -- a wrapper prints one per cluster, imputation, or time point and then
+#draws a rule under them, which would otherwise land on the end of the footnote.
+.cat_ess_footnote <- function(starred) {
+  if (starred) {
+    cli::cat_line(.it("* indicates effective sample size"))
+  }
+  
+  invisible(starred)
+}
+
 .print_data_frame <- function(x, ...) {
   if (is_not_null(x) && NROW(x) > 0L && NCOL(x) > 0L) {
     print.data.frame(x, ...)
