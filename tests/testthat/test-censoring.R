@@ -66,6 +66,35 @@ test_that(".cens() tags an indicator without changing its values", {
   expect_err(.cens(rep(NA, 10L)), "no non-missing values")
 })
 
+test_that("`[` preserves a treatment's attributes under either class", {
+  #`treat` is the shared class and `cobalt.treat` a transitional alias (see `?treat-class`),
+  #so the method is registered on both and every shape a treatment can arrive in has to
+  #survive subsetting. The third is the shape \pkg{WeightIt} moves to once it stops setting
+  #the alias; losing an attribute there would show up as wrong column names rather than as
+  #an error.
+  t <- process_treat(lalonde$treat)
+  present <- Filter(function(a) is_not_null(attr(t, a)), TREAT_ATTRS)
+
+  expect_true(length(present) > 0L)
+
+  for (cl in list(c("cobalt.treat", "treat"), "treat", "cobalt.treat")) {
+    sub <- `class<-`(t, c(cl, "factor"))[1:10]
+
+    for (a in present) {
+      expect_identical(attr(sub, a), attr(t, a))
+    }
+  }
+})
+
+test_that("WeightIt re-exports this .cens(), rather than defining its own", {
+  skip_if_not_installed("WeightIt", "2.1.0")
+
+  #One function, not two. This is the condition `base::library()` applies when deciding
+  #whether to report a masked object, so it is also the regression test for the masking
+  #message that attaching both packages used to print.
+  expect_identical(WeightIt::.cens, cobalt::.cens)
+})
+
 test_that("censoring balance is the uncensored sample against the full one", {
   covs <- lalonde[c("age", "educ", "race")]
   w <- cens_w()
@@ -679,6 +708,51 @@ test_that("which units are at risk does not depend on how the data records the r
   expect_err(bal.tab(list(treat ~ age + educ, nodegree ~ age + educ),
                      data = d_na, weights = w_fixed),
              "`treat` must not contain NA values")
+})
+
+test_that("covariates missing only among censored units are not missing at later time points (#98)", {
+  #`re78` is measured after `C`, so units censored there do not have it. The last model's
+  #table is computed among the units still under observation, none of which are missing
+  #it, so it is the same table as when `re78` is recorded for everyone.
+  forms <- list(treat ~ age + educ,
+                .cens(C) ~ age + educ,
+                nodegree ~ age + educ + re78)
+
+  d_full <- msm_lalonde()
+  d_na <- d_full
+  is.na(d_na$re78[cens_idx == 1L]) <- TRUE
+
+  expect_no_warning(b_na <- bal.tab(forms, data = d_na, weights = w_fixed, un = TRUE))
+  b_full <- bal.tab(forms, data = d_full, weights = w_fixed, un = TRUE)
+
+  expect_false("re78:<NA>" %in% rownames(b_na$Time.Balance[[3L]]$Balance))
+  expect_equal(b_na$Time.Balance[[3L]]$Balance, b_full$Time.Balance[[3L]]$Balance)
+  expect_equal(b_na$Observations, b_full$Observations)
+
+  #The same goes for `addl.list`.
+  expect_no_warning(b_addl <- bal.tab(msm_forms(), data = d_na, weights = w_fixed,
+                                      addl.list = list(~married, ~married, ~re78)))
+  expect_false("re78:<NA>" %in% rownames(b_addl$Time.Balance[[3L]]$Balance))
+
+  #A covariate is still missing at a time point at which the units missing it are at risk:
+  #here, `re78` in the first two models, which every unit enters.
+  forms_early <- list(treat ~ age + educ + re78,
+                      .cens(C) ~ age + educ + re78,
+                      nodegree ~ age + educ + re78)
+
+  expect_warning(b_early <- bal.tab(forms_early, data = d_na, weights = w_fixed),
+                 "Missing values exist in the covariates")
+  expect_true("re78:<NA>" %in% rownames(b_early$Time.Balance[[1L]]$Balance))
+  expect_true("re78:<NA>" %in% rownames(b_early$Time.Balance[[2L]]$Balance))
+  expect_false("re78:<NA>" %in% rownames(b_early$Time.Balance[[3L]]$Balance))
+
+  #And so is one missing for a unit still under observation.
+  d_bad <- d_na
+  is.na(d_bad$re78[base::which(cens_idx == 0L)[1L]]) <- TRUE
+
+  expect_warning(b_bad <- bal.tab(forms, data = d_bad, weights = w_fixed),
+                 "Missing values exist in the covariates")
+  expect_true("re78:<NA>" %in% rownames(b_bad$Time.Balance[[3L]]$Balance))
 })
 
 test_that("a longitudinal censoring model composes with imputations", {
